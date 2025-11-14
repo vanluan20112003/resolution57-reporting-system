@@ -76,4 +76,42 @@ Route::prefix('v1')->group(function () {
             ]);
         });
     });
+
+    // SSO Authentication Routes (Simple Test)
+    Route::prefix('auth/sso')->group(function () {
+        // Redirect to Keycloak
+        Route::get('/login', function () {
+            $baseUrl = 'https://sso.vnuhcm.edu.vn';
+            $realm = 'Production';
+            $clientId = 'webapp-nq57';
+            $redirectUri = urlencode('https://nq57.vnuhcm.edu.vn/api/auth/sso/callback');
+
+            $authUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/auth?" . http_build_query([
+                'client_id' => $clientId,
+                'redirect_uri' => $redirectUri,
+                'response_type' => 'code',
+                'scope' => 'openid profile email',
+            ]);
+
+            return redirect($authUrl);
+        });
+
+        // Callback from Keycloak
+        Route::get('/callback', function (Request $request) {
+            $code = $request->query('code');
+
+            if (!$code) {
+                return response()->json([
+                    'error' => 'No authorization code received',
+                    'query' => $request->query()
+                ], 400);
+            }
+
+            return response()->json([
+                'message' => 'SSO Callback received successfully!',
+                'code' => $code,
+                'next_step' => 'Exchange code for token'
+            ]);
+        });
+    });
 });

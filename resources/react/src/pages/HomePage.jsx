@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
-import { Card, Row, Col, Statistic, Typography, Space, Tag, Alert, Spin } from 'antd'
+import { Card, Row, Col, Statistic, Typography, Space, Tag, Alert, Spin, Button } from 'antd'
 import {
   DashboardOutlined,
   CheckCircleOutlined,
   SyncOutlined,
   DatabaseOutlined,
   ApiOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
+  LoginOutlined
 } from '@ant-design/icons'
 import axios from 'axios'
 
@@ -63,6 +64,15 @@ function HomePage() {
         <Paragraph type="secondary">
           Hệ thống tổng hợp, quản lý và báo cáo các hoạt động triển khai Nghị quyết 57 - Version 2.0
         </Paragraph>
+        <Button
+          type="primary"
+          size="large"
+          icon={<LoginOutlined />}
+          href="/api/auth/sso/login"
+          style={{ marginTop: 16 }}
+        >
+          Đăng nhập bằng SSO VNUHCM
+        </Button>
       </div>
 
       {/* System Status Alert */}
