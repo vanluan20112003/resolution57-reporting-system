@@ -68,7 +68,7 @@ function HomePage() {
           type="primary"
           size="large"
           icon={<LoginOutlined />}
-          href="/api/auth/sso/login"
+          href="/api/v1/auth/sso/login"
           style={{ marginTop: 16 }}
         >
           Đăng nhập bằng SSO VNUHCM

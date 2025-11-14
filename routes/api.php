@@ -84,7 +84,7 @@ Route::prefix('v1')->group(function () {
             $baseUrl = 'https://sso.vnuhcm.edu.vn';
             $realm = 'Production';
             $clientId = 'webapp-nq57';
-            $redirectUri = urlencode('https://nq57.vnuhcm.edu.vn/api/auth/sso/callback');
+            $redirectUri = urlencode('https://nq57.vnuhcm.edu.vn/api/v1/auth/sso/callback');
 
             $authUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/auth?" . http_build_query([
                 'client_id' => $clientId,
