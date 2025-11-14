@@ -190,19 +190,14 @@ function HomePage() {
         headStyle={{ backgroundColor: '#fff7e6' }}
       >
         <Row gutter={16}>
-          <Col span={8}>
+          <Col span={12}>
             <a href="/api/v1/status" target="_blank" rel="noopener noreferrer">
               📊 Xem trạng thái API
             </a>
           </Col>
-          <Col span={8}>
+          <Col span={12}>
             <a href="/api/v1/health" target="_blank" rel="noopener noreferrer">
               ❤️ Kiểm tra sức khỏe hệ thống
-            </a>
-          </Col>
-          <Col span={8}>
-            <a href="http://localhost:8080" target="_blank" rel="noopener noreferrer">
-              🗄️ Quản lý Database (phpMyAdmin)
             </a>
           </Col>
         </Row>
