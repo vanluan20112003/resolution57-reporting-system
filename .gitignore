@@ -64,3 +64,12 @@ docker-compose.yml
 # Cache files
 bootstrap/cache/packages.php
 bootstrap/cache/services.php
+
+# Environment-specific config files
+docker/nginx/conf.d/default.conf
+resources/react/vite.config.js
+bootstrap/cache/*.php
+
+# Environment-specific config files
+docker/nginx/conf.d/default.conf
+resources/react/vite.config.js
