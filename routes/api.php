@@ -103,7 +103,7 @@ Route::prefix('v1')->group(function () {
         // Redirect to Keycloak
         Route::get('/login', function () {
             $baseUrl = 'https://sso.vnuhcm.edu.vn/auth';
-            $realm = 'master';
+            $realm = 'Production';
             $clientId = 'webapp-nq57';
             $redirectUri = 'https://nq57.vnuhcm.edu.vn/api/v1/auth/sso/callback';
 
