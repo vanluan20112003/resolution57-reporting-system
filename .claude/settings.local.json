@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(if not exist \"app\" mkdir app)",
+      "Bash(if not exist \"bootstrap\" mkdir bootstrap)",
+      "Bash(if not exist \"config\" mkdir config)",
+      "Bash(if not exist \"database\\migrations\" mkdir databasemigrations)",
+      "Bash(if not exist \"database\\seeders\" mkdir databaseseeders)",
+      "Bash(if not exist \"public\" mkdir public)",
+      "Bash(if not exist \"resources\\react\\src\\components\" mkdir resourcesreactsrccomponents)",
+      "Bash(if not exist \"resources\\react\\src\\pages\" mkdir resourcesreactsrcpages)",
+      "Bash(if not exist \"resources\\react\\src\\services\" mkdir resourcesreactsrcservices)",
+      "Bash(if not exist \"resources\\react\\src\\utils\" mkdir resourcesreactsrcutils)",
+      "Bash(if not exist \"resources\\react\\src\\hooks\" mkdir resourcesreactsrchooks)",
+      "Bash(if not exist \"resources\\react\\src\\assets\" mkdir resourcesreactsrcassets)",
+      "Bash(if not exist \"resources\\views\" mkdir resourcesviews)",
+      "Bash(if not exist \"routes\" mkdir routes)",
+      "Bash(if not exist \"storage\\app\\public\" mkdir storageapppublic)",
+      "Bash(if not exist \"storage\\framework\\cache\" mkdir storageframeworkcache)",
+      "Bash(if not exist \"storage\\framework\\sessions\" mkdir storageframeworksessions)",
+      "Bash(if not exist \"storage\\framework\\views\" mkdir storageframeworkviews)",
+      "Bash(if not exist \"storage\\logs\" mkdir storagelogs)",
+      "Bash(if not exist \"tests\" mkdir tests)",
+      "Bash(echo:*)",
+      "Bash(chmod:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker --version:*)",
+      "Bash(powershell.exe -Command \"Start-Process ''C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe''\")",
+      "Bash(docker info:*)",
+      "Bash(/dev/null)",
+      "Bash(curl:*)",
+      "Bash(python:*)",
+      "Bash(git init:*)",
+      "Bash(git branch:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

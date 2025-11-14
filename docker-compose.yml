@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  # PHP-FPM Service
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: nq57_app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    networks:
+      - nq57-network
+    depends_on:
+      - mysql
+      - redis
+
+  # Nginx Service
+  nginx:
+    image: nginx:alpine
+    container_name: nq57_nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+      - "443:443"
+    volumes:
+      - ./:/var/www
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+    networks:
+      - nq57-network
+    depends_on:
+      - app
+
+  # MySQL Service
+  mysql:
+    image: mysql:8.0
+    container_name: nq57_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: nq57_portal
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_USER: nq57_user
+      MYSQL_PASSWORD: nq57_password
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/my.cnf
+    networks:
+      - nq57-network
+
+  # Redis Service
+  redis:
+    image: redis:alpine
+    container_name: nq57_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - nq57-network
+
+  # Frontend (React + Vite)
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/node/Dockerfile
+    container_name: nq57_frontend
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./resources/react:/app
+      - /app/node_modules
+    command: npm run dev
+    networks:
+      - nq57-network
+    depends_on:
+      - app
+
+  # phpMyAdmin (Optional - for database management)
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: nq57_phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: root_password
+    networks:
+      - nq57-network
+    depends_on:
+      - mysql
+
+networks:
+  nq57-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local

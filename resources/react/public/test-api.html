@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API Connection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .result {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        pre {
+            background: #333;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #40a9ff;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test API Connection</h1>
+
+    <button onclick="testAPI()">Test /api/v1/status</button>
+    <button onclick="testHealth()">Test /api/v1/health</button>
+
+    <div id="result" class="result" style="display: none;">
+        <h3 id="resultTitle"></h3>
+        <pre id="resultContent"></pre>
+    </div>
+
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            const resultTitle = document.getElementById('resultTitle');
+            const resultContent = document.getElementById('resultContent');
+
+            resultDiv.style.display = 'block';
+            resultTitle.textContent = 'Testing...';
+            resultContent.textContent = 'Đang gọi API...';
+
+            try {
+                const response = await fetch('/api/v1/status');
+                const data = await response.json();
+
+                resultTitle.textContent = '✅ Success!';
+                resultTitle.className = 'success';
+                resultContent.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultTitle.textContent = '❌ Error!';
+                resultTitle.className = 'error';
+                resultContent.textContent = error.message;
+            }
+        }
+
+        async function testHealth() {
+            const resultDiv = document.getElementById('result');
+            const resultTitle = document.getElementById('resultTitle');
+            const resultContent = document.getElementById('resultContent');
+
+            resultDiv.style.display = 'block';
+            resultTitle.textContent = 'Testing...';
+            resultContent.textContent = 'Đang gọi API...';
+
+            try {
+                const response = await fetch('/api/v1/health');
+                const data = await response.json();
+
+                resultTitle.textContent = '✅ Success!';
+                resultTitle.className = 'success';
+                resultContent.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultTitle.textContent = '❌ Error!';
+                resultTitle.className = 'error';
+                resultContent.textContent = error.message;
+            }
+        }
+
+        // Auto test on load
+        window.onload = () => {
+            setTimeout(testAPI, 1000);
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+{
+    "name": "nq57-portal-frontend",
+    "version": "1.0.0",
+    "description": "ReactJS Frontend cho Cổng thông tin Nghị quyết 57",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite --host 0.0.0.0 --port 5000",
+        "build": "vite build",
+        "preview": "vite preview",
+        "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0"
+    },
+    "dependencies": {
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "react-router-dom": "^6.20.0",
+        "axios": "^1.6.2",
+        "antd": "^5.12.0",
+        "@ant-design/icons": "^5.2.6",
+        "dayjs": "^1.11.10",
+        "zustand": "^4.4.7",
+        "react-query": "^3.39.3",
+        "recharts": "^2.10.3",
+        "classnames": "^2.3.2",
+        "lodash": "^4.17.21"
+    },
+    "devDependencies": {
+        "@types/react": "^18.2.43",
+        "@types/react-dom": "^18.2.17",
+        "@vitejs/plugin-react": "^4.2.1",
+        "vite": "^5.0.8",
+        "eslint": "^8.55.0",
+        "eslint-plugin-react": "^7.33.2",
+        "eslint-plugin-react-hooks": "^4.6.0",
+        "eslint-plugin-react-refresh": "^0.4.5",
+        "@types/node": "^20.10.5",
+        "sass": "^1.69.5",
+        "autoprefixer": "^10.4.16",
+        "postcss": "^8.4.32",
+        "tailwindcss": "^3.3.6"
+    }
+}

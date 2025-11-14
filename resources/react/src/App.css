@@ -1,0 +1,54 @@
+.App {
+  text-align: center;
+}
+
+/* Ant Design customization */
+.ant-layout-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ant-layout-content {
+  background: #f0f2f5;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Smooth transitions */
+.ant-card {
+  transition: all 0.3s ease;
+}
+
+.ant-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .ant-layout-content {
+    padding: 12px !important;
+  }
+
+  .ant-layout-header h1 {
+    font-size: 18px !important;
+  }
+}
