@@ -55,3 +55,12 @@ Thumbs.db
 
 # Docker
 docker/mysql/data/
+
+# Environment-specific configuration files (use .example templates instead)
+docker/nginx/conf.d/default.conf
+resources/react/vite.config.js
+docker-compose.yml
+
+# Cache files
+bootstrap/cache/packages.php
+bootstrap/cache/services.php
