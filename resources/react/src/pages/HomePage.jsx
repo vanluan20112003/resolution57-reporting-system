@@ -58,10 +58,10 @@ function HomePage() {
       {/* Header Section */}
       <div style={{ textAlign: 'center', marginBottom: 40 }}>
         <Title level={2}>
-          <DashboardOutlined /> Cổng thông tin Nghị quyết 57
+          <DashboardOutlined /> Cổng thông tin Nghị quyết 57 - Hệ thống báo cáo
         </Title>
         <Paragraph type="secondary">
-          Hệ thống tổng hợp và quản lý các hoạt động triển khai Nghị quyết 57
+          Hệ thống tổng hợp, quản lý và báo cáo các hoạt động triển khai Nghị quyết 57 - Version 2.0
         </Paragraph>
       </div>
 
