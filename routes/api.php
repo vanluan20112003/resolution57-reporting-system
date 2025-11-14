@@ -79,10 +79,31 @@ Route::prefix('v1')->group(function () {
 
     // SSO Authentication Routes (Simple Test)
     Route::prefix('auth/sso')->group(function () {
+        // Test Keycloak realms
+        Route::get('/test-realms', function () {
+            $baseUrl = 'https://sso.vnuhcm.edu.vn';
+            $possibleRealms = ['Production', 'production', 'PRODUCTION', 'master', 'vnuhcm', 'VNUHCM'];
+
+            $results = [];
+            foreach ($possibleRealms as $realm) {
+                $url = "{$baseUrl}/realms/{$realm}/.well-known/openid-configuration";
+                $results[$realm] = [
+                    'url' => $url,
+                    'exists' => '❓ Check manually'
+                ];
+            }
+
+            return response()->json([
+                'message' => 'Test these URLs to find the correct realm',
+                'realms' => $results,
+                'instruction' => 'Try opening each URL in browser. The one that returns JSON (not 404) is the correct realm.'
+            ]);
+        });
+
         // Redirect to Keycloak
         Route::get('/login', function () {
-            $baseUrl = 'https://sso.vnuhcm.edu.vn';
-            $realm = 'Production';
+            $baseUrl = 'https://sso.vnuhcm.edu.vn/auth';
+            $realm = 'master';
             $clientId = 'webapp-nq57';
             $redirectUri = 'https://nq57.vnuhcm.edu.vn/api/v1/auth/sso/callback';
 
