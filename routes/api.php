@@ -102,7 +102,7 @@ Route::prefix('v1')->group(function () {
 
         // Redirect to Keycloak
         Route::get('/login', function () {
-            $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn');
+            $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
             $realm = env('KEYCLOAK_REALM', 'Production');
             $clientId = env('KEYCLOAK_CLIENT_ID', 'webapp-nq57');
             $redirectUri = env('KEYCLOAK_REDIRECT_URI', 'https://nq57.vnuhcm.edu.vn/api/v1/auth/sso/callback');
@@ -125,7 +125,7 @@ Route::prefix('v1')->group(function () {
                 return response()->json(['error' => 'No code provided']);
             }
 
-            $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn');
+            $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
             $realm = env('KEYCLOAK_REALM', 'Production');
             $clientId = env('KEYCLOAK_CLIENT_ID', 'webapp-nq57');
             $clientSecret = env('KEYCLOAK_CLIENT_SECRET');
@@ -159,7 +159,7 @@ Route::prefix('v1')->group(function () {
 
             try {
                 // Exchange code for token
-                $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn');
+                $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
                 $realm = env('KEYCLOAK_REALM', 'Production');
                 $clientId = env('KEYCLOAK_CLIENT_ID', 'webapp-nq57');
                 $clientSecret = env('KEYCLOAK_CLIENT_SECRET');
@@ -249,7 +249,7 @@ Route::prefix('v1')->group(function () {
 
             try {
                 // Verify token with Keycloak
-                $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn');
+                $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
                 $realm = env('KEYCLOAK_REALM', 'Production');
                 $userInfoUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/userinfo";
 
@@ -290,7 +290,7 @@ Route::prefix('v1')->group(function () {
             }
 
             try {
-                $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn');
+                $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
                 $realm = env('KEYCLOAK_REALM', 'Production');
                 $clientId = env('KEYCLOAK_CLIENT_ID', 'webapp-nq57');
                 $clientSecret = env('KEYCLOAK_CLIENT_SECRET');
@@ -330,7 +330,7 @@ Route::prefix('v1')->group(function () {
 
             if ($refreshToken) {
                 try {
-                    $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn');
+                    $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
                     $realm = env('KEYCLOAK_REALM', 'Production');
                     $clientId = env('KEYCLOAK_CLIENT_ID', 'webapp-nq57');
                     $clientSecret = env('KEYCLOAK_CLIENT_SECRET');
