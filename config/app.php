@@ -10,6 +10,7 @@ return [
     'debug' => (bool) env('APP_DEBUG', false),
     'url' => env('APP_URL', 'http://localhost'),
     'asset_url' => env('ASSET_URL'),
+    'frontend_url' => env('FRONTEND_URL', 'https://nq57.vnuhcm.edu.vn'),
     'timezone' => 'Asia/Ho_Chi_Minh',
     'locale' => 'vi',
     'fallback_locale' => 'en',

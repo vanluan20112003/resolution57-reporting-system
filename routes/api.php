@@ -102,10 +102,10 @@ Route::prefix('v1')->group(function () {
 
         // Redirect to Keycloak
         Route::get('/login', function () {
-            $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
-            $realm = env('KEYCLOAK_REALM', 'Production');
-            $clientId = env('KEYCLOAK_CLIENT_ID', 'webapp-nq57');
-            $redirectUri = env('KEYCLOAK_REDIRECT_URI', 'https://nq57.vnuhcm.edu.vn/api/v1/auth/sso/callback');
+            $baseUrl = config('keycloak.base_url');
+            $realm = config('keycloak.realm');
+            $clientId = config('keycloak.client_id');
+            $redirectUri = config('keycloak.redirect_uri');
 
             $authUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/auth?" . http_build_query([
                 'client_id' => $clientId,
@@ -125,11 +125,11 @@ Route::prefix('v1')->group(function () {
                 return response()->json(['error' => 'No code provided']);
             }
 
-            $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
-            $realm = env('KEYCLOAK_REALM', 'Production');
-            $clientId = env('KEYCLOAK_CLIENT_ID', 'webapp-nq57');
-            $clientSecret = env('KEYCLOAK_CLIENT_SECRET');
-            $redirectUri = env('KEYCLOAK_REDIRECT_URI', 'https://nq57.vnuhcm.edu.vn/api/v1/auth/sso/callback');
+            $baseUrl = config('keycloak.base_url');
+            $realm = config('keycloak.realm');
+            $clientId = config('keycloak.client_id');
+            $clientSecret = config('keycloak.client_secret');
+            $redirectUri = config('keycloak.redirect_uri');
             $tokenUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/token";
 
             $response = \Illuminate\Support\Facades\Http::asForm()->post($tokenUrl, [
@@ -151,7 +151,7 @@ Route::prefix('v1')->group(function () {
         // Callback from Keycloak
         Route::get('/callback', function (Request $request) {
             $code = $request->query('code');
-            $frontendUrl = env('FRONTEND_URL', 'https://nq57.vnuhcm.edu.vn');
+            $frontendUrl = config('app.frontend_url', 'https://nq57.vnuhcm.edu.vn');
 
             if (!$code) {
                 return redirect($frontendUrl . '?error=no_code');
@@ -159,11 +159,11 @@ Route::prefix('v1')->group(function () {
 
             try {
                 // Exchange code for token
-                $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
-                $realm = env('KEYCLOAK_REALM', 'Production');
-                $clientId = env('KEYCLOAK_CLIENT_ID', 'webapp-nq57');
-                $clientSecret = env('KEYCLOAK_CLIENT_SECRET');
-                $redirectUri = env('KEYCLOAK_REDIRECT_URI', 'https://nq57.vnuhcm.edu.vn/api/v1/auth/sso/callback');
+                $baseUrl = config('keycloak.base_url');
+                $realm = config('keycloak.realm');
+                $clientId = config('keycloak.client_id');
+                $clientSecret = config('keycloak.client_secret');
+                $redirectUri = config('keycloak.redirect_uri');
 
                 $tokenUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/token";
 
@@ -249,8 +249,8 @@ Route::prefix('v1')->group(function () {
 
             try {
                 // Verify token with Keycloak
-                $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
-                $realm = env('KEYCLOAK_REALM', 'Production');
+                $baseUrl = config('keycloak.base_url');
+                $realm = config('keycloak.realm');
                 $userInfoUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/userinfo";
 
                 $response = \Illuminate\Support\Facades\Http::withToken($token)->get($userInfoUrl);
@@ -290,10 +290,10 @@ Route::prefix('v1')->group(function () {
             }
 
             try {
-                $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
-                $realm = env('KEYCLOAK_REALM', 'Production');
-                $clientId = env('KEYCLOAK_CLIENT_ID', 'webapp-nq57');
-                $clientSecret = env('KEYCLOAK_CLIENT_SECRET');
+                $baseUrl = config('keycloak.base_url');
+                $realm = config('keycloak.realm');
+                $clientId = config('keycloak.client_id');
+                $clientSecret = config('keycloak.client_secret');
                 $tokenUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/token";
 
                 $response = \Illuminate\Support\Facades\Http::asForm()->post($tokenUrl, [
@@ -330,10 +330,10 @@ Route::prefix('v1')->group(function () {
 
             if ($refreshToken) {
                 try {
-                    $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
-                    $realm = env('KEYCLOAK_REALM', 'Production');
-                    $clientId = env('KEYCLOAK_CLIENT_ID', 'webapp-nq57');
-                    $clientSecret = env('KEYCLOAK_CLIENT_SECRET');
+                    $baseUrl = config('keycloak.base_url');
+                    $realm = config('keycloak.realm');
+                    $clientId = config('keycloak.client_id');
+                    $clientSecret = config('keycloak.client_secret');
                     $logoutUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/logout";
 
                     // Revoke refresh token
