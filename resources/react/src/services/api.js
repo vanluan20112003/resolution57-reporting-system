@@ -11,6 +11,7 @@ const api = axios.create({
     'Accept': 'application/json',
   },
   timeout: 30000, // 30 seconds
+  withCredentials: true, // Enable sending cookies with requests
 })
 
 // Request interceptor - Thêm token vào header

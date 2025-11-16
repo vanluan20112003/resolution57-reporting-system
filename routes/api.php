@@ -102,10 +102,10 @@ Route::prefix('v1')->group(function () {
 
         // Redirect to Keycloak
         Route::get('/login', function () {
-            $baseUrl = 'https://sso.vnuhcm.edu.vn/auth';
-            $realm = 'Production';
-            $clientId = 'webapp-nq57';
-            $redirectUri = 'https://nq57.vnuhcm.edu.vn/api/v1/auth/sso/callback';
+            $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
+            $realm = env('KEYCLOAK_REALM', 'Production');
+            $clientId = env('KEYCLOAK_CLIENT_ID', 'webapp-nq57');
+            $redirectUri = env('KEYCLOAK_REDIRECT_URI', 'https://nq57.vnuhcm.edu.vn/api/v1/auth/sso/callback');
 
             $authUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/auth?" . http_build_query([
                 'client_id' => $clientId,
@@ -115,6 +115,37 @@ Route::prefix('v1')->group(function () {
             ]);
 
             return redirect($authUrl);
+        });
+
+        // Debug endpoint to see error details
+        Route::get('/callback-debug', function (Request $request) {
+            $code = $request->query('code');
+
+            if (!$code) {
+                return response()->json(['error' => 'No code provided']);
+            }
+
+            $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
+            $realm = env('KEYCLOAK_REALM', 'Production');
+            $clientId = env('KEYCLOAK_CLIENT_ID', 'webapp-nq57');
+            $clientSecret = env('KEYCLOAK_CLIENT_SECRET');
+            $redirectUri = env('KEYCLOAK_REDIRECT_URI', 'https://nq57.vnuhcm.edu.vn/api/v1/auth/sso/callback');
+            $tokenUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/token";
+
+            $response = \Illuminate\Support\Facades\Http::asForm()->post($tokenUrl, [
+                'grant_type' => 'authorization_code',
+                'client_id' => $clientId,
+                'client_secret' => $clientSecret,
+                'code' => $code,
+                'redirect_uri' => $redirectUri,
+            ]);
+
+            return response()->json([
+                'status' => $response->status(),
+                'success' => $response->successful(),
+                'body' => $response->json(),
+                'raw_body' => $response->body(),
+            ]);
         });
 
         // Callback from Keycloak
@@ -127,25 +158,40 @@ Route::prefix('v1')->group(function () {
 
             try {
                 // Exchange code for token
-                $baseUrl = 'https://sso.vnuhcm.edu.vn/auth';
-                $realm = 'Production';
-                $clientId = 'webapp-nq57';
-                $redirectUri = 'https://nq57.vnuhcm.edu.vn/api/v1/auth/sso/callback';
+                $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
+                $realm = env('KEYCLOAK_REALM', 'Production');
+                $clientId = env('KEYCLOAK_CLIENT_ID', 'webapp-nq57');
+                $clientSecret = env('KEYCLOAK_CLIENT_SECRET');
+                $redirectUri = env('KEYCLOAK_REDIRECT_URI', 'https://nq57.vnuhcm.edu.vn/api/v1/auth/sso/callback');
 
                 $tokenUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/token";
 
-                $response = \Illuminate\Support\Facades\Http::asForm()->post($tokenUrl, [
+                $tokenParams = [
                     'grant_type' => 'authorization_code',
                     'client_id' => $clientId,
+                    'client_secret' => $clientSecret,
                     'code' => $code,
                     'redirect_uri' => $redirectUri,
-                ]);
+                ];
+
+                $response = \Illuminate\Support\Facades\Http::asForm()->post($tokenUrl, $tokenParams);
 
                 if (!$response->successful()) {
                     \Log::error('Token exchange failed', [
                         'status' => $response->status(),
-                        'body' => $response->body()
+                        'body' => $response->body(),
+                        'error' => $response->json()
                     ]);
+
+                    // Return detailed error in development
+                    if (env('APP_DEBUG')) {
+                        return response()->json([
+                            'error' => 'token_exchange_failed',
+                            'status' => $response->status(),
+                            'details' => $response->json()
+                        ], 400);
+                    }
+
                     return redirect(env('FRONTEND_URL', 'http://localhost:5000') . '?error=token_exchange_failed');
                 }
 

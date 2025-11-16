@@ -45,7 +45,7 @@ function HomePage() {
 
   const fetchUserInfo = async () => {
     try {
-      const response = await axios.get('/api/v1/auth/sso/user')
+      const response = await axios.get('/api/v1/auth/sso/user', { withCredentials: true })
       if (response.data.authenticated) {
         setUser(response.data.user)
         setAuthenticated(true)
@@ -57,7 +57,7 @@ function HomePage() {
 
   const handleLogout = async () => {
     try {
-      await axios.post('/api/v1/auth/sso/logout')
+      await axios.post('/api/v1/auth/sso/logout', {}, { withCredentials: true })
       setUser(null)
       setAuthenticated(false)
       message.success('Đăng xuất thành công!')
@@ -69,7 +69,7 @@ function HomePage() {
 
   const fetchSystemStatus = async () => {
     try {
-      const response = await axios.get('/api/v1/status')
+      const response = await axios.get('/api/v1/status', { withCredentials: true })
       console.log('API Response:', response)
       setSystemStatus(response.data)
     } catch (error) {
