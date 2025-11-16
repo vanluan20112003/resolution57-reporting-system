@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, Row, Col, Statistic, Typography, Space, Tag, Alert, Spin, Button } from 'antd'
+import { Card, Row, Col, Statistic, Typography, Space, Tag, Alert, Spin, Button, Avatar, Descriptions, message } from 'antd'
 import {
   DashboardOutlined,
   CheckCircleOutlined,
@@ -7,7 +7,9 @@ import {
   DatabaseOutlined,
   ApiOutlined,
   ClockCircleOutlined,
-  LoginOutlined
+  LoginOutlined,
+  LogoutOutlined,
+  UserOutlined
 } from '@ant-design/icons'
 import axios from 'axios'
 
@@ -16,10 +18,54 @@ const { Title, Paragraph, Text } = Typography
 function HomePage() {
   const [systemStatus, setSystemStatus] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState(null)
+  const [authenticated, setAuthenticated] = useState(false)
 
   useEffect(() => {
     fetchSystemStatus()
+    checkSSOCallback()
+    fetchUserInfo()
   }, [])
+
+  const checkSSOCallback = () => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const ssoSuccess = urlParams.get('sso_success')
+    const error = urlParams.get('error')
+
+    if (ssoSuccess) {
+      message.success('Đăng nhập SSO thành công!')
+      // Clear URL params
+      window.history.replaceState({}, document.title, window.location.pathname)
+      fetchUserInfo()
+    } else if (error) {
+      message.error(`Lỗi SSO: ${error}`)
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }
+
+  const fetchUserInfo = async () => {
+    try {
+      const response = await axios.get('/api/v1/auth/sso/user')
+      if (response.data.authenticated) {
+        setUser(response.data.user)
+        setAuthenticated(true)
+      }
+    } catch (error) {
+      console.error('Error fetching user info:', error)
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await axios.post('/api/v1/auth/sso/logout')
+      setUser(null)
+      setAuthenticated(false)
+      message.success('Đăng xuất thành công!')
+    } catch (error) {
+      console.error('Error logging out:', error)
+      message.error('Lỗi khi đăng xuất')
+    }
+  }
 
   const fetchSystemStatus = async () => {
     try {
@@ -64,16 +110,95 @@ function HomePage() {
         <Paragraph type="secondary">
           Hệ thống tổng hợp, quản lý và báo cáo các hoạt động triển khai Nghị quyết 57 - Version 2.0
         </Paragraph>
-        <Button
-          type="primary"
-          size="large"
-          icon={<LoginOutlined />}
-          href="/api/v1/auth/sso/login"
-          style={{ marginTop: 16 }}
-        >
-          Đăng nhập bằng SSO VNUHCM
-        </Button>
+
+        {!authenticated ? (
+          <Button
+            type="primary"
+            size="large"
+            icon={<LoginOutlined />}
+            href="/api/v1/auth/sso/login"
+            style={{ marginTop: 16 }}
+          >
+            Đăng nhập bằng SSO VNUHCM
+          </Button>
+        ) : (
+          <Button
+            danger
+            size="large"
+            icon={<LogoutOutlined />}
+            onClick={handleLogout}
+            style={{ marginTop: 16 }}
+          >
+            Đăng xuất
+          </Button>
+        )}
       </div>
+
+      {/* User Info Card - Show when authenticated */}
+      {authenticated && user && (
+        <Card
+          title={
+            <Space>
+              <UserOutlined />
+              <span>Thông tin người dùng</span>
+            </Space>
+          }
+          style={{ marginBottom: 24 }}
+          headStyle={{ backgroundColor: '#e6f7ff' }}
+        >
+          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <Avatar size={64} icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
+              <div>
+                <Title level={4} style={{ margin: 0 }}>
+                  {user.name || (user.given_name && user.family_name ? user.given_name + ' ' + user.family_name : 'N/A')}
+                </Title>
+                <Text type="secondary">{user.email}</Text>
+              </div>
+            </div>
+
+            <Descriptions bordered column={2}>
+              <Descriptions.Item label="Tên đăng nhập">
+                {user.username || user.preferred_username || 'N/A'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Email">
+                {user.email || 'N/A'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Họ">
+                {user.family_name || 'N/A'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Tên">
+                {user.given_name || 'N/A'}
+              </Descriptions.Item>
+              {user.middle_name && (
+                <Descriptions.Item label="Tên đệm">
+                  {user.middle_name}
+                </Descriptions.Item>
+              )}
+              {user.birthdate && (
+                <Descriptions.Item label="Ngày sinh">
+                  {user.birthdate}
+                </Descriptions.Item>
+              )}
+              {user.gender && (
+                <Descriptions.Item label="Giới tính">
+                  {user.gender}
+                </Descriptions.Item>
+              )}
+              {user.department && (
+                <Descriptions.Item label="Đơn vị">
+                  {user.department}
+                </Descriptions.Item>
+              )}
+              {user.locale && (
+                <Descriptions.Item label="Ngôn ngữ">
+                  {user.locale === 'vn' ? 'Tiếng Việt' : user.locale}
+                </Descriptions.Item>
+              )}
+            </Descriptions>
+          </Space>
+        </Card>
+      )}
 
       {/* System Status Alert */}
       {systemStatus && (

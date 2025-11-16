@@ -122,16 +122,95 @@ Route::prefix('v1')->group(function () {
             $code = $request->query('code');
 
             if (!$code) {
+                return redirect(env('FRONTEND_URL', 'http://localhost:5000') . '?error=no_code');
+            }
+
+            try {
+                // Exchange code for token
+                $baseUrl = 'https://sso.vnuhcm.edu.vn/auth';
+                $realm = 'Production';
+                $clientId = 'webapp-nq57';
+                $redirectUri = 'https://nq57.vnuhcm.edu.vn/api/v1/auth/sso/callback';
+
+                $tokenUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/token";
+
+                $response = \Illuminate\Support\Facades\Http::asForm()->post($tokenUrl, [
+                    'grant_type' => 'authorization_code',
+                    'client_id' => $clientId,
+                    'code' => $code,
+                    'redirect_uri' => $redirectUri,
+                ]);
+
+                if (!$response->successful()) {
+                    \Log::error('Token exchange failed', [
+                        'status' => $response->status(),
+                        'body' => $response->body()
+                    ]);
+                    return redirect(env('FRONTEND_URL', 'http://localhost:5000') . '?error=token_exchange_failed');
+                }
+
+                $tokenData = $response->json();
+                $accessToken = $tokenData['access_token'];
+
+                // Get user info from Keycloak
+                $userInfoUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/userinfo";
+                $userInfoResponse = \Illuminate\Support\Facades\Http::withToken($accessToken)->get($userInfoUrl);
+
+                if (!$userInfoResponse->successful()) {
+                    \Log::error('User info fetch failed', [
+                        'status' => $userInfoResponse->status(),
+                        'body' => $userInfoResponse->body()
+                    ]);
+                    return redirect(env('FRONTEND_URL', 'http://localhost:5000') . '?error=userinfo_failed');
+                }
+
+                $userInfo = $userInfoResponse->json();
+
+                // Store user info in session
+                session([
+                    'user' => $userInfo,
+                    'access_token' => $accessToken,
+                    'refresh_token' => $tokenData['refresh_token'] ?? null,
+                ]);
+
+                // Redirect to frontend with success
+                $frontendUrl = env('FRONTEND_URL', 'http://localhost:5000');
+                return redirect($frontendUrl . '?sso_success=1');
+
+            } catch (\Exception $e) {
+                \Log::error('SSO callback error', [
+                    'message' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                return redirect(env('FRONTEND_URL', 'http://localhost:5000') . '?error=server_error');
+            }
+        });
+
+        // Get current user info
+        Route::get('/user', function (Request $request) {
+            $user = session('user');
+            $accessToken = session('access_token');
+
+            if (!$user) {
                 return response()->json([
-                    'error' => 'No authorization code received',
-                    'query' => $request->query()
-                ], 400);
+                    'authenticated' => false,
+                    'user' => null
+                ]);
             }
 
             return response()->json([
-                'message' => 'SSO Callback received successfully!',
-                'code' => $code,
-                'next_step' => 'Exchange code for token'
+                'authenticated' => true,
+                'user' => $user,
+                'token' => $accessToken
+            ]);
+        });
+
+        // Logout
+        Route::post('/logout', function (Request $request) {
+            session()->flush();
+            return response()->json([
+                'success' => true,
+                'message' => 'Logged out successfully'
             ]);
         });
     });
