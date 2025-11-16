@@ -151,9 +151,10 @@ Route::prefix('v1')->group(function () {
         // Callback from Keycloak
         Route::get('/callback', function (Request $request) {
             $code = $request->query('code');
+            $frontendUrl = env('FRONTEND_URL', 'https://nq57.vnuhcm.edu.vn');
 
             if (!$code) {
-                return redirect(env('FRONTEND_URL', 'http://localhost:5000') . '?error=no_code');
+                return redirect($frontendUrl . '?error=no_code');
             }
 
             try {
@@ -192,7 +193,7 @@ Route::prefix('v1')->group(function () {
                         ], 400);
                     }
 
-                    return redirect(env('FRONTEND_URL', 'http://localhost:5000') . '?error=token_exchange_failed');
+                    return redirect($frontendUrl . '?error=token_exchange_failed');
                 }
 
                 $tokenData = $response->json();
@@ -209,7 +210,7 @@ Route::prefix('v1')->group(function () {
                         'status' => $userInfoResponse->status(),
                         'body' => $userInfoResponse->body()
                     ]);
-                    return redirect(env('FRONTEND_URL', 'http://localhost:5000') . '?error=userinfo_failed');
+                    return redirect($frontendUrl . '?error=userinfo_failed');
                 }
 
                 $userInfo = $userInfoResponse->json();
@@ -223,7 +224,6 @@ Route::prefix('v1')->group(function () {
                 ]));
 
                 // Redirect to frontend with token data
-                $frontendUrl = env('FRONTEND_URL', 'http://localhost:5000');
                 return redirect($frontendUrl . '?sso_success=1&data=' . $data);
 
             } catch (\Exception $e) {
@@ -231,7 +231,7 @@ Route::prefix('v1')->group(function () {
                     'message' => $e->getMessage(),
                     'trace' => $e->getTraceAsString()
                 ]);
-                return redirect(env('FRONTEND_URL', 'http://localhost:5000') . '?error=server_error');
+                return redirect($frontendUrl . '?error=server_error');
             }
         });
 
