@@ -30,13 +30,33 @@ function HomePage() {
   const checkSSOCallback = () => {
     const urlParams = new URLSearchParams(window.location.search)
     const ssoSuccess = urlParams.get('sso_success')
+    const data = urlParams.get('data')
     const error = urlParams.get('error')
 
-    if (ssoSuccess) {
-      message.success('Đăng nhập SSO thành công!')
-      // Clear URL params
-      window.history.replaceState({}, document.title, window.location.pathname)
-      fetchUserInfo()
+    if (ssoSuccess && data) {
+      try {
+        // Decode base64 data
+        const tokenData = JSON.parse(atob(data))
+
+        // Store tokens in localStorage
+        localStorage.setItem('access_token', tokenData.access_token)
+        if (tokenData.refresh_token) {
+          localStorage.setItem('refresh_token', tokenData.refresh_token)
+        }
+        localStorage.setItem('token_expires_at', Date.now() + (tokenData.expires_in * 1000))
+
+        // Set user data
+        setUser(tokenData.user)
+        setAuthenticated(true)
+
+        message.success('Đăng nhập SSO thành công!')
+
+        // Clear URL params
+        window.history.replaceState({}, document.title, window.location.pathname)
+      } catch (e) {
+        console.error('Error parsing SSO data:', e)
+        message.error('Lỗi xử lý dữ liệu SSO')
+      }
     } else if (error) {
       message.error(`Lỗi SSO: ${error}`)
       window.history.replaceState({}, document.title, window.location.pathname)
@@ -44,26 +64,78 @@ function HomePage() {
   }
 
   const fetchUserInfo = async () => {
+    const token = localStorage.getItem('access_token')
+    if (!token) {
+      setLoading(false)
+      return
+    }
+
     try {
-      const response = await axios.get('/api/v1/auth/sso/user', { withCredentials: true })
+      const response = await axios.get('/api/v1/auth/sso/user', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
       if (response.data.authenticated) {
         setUser(response.data.user)
         setAuthenticated(true)
       }
     } catch (error) {
       console.error('Error fetching user info:', error)
+      // Token might be expired, try to refresh
+      if (error.response?.status === 401) {
+        await tryRefreshToken()
+      }
+    }
+  }
+
+  const tryRefreshToken = async () => {
+    const refreshToken = localStorage.getItem('refresh_token')
+    if (!refreshToken) return
+
+    try {
+      const response = await axios.post('/api/v1/auth/sso/refresh', {
+        refresh_token: refreshToken
+      })
+
+      // Update tokens
+      localStorage.setItem('access_token', response.data.access_token)
+      if (response.data.refresh_token) {
+        localStorage.setItem('refresh_token', response.data.refresh_token)
+      }
+      localStorage.setItem('token_expires_at', Date.now() + (response.data.expires_in * 1000))
+
+      // Retry fetching user info
+      await fetchUserInfo()
+    } catch (error) {
+      console.error('Token refresh failed:', error)
+      // Clear tokens and logout
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
+      localStorage.removeItem('token_expires_at')
+      setAuthenticated(false)
+      setUser(null)
     }
   }
 
   const handleLogout = async () => {
+    const refreshToken = localStorage.getItem('refresh_token')
+
     try {
-      await axios.post('/api/v1/auth/sso/logout', {}, { withCredentials: true })
+      await axios.post('/api/v1/auth/sso/logout', {
+        refresh_token: refreshToken
+      })
+    } catch (error) {
+      console.error('Error logging out:', error)
+    } finally {
+      // Clear local storage
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
+      localStorage.removeItem('token_expires_at')
+
       setUser(null)
       setAuthenticated(false)
       message.success('Đăng xuất thành công!')
-    } catch (error) {
-      console.error('Error logging out:', error)
-      message.error('Lỗi khi đăng xuất')
     }
   }
 

@@ -197,6 +197,8 @@ Route::prefix('v1')->group(function () {
 
                 $tokenData = $response->json();
                 $accessToken = $tokenData['access_token'];
+                $refreshToken = $tokenData['refresh_token'] ?? null;
+                $expiresIn = $tokenData['expires_in'] ?? 300;
 
                 // Get user info from Keycloak
                 $userInfoUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/userinfo";
@@ -212,16 +214,17 @@ Route::prefix('v1')->group(function () {
 
                 $userInfo = $userInfoResponse->json();
 
-                // Store user info in session
-                session([
-                    'user' => $userInfo,
+                // Encode tokens and user info as base64 to pass via URL
+                $data = base64_encode(json_encode([
                     'access_token' => $accessToken,
-                    'refresh_token' => $tokenData['refresh_token'] ?? null,
-                ]);
+                    'refresh_token' => $refreshToken,
+                    'expires_in' => $expiresIn,
+                    'user' => $userInfo
+                ]));
 
-                // Redirect to frontend with success
+                // Redirect to frontend with token data
                 $frontendUrl = env('FRONTEND_URL', 'http://localhost:5000');
-                return redirect($frontendUrl . '?sso_success=1');
+                return redirect($frontendUrl . '?sso_success=1&data=' . $data);
 
             } catch (\Exception $e) {
                 \Log::error('SSO callback error', [
@@ -232,28 +235,118 @@ Route::prefix('v1')->group(function () {
             }
         });
 
-        // Get current user info
+        // Get current user info by verifying token
         Route::get('/user', function (Request $request) {
-            $user = session('user');
-            $accessToken = session('access_token');
+            $token = $request->bearerToken();
 
-            if (!$user) {
+            if (!$token) {
                 return response()->json([
                     'authenticated' => false,
-                    'user' => null
+                    'user' => null,
+                    'message' => 'No token provided'
                 ]);
             }
 
-            return response()->json([
-                'authenticated' => true,
-                'user' => $user,
-                'token' => $accessToken
-            ]);
+            try {
+                // Verify token with Keycloak
+                $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
+                $realm = env('KEYCLOAK_REALM', 'Production');
+                $userInfoUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/userinfo";
+
+                $response = \Illuminate\Support\Facades\Http::withToken($token)->get($userInfoUrl);
+
+                if (!$response->successful()) {
+                    return response()->json([
+                        'authenticated' => false,
+                        'user' => null,
+                        'message' => 'Invalid or expired token'
+                    ], 401);
+                }
+
+                $userInfo = $response->json();
+
+                return response()->json([
+                    'authenticated' => true,
+                    'user' => $userInfo
+                ]);
+
+            } catch (\Exception $e) {
+                return response()->json([
+                    'authenticated' => false,
+                    'user' => null,
+                    'message' => 'Token verification failed'
+                ], 401);
+            }
         });
 
-        // Logout
+        // Refresh access token
+        Route::post('/refresh', function (Request $request) {
+            $refreshToken = $request->input('refresh_token');
+
+            if (!$refreshToken) {
+                return response()->json([
+                    'error' => 'Refresh token required'
+                ], 400);
+            }
+
+            try {
+                $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
+                $realm = env('KEYCLOAK_REALM', 'Production');
+                $clientId = env('KEYCLOAK_CLIENT_ID', 'webapp-nq57');
+                $clientSecret = env('KEYCLOAK_CLIENT_SECRET');
+                $tokenUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/token";
+
+                $response = \Illuminate\Support\Facades\Http::asForm()->post($tokenUrl, [
+                    'grant_type' => 'refresh_token',
+                    'client_id' => $clientId,
+                    'client_secret' => $clientSecret,
+                    'refresh_token' => $refreshToken,
+                ]);
+
+                if (!$response->successful()) {
+                    return response()->json([
+                        'error' => 'Token refresh failed'
+                    ], 401);
+                }
+
+                $tokenData = $response->json();
+
+                return response()->json([
+                    'access_token' => $tokenData['access_token'],
+                    'refresh_token' => $tokenData['refresh_token'] ?? $refreshToken,
+                    'expires_in' => $tokenData['expires_in'] ?? 300,
+                ]);
+
+            } catch (\Exception $e) {
+                return response()->json([
+                    'error' => 'Token refresh failed'
+                ], 500);
+            }
+        });
+
+        // Logout - Revoke token with Keycloak
         Route::post('/logout', function (Request $request) {
-            session()->flush();
+            $refreshToken = $request->input('refresh_token');
+
+            if ($refreshToken) {
+                try {
+                    $baseUrl = env('KEYCLOAK_BASE_URL', 'https://sso.vnuhcm.edu.vn/auth');
+                    $realm = env('KEYCLOAK_REALM', 'Production');
+                    $clientId = env('KEYCLOAK_CLIENT_ID', 'webapp-nq57');
+                    $clientSecret = env('KEYCLOAK_CLIENT_SECRET');
+                    $logoutUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/logout";
+
+                    // Revoke refresh token
+                    \Illuminate\Support\Facades\Http::asForm()->post($logoutUrl, [
+                        'client_id' => $clientId,
+                        'client_secret' => $clientSecret,
+                        'refresh_token' => $refreshToken,
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Keycloak logout failed', ['error' => $e->getMessage()]);
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Logged out successfully'
