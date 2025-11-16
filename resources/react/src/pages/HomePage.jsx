@@ -229,12 +229,18 @@ function HomePage() {
               </div>
             </div>
 
-            <Descriptions bordered column={2}>
+            <Descriptions bordered column={2} size="small">
+              <Descriptions.Item label="User ID (sub)">
+                {user.sub || 'N/A'}
+              </Descriptions.Item>
               <Descriptions.Item label="Tên đăng nhập">
                 {user.username || user.preferred_username || 'N/A'}
               </Descriptions.Item>
               <Descriptions.Item label="Email">
                 {user.email || 'N/A'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Email verified">
+                {user.email_verified ? <Tag color="success">Yes</Tag> : <Tag color="error">No</Tag>}
               </Descriptions.Item>
               <Descriptions.Item label="Họ">
                 {user.family_name || 'N/A'}
@@ -247,6 +253,14 @@ function HomePage() {
                   {user.middle_name}
                 </Descriptions.Item>
               )}
+              <Descriptions.Item label="Tên đầy đủ">
+                {user.name || 'N/A'}
+              </Descriptions.Item>
+              {user.nickname && (
+                <Descriptions.Item label="Nickname">
+                  {user.nickname}
+                </Descriptions.Item>
+              )}
               {user.birthdate && (
                 <Descriptions.Item label="Ngày sinh">
                   {user.birthdate}
@@ -255,6 +269,23 @@ function HomePage() {
               {user.gender && (
                 <Descriptions.Item label="Giới tính">
                   {user.gender}
+                </Descriptions.Item>
+              )}
+              {user.phone_number && (
+                <Descriptions.Item label="Số điện thoại">
+                  {user.phone_number}
+                </Descriptions.Item>
+              )}
+              {user.phone_number_verified !== undefined && (
+                <Descriptions.Item label="Phone verified">
+                  {user.phone_number_verified ? <Tag color="success">Yes</Tag> : <Tag color="error">No</Tag>}
+                </Descriptions.Item>
+              )}
+              {user.address && (
+                <Descriptions.Item label="Địa chỉ" span={2}>
+                  {typeof user.address === 'object'
+                    ? JSON.stringify(user.address)
+                    : user.address}
                 </Descriptions.Item>
               )}
               {user.department && (
@@ -267,7 +298,36 @@ function HomePage() {
                   {user.locale === 'vn' ? 'Tiếng Việt' : user.locale}
                 </Descriptions.Item>
               )}
+              {user.zoneinfo && (
+                <Descriptions.Item label="Timezone">
+                  {user.zoneinfo}
+                </Descriptions.Item>
+              )}
+              {user.updated_at && (
+                <Descriptions.Item label="Cập nhật lần cuối">
+                  {new Date(user.updated_at * 1000).toLocaleString('vi-VN')}
+                </Descriptions.Item>
+              )}
             </Descriptions>
+
+            {/* Raw user data for debugging */}
+            <Card
+              title="Raw User Data (Debug)"
+              size="small"
+              style={{ marginTop: 16 }}
+              type="inner"
+            >
+              <pre style={{
+                fontSize: '11px',
+                maxHeight: '300px',
+                overflow: 'auto',
+                backgroundColor: '#f5f5f5',
+                padding: '12px',
+                borderRadius: '4px'
+              }}>
+                {JSON.stringify(user, null, 2)}
+              </pre>
+            </Card>
           </Space>
         </Card>
       )}
