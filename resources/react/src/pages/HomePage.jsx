@@ -308,6 +308,15 @@ function HomePage() {
                   {new Date(user.updated_at * 1000).toLocaleString('vi-VN')}
                 </Descriptions.Item>
               )}
+              {user.roles && user.roles.length > 0 && (
+                <Descriptions.Item label="Roles" span={2}>
+                  <Space wrap>
+                    {user.roles.map((role, index) => (
+                      <Tag color="blue" key={index}>{role}</Tag>
+                    ))}
+                  </Space>
+                </Descriptions.Item>
+              )}
             </Descriptions>
 
             {/* Raw user data for debugging */}

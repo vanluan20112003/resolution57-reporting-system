@@ -215,6 +215,25 @@ Route::prefix('v1')->group(function () {
 
                 $userInfo = $userInfoResponse->json();
 
+                // Decode JWT to get roles
+                $tokenParts = explode('.', $accessToken);
+                $roles = [];
+                if (count($tokenParts) === 3) {
+                    try {
+                        $payload = json_decode(base64_decode($tokenParts[1]), true);
+                        // Keycloak stores roles in different places
+                        $roles = array_merge(
+                            $payload['realm_access']['roles'] ?? [],
+                            $payload['resource_access'][$clientId]['roles'] ?? []
+                        );
+                    } catch (\Exception $e) {
+                        \Log::warning('Failed to decode JWT roles', ['error' => $e->getMessage()]);
+                    }
+                }
+
+                // Add roles to user info
+                $userInfo['roles'] = $roles;
+
                 // Encode tokens and user info as base64 to pass via URL
                 $data = base64_encode(json_encode([
                     'access_token' => $accessToken,
@@ -264,6 +283,26 @@ Route::prefix('v1')->group(function () {
                 }
 
                 $userInfo = $response->json();
+
+                // Decode JWT to get roles
+                $roles = [];
+                try {
+                    $tokenParts = explode('.', $token);
+                    if (count($tokenParts) === 3) {
+                        $payload = json_decode(base64_decode($tokenParts[1]), true);
+                        $clientId = config('keycloak.client_id');
+                        // Keycloak stores roles in different places
+                        $roles = array_merge(
+                            $payload['realm_access']['roles'] ?? [],
+                            $payload['resource_access'][$clientId]['roles'] ?? []
+                        );
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to decode JWT roles', ['error' => $e->getMessage()]);
+                }
+
+                // Add roles to user info
+                $userInfo['roles'] = $roles;
 
                 return response()->json([
                     'authenticated' => true,
