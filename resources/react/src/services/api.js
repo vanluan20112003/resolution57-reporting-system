@@ -1,7 +1,8 @@
 import axios from 'axios'
 
 // Cấu hình base URL cho API
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+// Use relative path to leverage Vite proxy in development
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 // Tạo axios instance
 const api = axios.create({
