@@ -11,6 +11,7 @@ import {
   LogoutOutlined,
   UserOutlined
 } from '@ant-design/icons'
+import api from '../services/api'
 import axios from 'axios'
 
 const { Title, Paragraph, Text } = Typography
@@ -141,9 +142,9 @@ function HomePage() {
 
   const fetchSystemStatus = async () => {
     try {
-      const response = await axios.get('/api/v1/status', { withCredentials: true })
+      const response = await api.get('/v1/status')
       console.log('API Response:', response)
-      setSystemStatus(response.data)
+      setSystemStatus(response)
     } catch (error) {
       console.error('Error fetching system status:', error)
       console.error('Error details:', error.response || error.message)
