@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons'
 import api from '../services/api'
 import axios from 'axios'
+import LoginPage from './LoginPage'
 
 const { Title, Paragraph, Text } = Typography
 
@@ -142,12 +143,18 @@ function HomePage() {
 
   const fetchSystemStatus = async () => {
     try {
+      console.log('🔍 Fetching system status...')
       const response = await api.get('/v1/status')
-      console.log('API Response:', response)
+      console.log('✅ API Response received:', response)
+      console.log('📊 Response type:', typeof response)
+      console.log('📊 Response keys:', Object.keys(response || {}))
+      console.log('📊 Database info:', response?.database)
+
       setSystemStatus(response)
+      console.log('✅ State updated with:', response)
     } catch (error) {
-      console.error('Error fetching system status:', error)
-      console.error('Error details:', error.response || error.message)
+      console.error('❌ Error fetching system status:', error)
+      console.error('❌ Error details:', error.response || error.message)
       // Set default data nếu lỗi
       setSystemStatus({
         status: 'error',
@@ -160,9 +167,14 @@ function HomePage() {
         }
       })
     } finally {
+      console.log('🏁 Loading finished')
       setLoading(false)
     }
   }
+
+  console.log('🎨 Render - loading:', loading)
+  console.log('🎨 Render - systemStatus:', systemStatus)
+  console.log('🎨 Render - authenticated:', authenticated)
 
   if (loading) {
     return (
@@ -171,6 +183,11 @@ function HomePage() {
         <p style={{ marginTop: 16 }}>Đang tải...</p>
       </div>
     )
+  }
+
+  // Show login page if not authenticated
+  if (!authenticated) {
+    return <LoginPage onLoginSuccess={fetchUserInfo} />
   }
 
   return (
@@ -367,6 +384,9 @@ function HomePage() {
       )}
 
       {/* Statistics Cards */}
+      {console.log('📊 Rendering stats with systemStatus:', systemStatus)}
+      {console.log('📊 Database tables:', systemStatus?.database?.tables)}
+      {console.log('📊 Database status:', systemStatus?.database?.status)}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} lg={6}>
           <Card>
@@ -392,9 +412,11 @@ function HomePage() {
           <Card>
             <Statistic
               title="Số bảng dữ liệu"
-              value={systemStatus?.database?.tables || 0}
+              value={systemStatus?.database?.tables ?? 0}
               prefix={<DatabaseOutlined />}
-              valueStyle={{ color: '#cf1322' }}
+              valueStyle={{
+                color: (systemStatus?.database?.tables ?? 0) > 0 ? '#3f8600' : '#cf1322'
+              }}
             />
           </Card>
         </Col>
