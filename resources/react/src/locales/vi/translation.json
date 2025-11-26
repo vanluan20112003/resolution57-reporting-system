@@ -1,0 +1,77 @@
+{
+  "common": {
+    "loading": "Đang tải...",
+    "error": "Lỗi",
+    "success": "Thành công",
+    "confirm": "Xác nhận",
+    "cancel": "Hủy",
+    "save": "Lưu",
+    "delete": "Xóa",
+    "edit": "Sửa",
+    "search": "Tìm kiếm",
+    "filter": "Lọc",
+    "export": "Xuất",
+    "import": "Nhập",
+    "add": "Thêm",
+    "close": "Đóng",
+    "back": "Quay lại",
+    "next": "Tiếp theo",
+    "submit": "Gửi",
+    "reset": "Đặt lại",
+    "logout": "Đăng xuất"
+  },
+  "login": {
+    "title": "Đăng nhập",
+    "subtitle": "Hệ thống Quản lý NQ57 Portal",
+    "email": "Email",
+    "password": "Mật khẩu",
+    "emailPlaceholder": "Nhập email của bạn",
+    "passwordPlaceholder": "Nhập mật khẩu",
+    "loginButton": "Đăng nhập",
+    "orLoginWith": "Hoặc đăng nhập bằng",
+    "googleLogin": "Đăng nhập bằng Google",
+    "ssoLogin": "Đăng nhập bằng tài khoản VNUHCM",
+    "forgotPassword": "Quên mật khẩu?",
+    "errors": {
+      "emailRequired": "Vui lòng nhập email!",
+      "passwordRequired": "Vui lòng nhập mật khẩu!",
+      "invalidCredentials": "Email hoặc mật khẩu không đúng!",
+      "googleError": "Không thể kết nối Google. Vui lòng thử lại!",
+      "generalError": "Đã có lỗi xảy ra. Vui lòng thử lại!"
+    }
+  },
+  "dashboard": {
+    "title": "Bảng điều khiển",
+    "welcome": "Chào mừng",
+    "overview": "Tổng quan",
+    "statistics": "Thống kê",
+    "recentActivities": "Hoạt động gần đây",
+    "systemStatus": "Trạng thái hệ thống"
+  },
+  "user": {
+    "profile": "Hồ sơ",
+    "settings": "Cài đặt",
+    "changePassword": "Đổi mật khẩu",
+    "logout": "Đăng xuất"
+  },
+  "navigation": {
+    "home": "Trang chủ",
+    "dashboard": "Bảng điều khiển",
+    "users": "Người dùng",
+    "settings": "Cài đặt",
+    "reports": "Báo cáo",
+    "activities": "Hoạt động"
+  },
+  "unauthorized": {
+    "emailNotAuthorized": "Truy cập bị từ chối",
+    "emailNotAuthorizedDescription": "Email của bạn không có quyền truy cập vào hệ thống. Chỉ những email thuộc miền @vnuhcm.edu.vn hoặc đã được đăng ký trước mới có thể đăng nhập.",
+    "defaultMessage": "Không có quyền truy cập",
+    "defaultDescription": "Bạn không có quyền truy cập vào tài nguyên này. Vui lòng liên hệ quản trị viên để được hỗ trợ.",
+    "backToLogin": "Quay lại đăng nhập",
+    "contactSupport": "Liên hệ hỗ trợ",
+    "howToGetAccess": "Làm thế nào để có quyền truy cập?",
+    "step1": "Sử dụng email VNUHCM (@vnuhcm.edu.vn) để đăng nhập",
+    "step2": "Hoặc liên hệ quản trị viên hệ thống để đăng ký tài khoản",
+    "step3": "Email: support@vnuhcm.edu.vn hoặc hotline: 028 3724 4810"
+  }
+}

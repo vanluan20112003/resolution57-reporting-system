@@ -29,6 +29,14 @@ Hướng dẫn này sẽ giúp bạn deploy **NQ57 Portal** (Laravel + React + D
 - Cache: Redis
 - Container: Docker + Docker Compose
 - Web Server: Nginx
+- Authentication: Email/Password + Google OAuth
+
+**Tính năng:**
+- ✅ Đăng nhập bằng email/password
+- ✅ Đăng nhập bằng Google OAuth (chỉ @vnuhcm.edu.vn)
+- ✅ User dropdown với avatar
+- ✅ Đa ngôn ngữ (Tiếng Việt/English)
+- ✅ API endpoints tập trung
 
 ---
 
@@ -207,7 +215,44 @@ docker-compose.yml
 
 ## ⚙️ Bước 4: Cấu hình môi trường
 
-### 4.1. Cấu hình file .env cho production
+### 4.1. Cấu hình API Endpoints (QUAN TRỌNG!)
+
+**Dự án đã tập trung hóa tất cả API URLs vào 1 file:**
+- **Frontend**: `resources/react/src/config/api.ts`
+- **Backend**: Sử dụng `.env` variables
+
+#### 4.1.1. Cấu hình Frontend (.env cho React)
+
+```bash
+cd /var/www/nq57/resources/react
+
+# Tạo file .env cho production
+nano .env
+```
+
+**Paste nội dung sau** (thay `your-domain.com` hoặc `your-ip`):
+
+**Với Domain:**
+```env
+VITE_API_URL=/api/v1
+VITE_FRONTEND_URL=https://nq57.vnuhcm.edu.vn
+```
+
+**Với IP (không có domain):**
+```env
+VITE_API_URL=/api/v1
+VITE_FRONTEND_URL=http://123.456.789.0
+```
+
+**Lưu file**: `Ctrl + O`, Enter, `Ctrl + X`
+
+> **Giải thích:**
+> - `VITE_API_URL=/api/v1` - Sử dụng relative path để tránh CORS
+> - `VITE_FRONTEND_URL` - URL frontend của bạn
+
+---
+
+### 4.2. Cấu hình file .env cho Laravel (Backend)
 ```bash
 # Đảm bảo bạn đang ở trong thư mục /var/www/nq57
 pwd
@@ -244,10 +289,34 @@ REDIS_PASSWORD=null
 REDIS_PORT=6379
 
 # Frontend URL
-FRONTEND_URL=http://your-server-ip-or-domain:5000
+FRONTEND_URL=http://your-server-ip-or-domain
+
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_REDIRECT_URI=http://your-server-ip-or-domain/api/v1/auth/google/callback
 
 # CORS
-CORS_ALLOWED_ORIGINS="http://your-server-ip-or-domain,http://your-server-ip-or-domain:5000"
+CORS_ALLOWED_ORIGINS="http://your-server-ip-or-domain"
+```
+
+**Cấu hình Google OAuth:**
+
+Để lấy `GOOGLE_CLIENT_ID` và `GOOGLE_CLIENT_SECRET`:
+
+1. Truy cập [Google Cloud Console](https://console.cloud.google.com/)
+2. Tạo project mới hoặc chọn project có sẵn
+3. Vào **APIs & Services** > **Credentials**
+4. Click **Create Credentials** > **OAuth 2.0 Client ID**
+5. Chọn **Application type**: Web application
+6. Cấu hình:
+   - **Authorized JavaScript origins**: `http://your-domain.com` (hoặc IP)
+   - **Authorized redirect URIs**: `http://your-domain.com/api/v1/auth/google/callback`
+7. Copy Client ID và Client Secret vào file `.env`
+
+**Lưu ý về domain:**
+- Nếu dùng SSL (https), thay tất cả `http://` thành `https://`
+- `FRONTEND_URL` không cần port `:5000` khi đã cấu hình Nginx reverse proxy
 ```
 
 **Cách chỉnh sửa trong nano:**
@@ -363,11 +432,37 @@ docker compose exec app php artisan config:cache
 docker compose exec app php artisan route:cache
 docker compose exec app php artisan view:cache
 
+# Create test accounts (DEVELOPMENT ONLY)
+docker compose exec app php artisan db:seed --class=UserSeeder
+
 # Set permissions lại
 docker compose exec app chown -R www-data:www-data storage bootstrap/cache
 ```
 
 **Lưu ý**: Lệnh `composer install` có thể mất 3-5 phút. Hãy kiên nhẫn!
+
+#### 5.3.1. Tài khoản test đã được tạo
+
+Sau khi chạy seeder, database sẽ có 2 tài khoản test:
+
+| Email | Password | Role | Mô tả |
+|-------|----------|------|-------|
+| `long.nguyen@vnu-itp.edu.vn` | `123456` | ADMIN | Tài khoản admin test |
+| `test@vnuhcm.edu.vn` | `password` | USER | Tài khoản user test |
+
+⚠️ **QUAN TRỌNG**: Trong môi trường **PRODUCTION**, bạn nên:
+1. Xóa hoặc đổi password các tài khoản test này
+2. Hoặc comment phần seed trong deploy script
+3. Tạo tài khoản admin thật qua database
+
+**Xóa tài khoản test sau khi deploy:**
+```bash
+docker compose exec app php artisan tinker
+# Trong tinker console:
+User::where('email', 'long.nguyen@vnu-itp.edu.vn')->delete();
+User::where('email', 'test@vnuhcm.edu.vn')->delete();
+# Gõ exit để thoát
+```
 
 ### 5.4. Cài đặt React dependencies
 ```bash
@@ -605,6 +700,10 @@ docker compose exec -T app composer install --no-dev --optimize-autoloader
 # Run migrations
 echo "🗄️  Running database migrations..."
 docker compose exec -T app php artisan migrate --force
+
+# Seed database (chỉ lần đầu tiên - tạo tài khoản test)
+echo "🌱 Seeding database..."
+docker compose exec -T app php artisan db:seed --class=UserSeeder
 
 # Clear and cache
 echo "🧹 Clearing and caching..."
@@ -975,6 +1074,107 @@ Bạn đã deploy thành công **NQ57 Portal** lên Ubuntu server!
 - ✅ SSL (nếu có domain)
 
 **Chúc bạn vận hành thành công! 🚀**
+
+---
+
+---
+
+## 📡 Cấu hình API Endpoints (Tham khảo)
+
+### Cấu trúc tập trung hóa
+
+**File config chính**: `resources/react/src/config/api.ts`
+
+```typescript
+export const API_CONFIG = {
+  BASE_URL: getApiBaseUrl(), // Tự động detect môi trường
+  FRONTEND_URL: getFrontendBaseUrl(),
+
+  AUTH: {
+    LOGIN: '/api/v1/auth/login',
+    LOGOUT: '/api/v1/auth/logout',
+    ME: '/api/v1/auth/me',
+    GOOGLE_REDIRECT: '/api/v1/auth/google/redirect',
+    GOOGLE_CALLBACK: '/api/v1/auth/google/callback',
+  },
+
+  // Thêm endpoints khác tại đây...
+}
+```
+
+### Cách sử dụng trong code
+
+**Thay vì:**
+```typescript
+fetch('http://localhost:8000/api/v1/auth/login', ...)
+```
+
+**Sử dụng:**
+```typescript
+import API_CONFIG from '../config/api'
+
+fetch(API_CONFIG.AUTH.LOGIN, ...)
+```
+
+### Khi deploy lên production
+
+**Development** (`resources/react/.env`):
+```env
+VITE_API_URL=http://localhost:8000/api/v1
+VITE_FRONTEND_URL=http://localhost:5000
+```
+
+**Production** (`resources/react/.env`):
+```env
+VITE_API_URL=/api/v1
+VITE_FRONTEND_URL=https://nq57.vnuhcm.edu.vn
+```
+
+**Backend** (`.env`):
+```env
+APP_URL=https://nq57.vnuhcm.edu.vn
+FRONTEND_URL=https://nq57.vnuhcm.edu.vn
+GOOGLE_REDIRECT_URI=https://nq57.vnuhcm.edu.vn/api/v1/auth/google/callback
+```
+
+---
+
+## 🔑 Authentication Flow
+
+### 1. Login bằng Email/Password
+
+```
+User → Frontend → API: POST /api/v1/auth/login
+                      { email, password }
+API → Frontend: { success, data: { user, access_token } }
+Frontend: Lưu token vào localStorage
+Frontend: Redirect to /dashboard
+```
+
+### 2. Login bằng Google OAuth
+
+```
+User → Click "Đăng nhập bằng VNUHCM"
+Frontend → API: GET /api/v1/auth/google/redirect
+API → Google: Redirect to Google OAuth
+Google → User: Chọn account
+Google → API: Callback với code
+API: Kiểm tra email:
+  - Nếu email trong DB → Cho phép login
+  - Nếu email @vnuhcm.edu.vn (chưa có trong DB) → Tạo user mới
+  - Nếu email khác → Báo lỗi "Không có quyền truy cập"
+API → Frontend: Redirect với token hoặc error
+```
+
+### 3. Logout
+
+```
+User → Click logout
+Frontend → API: POST /api/v1/auth/logout (với Bearer token)
+API: Xóa token khỏi database
+Frontend: Xóa token khỏi localStorage
+Frontend: Redirect to /login
+```
 
 ---
 

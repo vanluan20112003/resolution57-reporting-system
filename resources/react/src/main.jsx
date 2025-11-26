@@ -1,16 +1,16 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from 'react-query'
 import { ConfigProvider } from 'antd'
 import viVN from 'antd/locale/vi_VN'
+import enUS from 'antd/locale/en_US'
 import dayjs from 'dayjs'
 import 'dayjs/locale/vi'
+import 'dayjs/locale/en'
 import App from './App.jsx'
 import './index.css'
-
-// Cấu hình dayjs locale
-dayjs.locale('vi')
+import i18n from './i18n' // Import i18n configuration
 
 // Cấu hình React Query
 const queryClient = new QueryClient({
@@ -32,14 +32,39 @@ const theme = {
   },
 }
 
+// App wrapper to handle locale changes
+function AppWrapper() {
+  const [locale, setLocale] = useState(i18n.language === 'en' ? enUS : viVN)
+
+  useEffect(() => {
+    // Sync dayjs and Ant Design locale with i18n
+    const handleLanguageChange = (lng) => {
+      dayjs.locale(lng)
+      setLocale(lng === 'en' ? enUS : viVN)
+    }
+
+    // Set initial locale
+    handleLanguageChange(i18n.language)
+
+    // Listen to language changes
+    i18n.on('languageChanged', handleLanguageChange)
+
+    return () => {
+      i18n.off('languageChanged', handleLanguageChange)
+    }
+  }, [])
+
+  return (
+    <ConfigProvider locale={locale} theme={theme}>
+      <App />
+    </ConfigProvider>
+  )
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <QueryClientProvider client={queryClient}>
-        <ConfigProvider locale={viVN} theme={theme}>
-          <App />
-        </ConfigProvider>
-      </QueryClientProvider>
-    </BrowserRouter>
-  </React.StrictMode>,
+  <BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <AppWrapper />
+    </QueryClientProvider>
+  </BrowserRouter>,
 )

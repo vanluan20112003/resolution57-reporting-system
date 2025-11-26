@@ -63,3 +63,24 @@ docker-compose.yml
 
 # Cache files
 bootstrap/cache/*.php
+
+# Session files
+storage/framework/sessions/*
+!storage/framework/sessions/.gitkeep
+
+# Invalid files
+nul
+
+# Documentation files (optional - comment out if you want to track them)
+# DEPLOYMENT.md
+# GOOGLE_LOGIN_SETUP.md
+# LOGGING.md
+
+# Generated files
+generate_models.php
+
+# Local settings
+.claude/settings.local.json
+
+# Package lock files (optional - uncomment if you don't want to track)
+# package-lock.json

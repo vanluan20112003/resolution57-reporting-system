@@ -13,18 +13,35 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable;
 
     /**
+     * The table associated with the model.
+     *
+     * @var string
+     */
+    protected $table = 'nq57_users';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>
      */
     protected $fillable = [
-        'name',
+        'id',
         'email',
-        'password',
+        'google_id',
+        'avatar',
+        'password_hash',
+        'first_name',
+        'last_name',
         'phone',
-        'department',
-        'position',
-        'is_active',
+        'avatar_url',
+        'is_vnuhcm',
+        'status',
+        'employee_id',
+        'role',
+        'organization_id',
+        'manager_id',
+        'last_login_at',
+        'created_by',
     ];
 
     /**
@@ -33,7 +50,7 @@ class User extends Authenticatable
      * @var array<int, string>
      */
     protected $hidden = [
-        'password',
+        'password_hash',
         'remember_token',
     ];
 
@@ -43,8 +60,25 @@ class User extends Authenticatable
      * @var array<string, string>
      */
     protected $casts = [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed',
-        'is_active' => 'boolean',
+        'is_vnuhcm' => 'boolean',
+        'last_login_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
+
+    /**
+     * Get the password for authentication.
+     */
+    public function getAuthPassword()
+    {
+        return $this->password_hash;
+    }
+
+    /**
+     * Get the user's full name.
+     */
+    public function getNameAttribute()
+    {
+        return trim("{$this->first_name} {$this->last_name}");
+    }
 }

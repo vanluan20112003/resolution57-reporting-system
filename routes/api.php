@@ -3,6 +3,8 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\API\GoogleAuthController;
+use App\Http\Controllers\API\AuthController;
 
 /*
 |--------------------------------------------------------------------------
@@ -75,6 +77,24 @@ Route::prefix('v1')->group(function () {
                 'total' => 0
             ]);
         });
+    });
+
+    // Authentication Routes
+    Route::prefix('auth')->group(function () {
+        // Email/Password Login
+        Route::post('/login', [AuthController::class, 'login']);
+
+        // Google OAuth Routes
+        Route::prefix('google')->group(function () {
+            Route::get('/redirect', [GoogleAuthController::class, 'redirectToGoogle']);
+            Route::get('/callback', [GoogleAuthController::class, 'handleGoogleCallbackWeb']);
+        });
+    });
+
+    // Protected Auth Routes
+    Route::middleware('auth:sanctum')->prefix('auth')->group(function () {
+        Route::post('/logout', [AuthController::class, 'logout']);
+        Route::get('/me', [AuthController::class, 'me']);
     });
 
     // SSO Authentication Routes (Simple Test)

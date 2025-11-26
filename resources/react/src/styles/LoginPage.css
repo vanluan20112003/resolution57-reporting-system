@@ -166,12 +166,35 @@
   background-color: #d9d9d9;
 }
 
-.login-divider::after {
-  content: 'Hoặc';
+.login-divider span {
   position: relative;
   padding: 0 12px;
   background-color: #ffffff;
   z-index: 1;
+}
+
+/* Google Button */
+.google-btn {
+  height: 40px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #fff;
+  border-color: #EA4335;
+  background-color: #EA4335;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.google-btn:hover,
+.google-btn:focus {
+  color: #fff;
+  border-color: #d33426;
+  background-color: #d33426;
+}
+
+.google-btn .anticon {
+  color: #fff;
+  font-size: 18px;
 }
 
 /* SSO Button */

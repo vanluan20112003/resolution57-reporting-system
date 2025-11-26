@@ -1,0 +1,77 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "import": "Import",
+    "add": "Add",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit",
+    "reset": "Reset",
+    "logout": "Logout"
+  },
+  "login": {
+    "title": "Login",
+    "subtitle": "NQ57 Portal Management System",
+    "email": "Email",
+    "password": "Password",
+    "emailPlaceholder": "Enter your email",
+    "passwordPlaceholder": "Enter your password",
+    "loginButton": "Login",
+    "orLoginWith": "Or login with",
+    "googleLogin": "Login with Google",
+    "ssoLogin": "Login with VNUHCM Account",
+    "forgotPassword": "Forgot password?",
+    "errors": {
+      "emailRequired": "Please enter your email!",
+      "passwordRequired": "Please enter your password!",
+      "invalidCredentials": "Invalid email or password!",
+      "googleError": "Cannot connect to Google. Please try again!",
+      "generalError": "An error occurred. Please try again!"
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome",
+    "overview": "Overview",
+    "statistics": "Statistics",
+    "recentActivities": "Recent Activities",
+    "systemStatus": "System Status"
+  },
+  "user": {
+    "profile": "Profile",
+    "settings": "Settings",
+    "changePassword": "Change Password",
+    "logout": "Logout"
+  },
+  "navigation": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "settings": "Settings",
+    "reports": "Reports",
+    "activities": "Activities"
+  },
+  "unauthorized": {
+    "emailNotAuthorized": "Access Denied",
+    "emailNotAuthorizedDescription": "Your email does not have access to this system. Only emails with @vnuhcm.edu.vn domain or pre-registered accounts can login.",
+    "defaultMessage": "Unauthorized Access",
+    "defaultDescription": "You don't have permission to access this resource. Please contact the administrator for support.",
+    "backToLogin": "Back to Login",
+    "contactSupport": "Contact Support",
+    "howToGetAccess": "How to get access?",
+    "step1": "Use VNUHCM email (@vnuhcm.edu.vn) to login",
+    "step2": "Or contact system administrator to register an account",
+    "step3": "Email: support@vnuhcm.edu.vn or hotline: 028 3724 4810"
+  }
+}
