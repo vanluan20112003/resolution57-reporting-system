@@ -1,53 +1,25 @@
 import { useState } from 'react'
-import { Layout, Menu, Avatar, Dropdown, Button, Space, Typography } from 'antd'
+import { Layout, Menu, Space, Typography, Button } from 'antd'
 import {
   HomeOutlined,
   DatabaseOutlined,
   ApiOutlined,
   FileTextOutlined,
-  UserOutlined,
-  LogoutOutlined,
-  DownOutlined,
-  BellOutlined,
+  MenuOutlined,
 } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 import ResolutionList from '../components/Dashboard/ResolutionList'
+import { UserDropdown } from '../features/user'
+import { useAuth } from '../shared/hooks'
 import '../styles/DashboardPage.css'
 
 const { Header, Sider, Content } = Layout
-const { Text } = Typography
+const { Text, Title } = Typography
 
 function DashboardPage() {
   const [collapsed, setCollapsed] = useState<boolean>(false)
   const [selectedMenu, setSelectedMenu] = useState<string>('1')
-
-  const handleLogout = () => {
-    // Clear localStorage
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
-    localStorage.removeItem('token_expires_at')
-
-    // Redirect to login
-    window.location.href = '/login'
-  }
-
-  const userMenuItems: MenuProps['items'] = [
-    {
-      key: 'profile',
-      label: 'Thông tin cá nhân',
-      icon: <UserOutlined />,
-    },
-    {
-      type: 'divider',
-    },
-    {
-      key: 'logout',
-      label: 'Đăng xuất',
-      icon: <LogoutOutlined />,
-      danger: true,
-      onClick: handleLogout,
-    },
-  ]
+  const { user, isLoading } = useAuth()
 
   const menuItems: MenuProps['items'] = [
     {
@@ -74,70 +46,88 @@ function DashboardPage() {
 
   return (
     <Layout className="dashboard-layout">
-      {/* Sidebar */}
-      <Sider
-        collapsible
-        collapsed={collapsed}
-        onCollapse={(value) => setCollapsed(value)}
-        width={250}
-        className="dashboard-sider"
-      >
-        <div className="dashboard-logo">
-          <div className="logo-icon">
-            <img src="https://pms.vnuhcm.edu.vn/logo.png" alt="Logo" />
+      {/* Header - Fixed at top, above everything */}
+      <Header className="dashboard-header">
+        <div className="header-left">
+          <div className="vietnam-flag">
+            <img
+              src="https://nq57.vn/static/appbuilder/images/nq57_logo.png"
+              alt="NQ57 Logo"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+              }}
+            />
           </div>
-          {!collapsed && (
-            <Text strong className="logo-text">
-              NQ57 Portal
-            </Text>
-          )}
+          <Title level={4} className="header-title" style={{ margin: 0 }}>
+            HỆ THỐNG THÔNG TIN GIÁM SÁT, ĐÁNH GIÁ VIỆC THỰC HIỆN NGHỊ QUYẾT SỐ 57-NQ/TW CỦA ĐHQG-TPHCM
+          </Title>
         </div>
 
-        <Menu
-          theme="light"
-          mode="inline"
-          selectedKeys={[selectedMenu]}
-          items={menuItems}
-          onClick={({ key }) => setSelectedMenu(key)}
-        />
-      </Sider>
-
-      {/* Main Content */}
-      <Layout>
-        {/* Header */}
-        <Header className="dashboard-header">
-          <div className="header-left">
-            <Text strong className="header-title">
-              Người dùng
-            </Text>
-          </div>
-
-          <div className="header-right">
-            <Space size="large">
-              {/* Notifications */}
-              <Button
-                type="text"
-                icon={<BellOutlined style={{ fontSize: '18px' }} />}
-                className="header-icon-btn"
-              />
-
-              {/* User Dropdown */}
-              <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-                <Space className="user-dropdown" style={{ cursor: 'pointer' }}>
-                  <Avatar icon={<UserOutlined />} />
-                  <Space size={4}>
-                    <Text strong>DHQGHCM</Text>
-                    <Text type="secondary">+@gphuc@...</Text>
-                  </Space>
-                  <DownOutlined style={{ fontSize: '12px' }} />
-                </Space>
-              </Dropdown>
+        <div className="header-right">
+          {!isLoading && user ? (
+            <UserDropdown user={user} />
+          ) : (
+            <Space>
+              <Text style={{ color: '#fff' }}>Đang tải...</Text>
             </Space>
-          </div>
-        </Header>
+          )}
+        </div>
+      </Header>
 
-        {/* Content */}
-        <Content className="dashboard-content">
+      {/* Content area with Sidebar and Main content */}
+      <Layout className="dashboard-body">
+        {/* Fixed Sidebar */}
+        <Sider
+          trigger={null}
+          collapsible
+          collapsed={collapsed}
+          width={280}
+          className="dashboard-sider"
+          style={{
+            overflow: 'auto',
+            height: 'calc(100vh - 64px)',
+            position: 'fixed',
+            left: 0,
+            top: 64,
+            bottom: 0,
+          }}
+        >
+          {/* Toggle button inside sidebar */}
+          <div className="sidebar-toggle-wrapper">
+            <Button
+              type="text"
+              icon={<MenuOutlined />}
+              onClick={() => setCollapsed(!collapsed)}
+              className="sidebar-toggle-btn"
+            />
+          </div>
+
+          <div className="dashboard-logo">
+            <div className="logo-icon">
+              <img src="https://pms.vnuhcm.edu.vn/logo.png" alt="Logo" />
+            </div>
+            {!collapsed && (
+              <Text strong className="logo-text">
+                NQ57 Portal
+              </Text>
+            )}
+          </div>
+
+          <Menu
+            theme="light"
+            mode="inline"
+            selectedKeys={[selectedMenu]}
+            items={menuItems}
+            onClick={({ key }) => setSelectedMenu(key)}
+          />
+        </Sider>
+
+        {/* Main Content */}
+        <Content
+          className="dashboard-content"
+          style={{ marginLeft: collapsed ? 80 : 280, transition: 'margin-left 0.2s' }}
+        >
           <div className="content-wrapper">
             {selectedMenu === '1' && <ResolutionList />}
             {selectedMenu === '2' && (

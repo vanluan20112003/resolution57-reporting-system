@@ -31,7 +31,7 @@ function ResolutionList() {
       stt: 1,
       title: 'Thăng, giảm bậc luận cuộc học của người học; công nhận, đình hoặc công nhận, đình hoặc hủy bỏ văn bằng thực công nhận, đình hoặc công nhận, đình hoặc hủy thực chuyển đổi cử cớ chật trình khóa học, có nghĩa, đóc máp cấu tạo',
       category: 'Thông báo',
-      issuer: 'Ban Chỉ đạo Thống dụng',
+      issuer: 'Ban Chỉ đạo Trung ương',
       issueDate: '08/11/2025',
       implementer: 'Võ Thúm Hằng',
       deadline: '08/11/2025',
@@ -42,7 +42,7 @@ function ResolutionList() {
       stt: 2,
       title: 'KẾT HOẠCH TỔCHỨC SỬ ĐIỀM hiếu Các: công nhận, đình hoặc trường tắc thống các công nhận, đình hoặc xử máy công nghĩa còn túng đổi không áp cấp công nhận khách sử thống đón cấp công nhận, đình hoặc hủy bỏ 2010/2025',
       category: 'Kế hoạch',
-      issuer: 'Ban Chỉ đạo Thống dụng',
+      issuer: 'Ban Chỉ đạo Trung ương',
       issueDate: '20/10/2025',
       implementer: 'Võ Thúm Hằng',
       deadline: '20/10/2025',
@@ -122,13 +122,6 @@ function ResolutionList() {
 
   return (
     <div className="resolution-list">
-      {/* Header with red background */}
-      <div className="list-header">
-        <h2 className="list-title">
-          HỆ THỐNG THÔNG TIN GIÁM SÁT, ĐÁNH GIÁ VIỆC THỰC HIỆN NGHỊ QUYẾT SỐ 57-NQ/TW
-        </h2>
-      </div>
-
       {/* Filters */}
       <div className="list-filters">
         <Space size="middle" wrap>
@@ -166,7 +159,7 @@ function ResolutionList() {
               placeholder="Chọn cơ quan"
             >
               <Select.Option value="all">Tất cả</Select.Option>
-              <Select.Option value="bcd">Ban Chỉ đạo Thống dụng</Select.Option>
+              <Select.Option value="bcd">Ban Chỉ đạo Trung ương</Select.Option>
             </Select>
           </div>
 
