@@ -1,0 +1,71 @@
+/* User Management Modal Styles */
+
+.user-management-modal .ant-modal-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.user-management-modal .ant-form-item {
+  margin-bottom: 16px;
+}
+
+.user-management-modal .ant-divider-horizontal.ant-divider-with-text-left {
+  margin: 16px 0;
+}
+
+.user-management-modal .ant-divider-horizontal.ant-divider-with-text-left:first-child {
+  margin-top: 0;
+}
+
+.user-management-modal .ant-select-selector {
+  padding: 4px 11px;
+}
+
+.user-management-modal .ant-select-selection-item .ant-tag {
+  margin-right: 8px;
+}
+
+.user-management-modal .ant-form-item-extra {
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-top: 4px;
+}
+
+/* Switch style */
+.user-management-modal .ant-switch {
+  min-width: 60px;
+}
+
+/* Input prefix icons */
+.user-management-modal .anticon-user,
+.user-management-modal .anticon-mail,
+.user-management-modal .anticon-phone,
+.user-management-modal .anticon-lock {
+  color: #1890ff;
+}
+
+/* Divider section headers */
+.user-management-modal .ant-divider-inner-text {
+  font-size: 14px;
+}
+
+/* Modal footer buttons */
+.user-management-modal .ant-modal-footer {
+  padding: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+/* Form validation */
+.user-management-modal .ant-form-item-has-error .ant-input,
+.user-management-modal .ant-form-item-has-error .ant-input-affix-wrapper,
+.user-management-modal .ant-form-item-has-error .ant-select-selector {
+  border-color: #ff4d4f !important;
+}
+
+/* Disabled input style */
+.user-management-modal .ant-input-disabled,
+.user-management-modal .ant-input-affix-wrapper-disabled {
+  background-color: #f5f5f5;
+  color: #8c8c8c;
+  cursor: not-allowed;
+}

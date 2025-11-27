@@ -383,6 +383,7 @@
 .dashboard-content {
   margin: 0;
   padding: var(--spacing-xl);
+  padding-top: calc(var(--spacing-xl) + 20px);
   background: var(--gray-100);
   min-height: calc(100vh - 80px);
 }
@@ -390,6 +391,7 @@
 .content-wrapper {
   padding: 0;
   min-height: calc(100vh - 200px);
+  margin-top: var(--spacing-md);
 }
 
 .empty-content {
@@ -793,4 +795,22 @@
 .ant-card:hover {
   box-shadow: var(--shadow-lg);
   transform: translateY(-2px);
+}
+
+/* Ensure content stays below header and impersonation banner */
+.dashboard-content .ant-card,
+.dashboard-content .ant-table-wrapper {
+  position: relative;
+  z-index: 1;
+  margin-top: var(--spacing-md);
+}
+
+/* First card should have more top margin */
+.dashboard-content > .content-wrapper > .ant-card:first-child {
+  margin-top: var(--spacing-lg);
+}
+
+/* Make sure header and banner are above content */
+.dashboard-header {
+  z-index: 100;
 }

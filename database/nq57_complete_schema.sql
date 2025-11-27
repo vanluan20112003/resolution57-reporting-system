@@ -51,7 +51,9 @@ CREATE TABLE `nq57_users` (
   `first_name` VARCHAR(100) NOT NULL COMMENT 'Tên',
   `last_name` VARCHAR(100) NOT NULL COMMENT 'Họ',
   `phone` VARCHAR(20) DEFAULT NULL,
+  `avatar` VARCHAR(500) DEFAULT NULL COMMENT 'Avatar URL từ Google',
   `avatar_url` VARCHAR(500) DEFAULT NULL,
+  `google_id` VARCHAR(255) DEFAULT NULL COMMENT 'Google OAuth User ID',
   `is_vnuhcm` TINYINT(1) DEFAULT 0 COMMENT 'Thuộc ĐHQG',
   `status` VARCHAR(20) NOT NULL DEFAULT 'active' COMMENT 'active, inactive, locked',
   `employee_id` VARCHAR(50) DEFAULT NULL COMMENT 'Mã nhân viên',
@@ -64,6 +66,7 @@ CREATE TABLE `nq57_users` (
   `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
   INDEX `idx_email` (`email`),
+  INDEX `idx_google_id` (`google_id`),
   INDEX `idx_employee_id` (`employee_id`),
   INDEX `idx_status_role` (`status`, `role`),
   INDEX `idx_organization_id` (`organization_id`),
