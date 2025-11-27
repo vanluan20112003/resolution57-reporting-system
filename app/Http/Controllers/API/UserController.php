@@ -26,19 +26,7 @@ class UserController extends Controller
         ]);
 
         try {
-            // Check if user has permission (OPERATOR or ADMIN only)
-            if (!in_array($request->user()->role, ['OPERATOR', 'ADMIN'])) {
-                Log::warning('Unauthorized user access attempt to user management', [
-                    'user_id' => $request->user()->id,
-                    'user_role' => $request->user()->role,
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized. Only OPERATOR and ADMIN can access this resource.',
-                ], 403);
-            }
-
+            // Permission check handled by middleware
             $query = User::query();
 
             // Filter by role
@@ -113,19 +101,7 @@ class UserController extends Controller
         ]);
 
         try {
-            // Check if user has permission (OPERATOR or ADMIN only)
-            if (!in_array($request->user()->role, ['OPERATOR', 'ADMIN'])) {
-                Log::warning('Unauthorized user creation attempt', [
-                    'user_id' => $request->user()->id,
-                    'user_role' => $request->user()->role,
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized. Only OPERATOR and ADMIN can create users.',
-                ], 403);
-            }
-
+            // Permission check handled by middleware
             $validator = Validator::make($request->all(), [
                 'email' => 'required|email|unique:nq57_users,email',
                 'first_name' => 'required|string|max:100',
@@ -152,7 +128,7 @@ class UserController extends Controller
             }
 
             // OPERATOR không được tạo ADMIN hoặc OPERATOR khác
-            if ($request->user()->role === 'OPERATOR' && in_array($request->role, ['ADMIN', 'OPERATOR'])) {
+            if ($request->user()->isOperator() && in_array($request->role, ['ADMIN', 'OPERATOR'])) {
                 Log::warning('OPERATOR attempted to create ADMIN/OPERATOR user', [
                     'operator_id' => $request->user()->id,
                     'operator_email' => $request->user()->email,
@@ -209,17 +185,10 @@ class UserController extends Controller
     /**
      * Display the specified user
      */
-    public function show(Request $request, string $id): JsonResponse
+    public function show(string $id): JsonResponse
     {
         try {
-            // Check if user has permission
-            if (!in_array($request->user()->role, ['OPERATOR', 'ADMIN'])) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized.',
-                ], 403);
-            }
-
+            // Permission check handled by middleware
             $user = User::find($id);
 
             if (!$user) {
@@ -255,20 +224,7 @@ class UserController extends Controller
         ]);
 
         try {
-            // Check if user has permission
-            if (!in_array($request->user()->role, ['OPERATOR', 'ADMIN'])) {
-                Log::warning('Unauthorized user update attempt', [
-                    'user_id' => $request->user()->id,
-                    'user_role' => $request->user()->role,
-                    'target_user_id' => $id,
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized.',
-                ], 403);
-            }
-
+            // Permission check handled by middleware
             $user = User::find($id);
 
             if (!$user) {
@@ -308,7 +264,7 @@ class UserController extends Controller
             }
 
             // OPERATOR không được update user thành ADMIN hoặc OPERATOR
-            if ($request->user()->role === 'OPERATOR' && $request->has('role') && in_array($request->role, ['ADMIN', 'OPERATOR'])) {
+            if ($request->user()->isOperator() && $request->has('role') && in_array($request->role, ['ADMIN', 'OPERATOR'])) {
                 Log::warning('OPERATOR attempted to update user to ADMIN/OPERATOR role', [
                     'operator_id' => $request->user()->id,
                     'operator_email' => $request->user()->email,
@@ -380,19 +336,7 @@ class UserController extends Controller
         ]);
 
         try {
-            // Check if user has permission
-            if (!in_array($request->user()->role, ['OPERATOR', 'ADMIN'])) {
-                Log::warning('Unauthorized user deletion attempt', [
-                    'user_id' => $request->user()->id,
-                    'user_role' => $request->user()->role,
-                    'target_user_id' => $id,
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized.',
-                ], 403);
-            }
+            // Permission check handled by middleware
 
             // Prevent user from deleting themselves
             if ($request->user()->id === $id) {
@@ -465,19 +409,7 @@ class UserController extends Controller
         ]);
 
         try {
-            // Only ADMIN can impersonate
-            if ($request->user()->role !== 'ADMIN') {
-                Log::warning('Unauthorized impersonation attempt', [
-                    'user_id' => $request->user()->id,
-                    'user_role' => $request->user()->role,
-                    'target_user_id' => $id,
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized. Only ADMIN can impersonate users.',
-                ], 403);
-            }
+            // Permission check handled by middleware (role:ADMIN)
 
             // Cannot impersonate yourself
             if ($request->user()->id === $id) {

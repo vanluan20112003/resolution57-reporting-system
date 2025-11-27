@@ -104,16 +104,21 @@ Route::prefix('v1')->group(function () {
     });
 
     // User Management Routes (OPERATOR and ADMIN only)
-    Route::middleware('auth:sanctum')->prefix('users')->group(function () {
-        Route::get('/', [UserController::class, 'index']);
-        Route::post('/', [UserController::class, 'store']);
-        Route::get('/{id}', [UserController::class, 'show']);
-        Route::put('/{id}', [UserController::class, 'update']);
-        Route::delete('/{id}', [UserController::class, 'destroy']);
+    Route::middleware(['auth:sanctum', 'role:OPERATOR,ADMIN'])->prefix('users')->group(function () {
+        // View and list users
+        Route::get('/', [UserController::class, 'index'])->middleware('permission:users.view');
+        Route::get('/{id}', [UserController::class, 'show'])->middleware('permission:users.view');
+
+        // Create, update, delete users
+        Route::post('/', [UserController::class, 'store'])->middleware('permission:users.create');
+        Route::put('/{id}', [UserController::class, 'update'])->middleware('permission:users.update');
+        Route::delete('/{id}', [UserController::class, 'destroy'])->middleware('permission:users.delete');
 
         // Impersonation (ADMIN only)
-        Route::post('/{id}/impersonate', [UserController::class, 'impersonate']);
-        Route::post('/stop-impersonate', [UserController::class, 'stopImpersonate']);
+        Route::middleware('role:ADMIN')->group(function () {
+            Route::post('/{id}/impersonate', [UserController::class, 'impersonate']);
+            Route::post('/stop-impersonate', [UserController::class, 'stopImpersonate']);
+        });
     });
 
     // SSO Authentication Routes (Simple Test)
