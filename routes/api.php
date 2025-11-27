@@ -114,12 +114,12 @@ Route::prefix('v1')->group(function () {
         Route::put('/{id}', [UserController::class, 'update'])->middleware('permission:users.update');
         Route::delete('/{id}', [UserController::class, 'destroy'])->middleware('permission:users.delete');
 
-        // Impersonation (ADMIN only)
-        Route::middleware('role:ADMIN')->group(function () {
-            Route::post('/{id}/impersonate', [UserController::class, 'impersonate']);
-            Route::post('/stop-impersonate', [UserController::class, 'stopImpersonate']);
-        });
+        // Start impersonation (ADMIN only)
+        Route::post('/{id}/impersonate', [UserController::class, 'impersonate'])->middleware('role:ADMIN');
     });
+
+    // Stop impersonation - Must be outside role:ADMIN group so impersonated users can call it
+    Route::middleware('auth:sanctum')->post('/users/stop-impersonate', [UserController::class, 'stopImpersonate']);
 
     // SSO Authentication Routes (Simple Test)
     Route::prefix('auth/sso')->group(function () {

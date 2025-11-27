@@ -479,8 +479,9 @@ class UserController extends Controller
     public function stopImpersonate(Request $request): JsonResponse
     {
         Log::info('=== User Management: Stop Impersonation ===', [
-            'user_id' => $request->user()->id,
-            'user_email' => $request->user()->email,
+            'current_user_id' => $request->user()->id,
+            'current_user_email' => $request->user()->email,
+            'current_user_role' => $request->user()->role,
         ]);
 
         try {
@@ -499,11 +500,25 @@ class UserController extends Controller
 
             $adminUser = User::find($request->admin_id);
 
-            if (!$adminUser || $adminUser->role !== 'ADMIN') {
+            // Verify the admin user exists and is actually an ADMIN
+            if (!$adminUser || !$adminUser->isAdmin()) {
+                Log::warning('Stop impersonation failed: Invalid admin user', [
+                    'provided_admin_id' => $request->admin_id,
+                    'current_user_id' => $request->user()->id,
+                ]);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Original admin not found',
+                    'message' => 'Original admin not found or invalid',
                 ], 404);
+            }
+
+            // Verify the current user is different from the admin (actually impersonating)
+            if ($request->user()->id === $adminUser->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are not currently impersonating anyone',
+                ], 400);
             }
 
             // Revoke current impersonation token
