@@ -8,9 +8,11 @@ import {
   FileTextOutlined,
   MenuOutlined,
   UserOutlined,
+  BellOutlined,
 } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 import ResolutionList from '../components/Dashboard/ResolutionList'
+import ActivityList from '../components/Dashboard/ActivityList'
 import { UserManagement } from '../components/UserManagement'
 import { UserDropdown } from '../features/user'
 import { useAuth } from '../shared/hooks'
@@ -22,19 +24,21 @@ const { Text, Title } = Typography
 
 // Tab mapping constants (outside component to prevent re-creation)
 const TAB_TO_KEY: Record<string, string> = {
-  'home': '1',
-  'reports': '2',
-  'kpi': '3',
-  'analytics': '4',
-  'users': '5',
+  'activities': '1',
+  'home': '2',
+  'reports': '3',
+  'kpi': '4',
+  'analytics': '5',
+  'users': '6',
 }
 
 const KEY_TO_TAB: Record<string, string> = {
-  '1': 'home',
-  '2': 'reports',
-  '3': 'kpi',
-  '4': 'analytics',
-  '5': 'users',
+  '1': 'activities',
+  '2': 'home',
+  '3': 'reports',
+  '4': 'kpi',
+  '5': 'analytics',
+  '6': 'users',
 }
 
 function DashboardPage() {
@@ -52,7 +56,7 @@ function DashboardPage() {
       return TAB_TO_KEY[tab]
     }
 
-    return localStorage.getItem('dashboard_selected_menu') || '1'
+    return localStorage.getItem('dashboard_selected_menu') || '2'
   }
 
   const [selectedMenu, setSelectedMenu] = useState<string>(getInitialMenu())
@@ -76,9 +80,9 @@ function DashboardPage() {
     // Only validate after user data is loaded (not during loading)
     if (isLoading) return
 
-    // If user is not OPERATOR/ADMIN and trying to access menu '5' (User Management)
-    if (selectedMenu === '5' && !canManageUsers) {
-      handleMenuChange('1') // Redirect to home
+    // If user is not OPERATOR/ADMIN and trying to access menu '6' (User Management)
+    if (selectedMenu === '6' && !canManageUsers) {
+      handleMenuChange('2') // Redirect to home
     }
   }, [selectedMenu, canManageUsers, isLoading, handleMenuChange])
 
@@ -87,21 +91,26 @@ function DashboardPage() {
     const items: MenuProps['items'] = [
       {
         key: '1',
+        icon: <BellOutlined />,
+        label: 'Hoạt động',
+      },
+      {
+        key: '2',
         icon: <HomeOutlined />,
         label: 'Trang chủ',
       },
       {
-        key: '2',
+        key: '3',
         icon: <DatabaseOutlined />,
         label: 'Báo cáo',
       },
       {
-        key: '3',
+        key: '4',
         icon: <ApiOutlined />,
         label: 'KPI',
       },
       {
-        key: '4',
+        key: '5',
         icon: <FileTextOutlined />,
         label: 'Phân tích',
       },
@@ -110,7 +119,7 @@ function DashboardPage() {
     // Add User Management menu for OPERATOR and ADMIN only
     if (canManageUsers) {
       items.push({
-        key: '5',
+        key: '6',
         icon: <UserOutlined />,
         label: 'Quản lý người dùng',
       })
@@ -210,26 +219,31 @@ function DashboardPage() {
           style={{ marginLeft: collapsed ? 80 : 280, transition: 'margin-left 0.2s' }}
         >
           <div className="content-wrapper">
-            {selectedMenu === '1' && <ResolutionList />}
-            {selectedMenu === '2' && (
+            {selectedMenu === '1' && (
+              <div className="activity-content">
+                <ActivityList />
+              </div>
+            )}
+            {selectedMenu === '2' && <ResolutionList />}
+            {selectedMenu === '3' && (
               <div className="empty-content">
                 <FileTextOutlined style={{ fontSize: '48px', color: '#ccc' }} />
                 <Text type="secondary">Báo cáo - Đang phát triển</Text>
               </div>
             )}
-            {selectedMenu === '3' && (
+            {selectedMenu === '4' && (
               <div className="empty-content">
                 <ApiOutlined style={{ fontSize: '48px', color: '#ccc' }} />
                 <Text type="secondary">KPI - Đang phát triển</Text>
               </div>
             )}
-            {selectedMenu === '4' && (
+            {selectedMenu === '5' && (
               <div className="empty-content">
                 <FileTextOutlined style={{ fontSize: '48px', color: '#ccc' }} />
                 <Text type="secondary">Phân tích - Đang phát triển</Text>
               </div>
             )}
-            {selectedMenu === '5' && canManageUsers && <UserManagement />}
+            {selectedMenu === '6' && canManageUsers && <UserManagement />}
           </div>
         </Content>
       </Layout>
