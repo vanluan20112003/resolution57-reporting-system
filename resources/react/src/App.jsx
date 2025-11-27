@@ -6,6 +6,8 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import GoogleCallbackPage from './pages/GoogleCallbackPage'
 import UnauthorizedPage from './pages/UnauthorizedPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -30,6 +32,10 @@ function App() {
         <Route path="/login" element={
           token ? <Navigate to="/dashboard" replace /> : <LoginPage />
         } />
+
+        {/* Password Reset Routes */}
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Google OAuth Callback - No auth required */}
         <Route path="/auth/callback" element={<GoogleCallbackPage />} />

@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\API\GoogleAuthController;
 use App\Http\Controllers\API\AuthController;
+use App\Http\Controllers\API\UserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -84,6 +85,10 @@ Route::prefix('v1')->group(function () {
         // Email/Password Login
         Route::post('/login', [AuthController::class, 'login']);
 
+        // Password Reset Routes
+        Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+        Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+
         // Google OAuth Routes
         Route::prefix('google')->group(function () {
             Route::get('/redirect', [GoogleAuthController::class, 'redirectToGoogle']);
@@ -95,6 +100,20 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:sanctum')->prefix('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
+        Route::post('/change-password', [AuthController::class, 'changePassword']);
+    });
+
+    // User Management Routes (OPERATOR and ADMIN only)
+    Route::middleware('auth:sanctum')->prefix('users')->group(function () {
+        Route::get('/', [UserController::class, 'index']);
+        Route::post('/', [UserController::class, 'store']);
+        Route::get('/{id}', [UserController::class, 'show']);
+        Route::put('/{id}', [UserController::class, 'update']);
+        Route::delete('/{id}', [UserController::class, 'destroy']);
+
+        // Impersonation (ADMIN only)
+        Route::post('/{id}/impersonate', [UserController::class, 'impersonate']);
+        Route::post('/stop-impersonate', [UserController::class, 'stopImpersonate']);
     });
 
     // SSO Authentication Routes (Simple Test)

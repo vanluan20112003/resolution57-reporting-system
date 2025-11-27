@@ -3,11 +3,13 @@
  * Displays user menu with avatar, profile info, and actions
  */
 
+import { useState } from 'react'
 import { Dropdown, Avatar, Typography, message } from 'antd'
 import { UserOutlined, LogoutOutlined, LockOutlined, QuestionCircleOutlined, BellOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 import { useLogout } from '../../auth/hooks/useLogout'
 import { LoadingOverlay } from '../../../shared/components'
+import ChangePasswordModal from '../../../components/ChangePasswordModal'
 
 const { Text } = Typography
 
@@ -26,9 +28,10 @@ interface UserDropdownProps {
 
 function UserDropdown({ user }: UserDropdownProps) {
   const { logout, loading } = useLogout()
+  const [changePasswordVisible, setChangePasswordVisible] = useState(false)
 
   const handleChangePassword = () => {
-    message.info('Chức năng đổi mật khẩu đang được phát triển')
+    setChangePasswordVisible(true)
   }
 
   const handleHelp = () => {
@@ -125,6 +128,10 @@ function UserDropdown({ user }: UserDropdownProps) {
   return (
     <>
       <LoadingOverlay loading={loading} message="Đang đăng xuất..." />
+      <ChangePasswordModal
+        visible={changePasswordVisible}
+        onClose={() => setChangePasswordVisible(false)}
+      />
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         {/* Notification Icon */}
         <div

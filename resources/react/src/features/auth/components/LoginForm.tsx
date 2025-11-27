@@ -6,6 +6,7 @@
 import { Form, Input, Button } from 'antd'
 import { UserOutlined, LockOutlined } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { useLogin } from '../hooks/useLogin'
 import { LoadingOverlay } from '../../../shared/components'
 
@@ -83,6 +84,20 @@ function LoginForm({ onSuccess }: LoginFormProps) {
             disabled={loading}
           />
         </Form.Item>
+
+        {/* Forgot Password Link */}
+        <div style={{ textAlign: 'right', marginBottom: 16 }}>
+          <Link
+            to="/forgot-password"
+            style={{
+              color: '#667eea',
+              fontSize: 14,
+              fontWeight: 500
+            }}
+          >
+            Quên mật khẩu?
+          </Link>
+        </div>
 
         <Form.Item>
           <Button
