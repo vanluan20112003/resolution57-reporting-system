@@ -4,6 +4,7 @@
 
 import { useState } from 'react'
 import { logout as logoutApi } from '../api/authApi'
+import { disableDevToolsBypass } from '../../../utils/antiDevTools'
 
 interface UseLogoutResult {
   logout: () => Promise<void>
@@ -27,6 +28,9 @@ export const useLogout = (): UseLogoutResult => {
       localStorage.removeItem('access_token')
       localStorage.removeItem('user')
       localStorage.removeItem('token_type')
+
+      // Clear DevTools bypass for ADMIN (without reload since we're redirecting)
+      localStorage.removeItem('__dev_bypass__')
 
       // Force redirect to login page with page reload
       window.location.href = '/login'

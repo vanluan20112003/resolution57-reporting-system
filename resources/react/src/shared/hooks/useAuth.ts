@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react'
 import type { UserData } from '../../features/user'
+import { enableDevToolsBypass } from '../../utils/antiDevTools'
 
 interface UseAuthResult {
   user: UserData | null
@@ -24,6 +25,15 @@ export function useAuth(): UseAuthResult {
       if (token && userStr) {
         const userData = JSON.parse(userStr)
         setUser(userData)
+
+        // Auto-enable DevTools bypass for ADMIN in production
+        if (userData.role === 'ADMIN' && import.meta.env.PROD) {
+          // Only enable if not already enabled (to avoid reload loop)
+          const existingBypass = localStorage.getItem('__dev_bypass__')
+          if (!existingBypass) {
+            enableDevToolsBypass(userData)
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to parse user data:', error)

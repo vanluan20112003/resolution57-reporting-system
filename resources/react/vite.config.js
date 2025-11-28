@@ -30,27 +30,27 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: '../../public/build',
+    outDir: 'dist',
     emptyOutDir: true,
-    manifest: true,
-    // Minify và obfuscate code
-    minify: 'terser',
+    manifest: false,
+    // Minify với esbuild (an toàn hơn terser)
+    minify: 'esbuild',
+    // Drop console và debugger với esbuild
+    esbuild: {
+      drop: ['console', 'debugger'],
+    },
     terserOptions: {
       compress: {
         drop_console: true,        // Xóa console.log
         drop_debugger: true,        // Xóa debugger
-        pure_funcs: ['console.log', 'console.info', 'console.debug'], // Xóa các console functions
-        passes: 3,                  // Số lần nén (càng nhiều càng khó đọc)
+        passes: 2,                  // Giảm số lần nén để tránh break code
       },
       mangle: {
-        toplevel: true,             // Đổi tên biến toàn cục
-        properties: {
-          regex: /^_/,              // Đổi tên properties bắt đầu bằng _
-        },
+        toplevel: false,            // Không đổi tên biến toàn cục
+        // properties: false,       // Tắt mangle properties để tránh break
       },
       format: {
         comments: false,            // Xóa tất cả comments
-        ascii_only: true,           // Chỉ dùng ASCII
       },
     },
     // Tắt source maps (quan trọng!)
@@ -59,25 +59,14 @@ export default defineConfig({
     cssCodeSplit: true,
     cssMinify: true,
     rollupOptions: {
-      input: './src/main.jsx',
+      input: './index.html',
       output: {
         // Tạo tên file ngẫu nhiên
         chunkFileNames: 'assets/[hash].js',
         entryFileNames: 'assets/[hash].js',
         assetFileNames: 'assets/[hash].[ext]',
-        // Tách code thành nhiều chunks nhỏ
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            // Tách vendor thành nhiều chunks nhỏ
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'react-vendor';
-            }
-            if (id.includes('antd')) {
-              return 'antd-vendor';
-            }
-            return 'vendor';
-          }
-        },
+        // Đơn giản hóa chunks để tránh lỗi
+        manualChunks: undefined,
       },
     },
   },
