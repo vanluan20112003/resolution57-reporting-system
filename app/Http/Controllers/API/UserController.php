@@ -436,13 +436,23 @@ class UserController extends Controller
             $adminUser = $request->user();
 
             // Create new token for impersonated user
-            $token = $targetUser->createToken('impersonation', ['*'])->plainTextToken;
+            $newToken = $targetUser->createToken('impersonation', ['*']);
+            $token = $newToken->plainTextToken;
+
+            // Store impersonation session in database for security tracking
+            \App\Models\ImpersonationSession::create([
+                'admin_id' => $adminUser->id,
+                'impersonated_user_id' => $targetUser->id,
+                'token_id' => $newToken->accessToken->id,
+                'started_at' => now(),
+            ]);
 
             Log::info('User impersonation started', [
                 'admin_id' => $adminUser->id,
                 'admin_email' => $adminUser->email,
                 'impersonated_user_id' => $targetUser->id,
                 'impersonated_user_email' => $targetUser->email,
+                'token_id' => $newToken->accessToken->id,
             ]);
 
             return response()->json([
@@ -475,6 +485,7 @@ class UserController extends Controller
 
     /**
      * Stop impersonation and return to admin account
+     * SECURITY FIX: Now verifies the impersonation session is legitimate
      */
     public function stopImpersonate(Request $request): JsonResponse
     {
@@ -485,41 +496,57 @@ class UserController extends Controller
         ]);
 
         try {
-            // Get original admin ID from request
-            $validator = Validator::make($request->all(), [
-                'admin_id' => 'required|string|exists:nq57_users,id',
-            ]);
+            $currentUser = $request->user();
+            $currentTokenId = $request->user()->currentAccessToken()->id;
 
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid admin ID',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
+            // SECURITY: Find the legitimate impersonation session for this token
+            $impersonationSession = \App\Models\ImpersonationSession::where('token_id', $currentTokenId)
+                ->whereNull('ended_at')
+                ->first();
 
-            $adminUser = User::find($request->admin_id);
-
-            // Verify the admin user exists and is actually an ADMIN
-            if (!$adminUser || !$adminUser->isAdmin()) {
-                Log::warning('Stop impersonation failed: Invalid admin user', [
-                    'provided_admin_id' => $request->admin_id,
-                    'current_user_id' => $request->user()->id,
+            // Verify this is a legitimate impersonation session
+            if (!$impersonationSession) {
+                Log::warning('Stop impersonation failed: No active impersonation session found', [
+                    'current_user_id' => $currentUser->id,
+                    'token_id' => $currentTokenId,
                 ]);
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Original admin not found or invalid',
+                    'message' => 'No active impersonation session found. You are not currently being impersonated.',
+                ], 403);
+            }
+
+            // SECURITY: Verify the current user matches the impersonated user in the session
+            if ($impersonationSession->impersonated_user_id !== $currentUser->id) {
+                Log::error('SECURITY ALERT: Impersonation session mismatch', [
+                    'current_user_id' => $currentUser->id,
+                    'session_impersonated_user_id' => $impersonationSession->impersonated_user_id,
+                    'token_id' => $currentTokenId,
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Security error: Session mismatch',
+                ], 403);
+            }
+
+            // Get the original admin from the session
+            $adminUser = User::find($impersonationSession->admin_id);
+
+            if (!$adminUser || !$adminUser->isAdmin()) {
+                Log::error('Stop impersonation failed: Original admin not found', [
+                    'admin_id' => $impersonationSession->admin_id,
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Original admin not found',
                 ], 404);
             }
 
-            // Verify the current user is different from the admin (actually impersonating)
-            if ($request->user()->id === $adminUser->id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You are not currently impersonating anyone',
-                ], 400);
-            }
+            // Mark the impersonation session as ended
+            $impersonationSession->end();
 
             // Revoke current impersonation token
             $request->user()->currentAccessToken()->delete();
@@ -527,11 +554,12 @@ class UserController extends Controller
             // Create new token for admin
             $token = $adminUser->createToken('admin-session', ['*'])->plainTextToken;
 
-            Log::info('User impersonation stopped', [
-                'impersonated_user_id' => $request->user()->id,
-                'impersonated_user_email' => $request->user()->email,
+            Log::info('User impersonation stopped successfully', [
+                'impersonated_user_id' => $currentUser->id,
+                'impersonated_user_email' => $currentUser->email,
                 'admin_id' => $adminUser->id,
                 'admin_email' => $adminUser->email,
+                'session_id' => $impersonationSession->id,
             ]);
 
             return response()->json([
