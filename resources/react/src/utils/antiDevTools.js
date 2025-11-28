@@ -1,9 +1,28 @@
 /**
  * Anti DevTools Protection
  * Chống mở DevTools trong production
+ * ADMIN có thể bypass bằng cách set flag trong localStorage
  */
 
 let devtoolsOpen = false;
+
+// Kiểm tra user có phải ADMIN và được phép bypass không
+const canBypassProtection = () => {
+  try {
+    // Check localStorage flag
+    const bypassFlag = localStorage.getItem('__dev_bypass__');
+    if (bypassFlag) {
+      const data = JSON.parse(bypassFlag);
+      // Check expiry và role
+      if (data.expires > Date.now() && data.role === 'ADMIN') {
+        return true;
+      }
+    }
+    return false;
+  } catch (e) {
+    return false;
+  }
+};
 
 // Phát hiện DevTools mở
 const detectDevTools = () => {
@@ -16,6 +35,12 @@ const detectDevTools = () => {
 
 // Vô hiệu hóa DevTools
 export const disableDevTools = () => {
+  // Nếu ADMIN bypass, không áp dụng protection
+  if (canBypassProtection()) {
+    console.log('%c🔓 ADMIN Mode: DevTools protection bypassed', 'color: green; font-size: 14px; font-weight: bold;');
+    return () => {}; // Return empty cleanup function
+  }
+
   // 1. Detect DevTools với console trick
   const devtools = /./;
   devtools.toString = function() {
@@ -24,6 +49,13 @@ export const disableDevTools = () => {
 
   // Kiểm tra liên tục
   const checkInterval = setInterval(() => {
+    // Re-check bypass trong loop (trường hợp admin login sau)
+    if (canBypassProtection()) {
+      clearInterval(checkInterval);
+      console.log('%c🔓 ADMIN Mode: DevTools protection disabled', 'color: green; font-size: 14px; font-weight: bold;');
+      return;
+    }
+
     console.log('%c', devtools);
     console.clear();
 
@@ -33,13 +65,17 @@ export const disableDevTools = () => {
   }, 1000);
 
   // 2. Vô hiệu hóa chuột phải
-  document.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    return false;
-  });
+  const handleContextMenu = (e) => {
+    if (!canBypassProtection()) {
+      e.preventDefault();
+      return false;
+    }
+  };
+  document.addEventListener('contextmenu', handleContextMenu);
 
   // 3. Vô hiệu hóa phím tắt
-  document.addEventListener('keydown', (e) => {
+  const handleKeyDown = (e) => {
+    if (canBypassProtection()) return; // ADMIN bypass
     // F12
     if (e.keyCode === 123) {
       e.preventDefault();
@@ -75,28 +111,41 @@ export const disableDevTools = () => {
       e.preventDefault();
       return false;
     }
-  });
+  };
+  document.addEventListener('keydown', handleKeyDown);
 
   // 4. Xóa console định kỳ
-  setInterval(() => {
-    console.clear();
+  const clearConsoleInterval = setInterval(() => {
+    if (!canBypassProtection()) {
+      console.clear();
+    }
   }, 100);
 
   // 5. Ngăn select text (tùy chọn)
-  document.addEventListener('selectstart', (e) => {
-    e.preventDefault();
-    return false;
-  });
+  const handleSelectStart = (e) => {
+    if (!canBypassProtection()) {
+      e.preventDefault();
+      return false;
+    }
+  };
+  document.addEventListener('selectstart', handleSelectStart);
 
   // 6. Phát hiện resize window
-  window.addEventListener('resize', () => {
-    if (detectDevTools()) {
+  const handleResize = () => {
+    if (!canBypassProtection() && detectDevTools()) {
       handleDevToolsDetected();
     }
-  });
+  };
+  window.addEventListener('resize', handleResize);
 
+  // Cleanup function
   return () => {
     clearInterval(checkInterval);
+    clearInterval(clearConsoleInterval);
+    document.removeEventListener('contextmenu', handleContextMenu);
+    document.removeEventListener('keydown', handleKeyDown);
+    document.removeEventListener('selectstart', handleSelectStart);
+    window.removeEventListener('resize', handleResize);
   };
 };
 
@@ -113,6 +162,12 @@ const handleDevToolsDetected = () => {
 
 // Disable console functions
 export const disableConsole = () => {
+  // ADMIN bypass
+  if (canBypassProtection()) {
+    console.log('%c🔓 ADMIN Mode: Console enabled', 'color: green; font-size: 14px; font-weight: bold;');
+    return;
+  }
+
   if (typeof window !== 'undefined') {
     window.console.log = () => {};
     window.console.info = () => {};
@@ -165,4 +220,59 @@ export const addWatermark = (text = '© NQ57 Portal') => {
     }
   `;
   document.head.appendChild(style);
+};
+
+/**
+ * Enable bypass protection for ADMIN
+ * Gọi function này sau khi ADMIN đăng nhập thành công
+ *
+ * @param {Object} user - User object with role property
+ * @param {number} duration - Thời gian bypass (ms), default 24 giờ
+ */
+export const enableDevToolsBypass = (user, duration = 24 * 60 * 60 * 1000) => {
+  if (user && user.role === 'ADMIN') {
+    const bypassData = {
+      role: 'ADMIN',
+      userId: user.id,
+      email: user.email,
+      expires: Date.now() + duration,
+      timestamp: Date.now()
+    };
+
+    localStorage.setItem('__dev_bypass__', JSON.stringify(bypassData));
+    console.log('%c✅ DevTools bypass enabled for ADMIN', 'color: green; font-size: 14px; font-weight: bold;');
+    console.log('Bypass expires in:', duration / (1000 * 60 * 60), 'hours');
+
+    // Reload để áp dụng
+    window.location.reload();
+  } else {
+    console.warn('Only ADMIN can enable DevTools bypass');
+  }
+};
+
+/**
+ * Disable bypass protection
+ * Tự động gọi khi logout hoặc hết hạn
+ */
+export const disableDevToolsBypass = () => {
+  localStorage.removeItem('__dev_bypass__');
+  console.log('%c🔒 DevTools bypass disabled', 'color: orange; font-size: 14px;');
+  window.location.reload();
+};
+
+/**
+ * Check bypass status
+ */
+export const checkBypassStatus = () => {
+  if (canBypassProtection()) {
+    const data = JSON.parse(localStorage.getItem('__dev_bypass__'));
+    const remainingTime = data.expires - Date.now();
+    console.log('%c✅ Bypass is ACTIVE', 'color: green; font-weight: bold;');
+    console.log('User:', data.email);
+    console.log('Expires in:', Math.round(remainingTime / (1000 * 60)), 'minutes');
+    return true;
+  } else {
+    console.log('%c❌ Bypass is INACTIVE', 'color: red; font-weight: bold;');
+    return false;
+  }
 };
