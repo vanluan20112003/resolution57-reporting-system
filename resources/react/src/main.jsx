@@ -11,6 +11,13 @@ import 'dayjs/locale/en'
 import App from './App.jsx'
 import './index.css'
 import i18n from './i18n' // Import i18n configuration
+import { disableDevTools, disableConsole } from './utils/antiDevTools'
+
+// Chỉ enable protection trong production
+if (import.meta.env.PROD) {
+  disableDevTools()
+  disableConsole()
+}
 
 // Cấu hình React Query
 const queryClient = new QueryClient({
