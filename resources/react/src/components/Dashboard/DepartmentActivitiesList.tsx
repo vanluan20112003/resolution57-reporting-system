@@ -12,7 +12,7 @@ import { mockActivities, mockActivityTypes, mockActivityFields, mockOrganization
 import { DataTable } from '../../shared/components/DataTable'
 import { getActivityColumns, statusConfig, formatBudget } from '../../shared/config/activityColumns'
 import ActivityFilters from '../../shared/components/Filters/ActivityFilters'
-import { ActivityCard } from '../../shared/components/Cards'
+import { ActivityCard, ActivityListItem } from '../../shared/components/Cards'
 
 dayjs.locale('vi')
 
@@ -270,7 +270,7 @@ function DepartmentActivitiesList() {
             </div>
           )}
 
-          {/* Activity List - Table/Card View */}
+          {/* Activity List - List/Card/Table View */}
           {filteredActivities.length > 0 && (
             <DataTable
               columns={columns}
@@ -285,6 +285,15 @@ function DepartmentActivitiesList() {
                 },
                 scroll: { x: 2400 },
               }}
+              listRenderer={(activity) => (
+                <ActivityListItem
+                  activity={activity}
+                  getActivityTypeName={getActivityTypeName}
+                  getActivityFieldName={getActivityFieldName}
+                  getOrganizationName={getOrganizationName}
+                  onViewDetail={handleViewDetail}
+                />
+              )}
               cardRenderer={(activity) => (
                 <ActivityCard
                   activity={activity}

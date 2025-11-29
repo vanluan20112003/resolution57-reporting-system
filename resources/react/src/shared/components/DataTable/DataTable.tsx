@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Card, Table, List, Segmented } from 'antd'
-import { AppstoreOutlined, UnorderedListOutlined } from '@ant-design/icons'
+import { AppstoreOutlined, UnorderedListOutlined, TableOutlined } from '@ant-design/icons'
 import type { ColumnsType, TableProps } from 'antd/es/table'
 
-export type DisplayMode = 'table' | 'card'
+export type DisplayMode = 'list' | 'card' | 'table'
 
 interface DataTableProps<T> {
   columns: ColumnsType<T>
@@ -14,6 +14,7 @@ interface DataTableProps<T> {
   showDisplayToggle?: boolean
   tableProps?: Omit<TableProps<T>, 'columns' | 'dataSource' | 'rowKey'>
   cardRenderer?: (item: T) => React.ReactNode
+  listRenderer?: (item: T) => React.ReactNode
   cardGridProps?: {
     gutter?: number
     xs?: number
@@ -35,16 +36,17 @@ function DataTable<T extends Record<string, any>>({
   showDisplayToggle = true,
   tableProps = {},
   cardRenderer,
+  listRenderer,
   cardGridProps = { gutter: 16, xs: 1, sm: 1, md: 2, lg: 2, xl: 3, xxl: 3 },
   localStorageKey = 'dataTableDisplayMode',
 }: DataTableProps<T>) {
-  const [internalDisplayMode, setInternalDisplayMode] = useState<DisplayMode>('table')
+  const [internalDisplayMode, setInternalDisplayMode] = useState<DisplayMode>('list')
 
   // Load display mode from localStorage on mount
   useEffect(() => {
     if (externalDisplayMode === undefined) {
       const savedMode = localStorage.getItem(localStorageKey)
-      if (savedMode === 'card' || savedMode === 'table') {
+      if (savedMode === 'list' || savedMode === 'card' || savedMode === 'table') {
         setInternalDisplayMode(savedMode)
       }
     }
@@ -87,7 +89,7 @@ function DataTable<T extends Record<string, any>>({
               options={[
                 {
                   label: 'Danh sách',
-                  value: 'table',
+                  value: 'list',
                   icon: <UnorderedListOutlined />,
                 },
                 {
@@ -95,19 +97,27 @@ function DataTable<T extends Record<string, any>>({
                   value: 'card',
                   icon: <AppstoreOutlined />,
                 },
+                {
+                  label: 'Bảng',
+                  value: 'table',
+                  icon: <TableOutlined />,
+                },
               ]}
             />
           </div>
         </Card>
       )}
 
-      {/* Table View */}
-      {currentDisplayMode === 'table' && (
-        <Table<T>
-          columns={columns}
+      {/* List View (Detailed) */}
+      {currentDisplayMode === 'list' && listRenderer && (
+        <List
           dataSource={dataSource}
-          rowKey={rowKey}
-          {...defaultTableProps}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            showTotal: (total) => `Tổng ${total} bản ghi`,
+          }}
+          renderItem={listRenderer}
         />
       )}
 
@@ -122,6 +132,16 @@ function DataTable<T extends Record<string, any>>({
             showTotal: (total) => `Tổng ${total} bản ghi`,
           }}
           renderItem={cardRenderer}
+        />
+      )}
+
+      {/* Table View */}
+      {currentDisplayMode === 'table' && (
+        <Table<T>
+          columns={columns}
+          dataSource={dataSource}
+          rowKey={rowKey}
+          {...defaultTableProps}
         />
       )}
     </>

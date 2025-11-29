@@ -6,7 +6,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Dropdown, Avatar, Typography, message } from 'antd'
-import { UserOutlined, LogoutOutlined, LockOutlined, QuestionCircleOutlined, BellOutlined } from '@ant-design/icons'
+import { UserOutlined, LogoutOutlined, LockOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 import { useLogout } from '../../auth/hooks/useLogout'
 import { LoadingOverlay } from '../../../shared/components'
@@ -165,97 +165,54 @@ function UserDropdown({ user }: UserDropdownProps) {
         visible={changePasswordVisible}
         onClose={() => setChangePasswordVisible(false)}
       />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        {/* Notification Icon */}
+      <Dropdown
+        menu={{ items }}
+        trigger={['click']}
+        placement="bottomRight"
+        overlayStyle={{ minWidth: 320 }}
+      >
         <div
           style={{
             cursor: 'pointer',
-            fontSize: 20,
-            color: '#fff',
-            position: 'relative',
-            width: 40,
-            height: 40,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '8px',
+            gap: 10,
+            padding: '6px 12px',
+            borderRadius: 24,
+            backgroundColor: 'rgba(255, 255, 255, 0.15)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
             transition: 'all 0.3s',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'
-            e.currentTarget.style.color = '#fff'
+            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.25)'
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.5)'
+            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)'
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent'
-            e.currentTarget.style.color = '#fff'
+            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)'
+            e.currentTarget.style.boxShadow = 'none'
           }}
         >
-          <BellOutlined />
-          {/* Notification badge */}
-          <span
+          <Avatar
+            size={36}
+            src={avatarUrl || undefined}
             style={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              backgroundColor: '#ffeb3b',
-              border: '2px solid #d32f2f',
-            }}
-          />
-        </div>
-
-        {/* User Dropdown */}
-        <Dropdown
-          menu={{ items }}
-          trigger={['click']}
-          placement="bottomRight"
-          overlayStyle={{ minWidth: 320 }}
-        >
-          <div
-            style={{
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '6px 12px',
-              borderRadius: 24,
-              backgroundColor: 'rgba(255, 255, 255, 0.15)',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
-              transition: 'all 0.3s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.25)'
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.5)'
-              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)'
-              e.currentTarget.style.boxShadow = 'none'
+              backgroundColor: hasAvatar ? '#1890ff' : undefined,
+              background: hasAvatar ? '#1890ff' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              fontSize: 14,
+              fontWeight: 700,
+              border: '2px solid #fff',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
             }}
           >
-            <Avatar
-              size={36}
-              src={avatarUrl || undefined}
-              style={{
-                backgroundColor: hasAvatar ? '#1890ff' : undefined,
-                background: hasAvatar ? '#1890ff' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                fontSize: 14,
-                fontWeight: 700,
-                border: '2px solid #fff',
-                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
-              }}
-            >
-              {!hasAvatar && userInitials}
-            </Avatar>
-            <Text style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>
-              {user.name.split(' ').slice(0, 2).join(' ')}
-            </Text>
-          </div>
-        </Dropdown>
-      </div>
+            {!hasAvatar && userInitials}
+          </Avatar>
+          <Text style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>
+            {user.name.split(' ').slice(0, 2).join(' ')}
+          </Text>
+        </div>
+      </Dropdown>
     </>
   )
 }

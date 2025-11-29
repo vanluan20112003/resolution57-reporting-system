@@ -15,6 +15,7 @@ import { UserProfile } from '../components/UserProfile'
 import { UserDropdown } from '../features/user'
 import { useAuth } from '../shared/hooks'
 import { ImpersonationBanner } from '../shared/components'
+import NotificationDropdown from '../components/NotificationDropdown'
 import {
   getMenuItemsForRole,
   getMenuItemByKey,
@@ -105,6 +106,20 @@ function DashboardPage() {
       setCollapsed(true)
     }
   }, [navigate, isMobile])
+
+  // Sync selectedMenu with URL changes (when navigating from other components)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const tab = params.get('tab')
+
+    if (tab && TAB_TO_KEY[tab]) {
+      const menuKey = TAB_TO_KEY[tab]
+      if (menuKey !== selectedMenu) {
+        setSelectedMenu(menuKey)
+        localStorage.setItem('dashboard_selected_menu', menuKey)
+      }
+    }
+  }, [location.search, selectedMenu])
 
   // Validate selected menu based on user permissions
   useEffect(() => {
@@ -237,7 +252,10 @@ function DashboardPage() {
 
         <div className="header-right">
           {!isLoading && user ? (
-            <UserDropdown user={user} />
+            <Space size="small">
+              <NotificationDropdown />
+              <UserDropdown user={user} />
+            </Space>
           ) : (
             <Space>
               <Text style={{ color: '#fff' }}>Đang tải...</Text>

@@ -474,3 +474,158 @@ export const mockReports = [
     created_at: '2025-01-15T14:00:00Z',
   },
 ]
+
+// Notification Types
+export enum NotificationType {
+  ACTIVITY_APPROVED = 'ACTIVITY_APPROVED',
+  ACTIVITY_REJECTED = 'ACTIVITY_REJECTED',
+  ACTIVITY_UPDATED = 'ACTIVITY_UPDATED',
+  ACTIVITY_COMPLETED = 'ACTIVITY_COMPLETED',
+  ACTIVITY_ASSIGNED = 'ACTIVITY_ASSIGNED',
+  KPI_DEADLINE = 'KPI_DEADLINE',
+  REPORT_DUE = 'REPORT_DUE',
+  USER_MENTION = 'USER_MENTION',
+  SYSTEM_ANNOUNCEMENT = 'SYSTEM_ANNOUNCEMENT',
+}
+
+// Notifications
+export interface Notification {
+  id: string
+  type: NotificationType
+  title: string
+  message: string
+  is_read: boolean
+  created_at: string
+  action_url?: string
+  actor?: {
+    name: string
+    avatar?: string
+  }
+  metadata?: {
+    activity_id?: string
+    activity_code?: string
+    kpi_id?: string
+    report_id?: string
+  }
+}
+
+export const mockNotifications: Notification[] = [
+  {
+    id: '1',
+    type: NotificationType.ACTIVITY_APPROVED,
+    title: 'Hoạt động được phê duyệt',
+    message: 'Hoạt động "Hội thảo Khoa học Quốc tế về AI" đã được phê duyệt',
+    is_read: false,
+    created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(), // 5 minutes ago
+    action_url: '/dashboard?tab=activities',
+    actor: {
+      name: 'Nguyễn Văn A',
+      avatar: 'https://i.pravatar.cc/150?img=12',
+    },
+    metadata: {
+      activity_id: '1',
+      activity_code: 'ACT-2025-001',
+    },
+  },
+  {
+    id: '2',
+    type: NotificationType.ACTIVITY_ASSIGNED,
+    title: 'Bạn được giao hoạt động mới',
+    message: 'Bạn được chỉ định làm người phụ trách hoạt động "Tập huấn kỹ năng nghiên cứu khoa học"',
+    is_read: false,
+    created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 minutes ago
+    action_url: '/dashboard?tab=activities',
+    actor: {
+      name: 'Trần Thị B',
+      avatar: 'https://i.pravatar.cc/150?img=5',
+    },
+    metadata: {
+      activity_id: '3',
+      activity_code: 'ACT-2025-003',
+    },
+  },
+  {
+    id: '3',
+    type: NotificationType.KPI_DEADLINE,
+    title: 'Hạn KPI sắp đến',
+    message: 'KPI "Số lượng bài báo khoa học ISI/Scopus" sẽ đến hạn trong 3 ngày',
+    is_read: false,
+    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+    action_url: '/dashboard?tab=kpi',
+    metadata: {
+      kpi_id: '1',
+    },
+  },
+  {
+    id: '4',
+    type: NotificationType.ACTIVITY_COMPLETED,
+    title: 'Hoạt động hoàn thành',
+    message: 'Hoạt động "Workshop về Blockchain" đã được đánh dấu hoàn thành',
+    is_read: true,
+    created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+    action_url: '/dashboard?tab=activities',
+    actor: {
+      name: 'Lê Văn C',
+      avatar: 'https://i.pravatar.cc/150?img=8',
+    },
+    metadata: {
+      activity_id: '2',
+      activity_code: 'ACT-2025-002',
+    },
+  },
+  {
+    id: '5',
+    type: NotificationType.REPORT_DUE,
+    title: 'Báo cáo cần nộp',
+    message: 'Báo cáo tổng hợp hoạt động Quý 1/2025 cần được nộp trước ngày 15/04/2025',
+    is_read: true,
+    created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+    action_url: '/dashboard?tab=reports',
+    metadata: {
+      report_id: '1',
+    },
+  },
+  {
+    id: '6',
+    type: NotificationType.USER_MENTION,
+    title: 'Bạn được nhắc đến',
+    message: 'Nguyễn Thị D đã nhắc đến bạn trong bình luận về hoạt động "Hội thảo Khoa học"',
+    is_read: true,
+    created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+    action_url: '/dashboard?tab=activities',
+    actor: {
+      name: 'Nguyễn Thị D',
+      avatar: 'https://i.pravatar.cc/150?img=9',
+    },
+    metadata: {
+      activity_id: '1',
+      activity_code: 'ACT-2025-001',
+    },
+  },
+  {
+    id: '7',
+    type: NotificationType.SYSTEM_ANNOUNCEMENT,
+    title: 'Thông báo hệ thống',
+    message: 'Hệ thống sẽ bảo trì vào 02:00 sáng ngày 01/12/2025. Vui lòng lưu công việc của bạn.',
+    is_read: true,
+    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
+    action_url: undefined,
+  },
+  {
+    id: '8',
+    type: NotificationType.ACTIVITY_REJECTED,
+    title: 'Hoạt động bị từ chối',
+    message: 'Hoạt động "Seminar về Machine Learning" đã bị từ chối. Lý do: Thiếu thông tin kinh phí',
+    is_read: true,
+    created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
+    action_url: '/dashboard?tab=activities',
+    actor: {
+      name: 'Phạm Văn E',
+      avatar: 'https://i.pravatar.cc/150?img=7',
+    },
+    metadata: {
+      activity_id: '5',
+      activity_code: 'ACT-2025-005',
+    },
+  },
+]
