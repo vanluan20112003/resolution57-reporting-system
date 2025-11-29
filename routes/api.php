@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\API\GoogleAuthController;
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\UserController;
+use App\Http\Controllers\API\KpiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -120,6 +121,27 @@ Route::prefix('v1')->group(function () {
 
     // Stop impersonation - Must be outside role:ADMIN group so impersonated users can call it
     Route::middleware('auth:sanctum')->post('/users/stop-impersonate', [UserController::class, 'stopImpersonate']);
+
+    // KPI Management Routes (OPERATOR and ADMIN only)
+    Route::middleware(['auth:sanctum', 'role:OPERATOR,ADMIN'])->prefix('kpis')->group(function () {
+        // List all KPIs with filtering
+        Route::get('/', [KpiController::class, 'index']);
+
+        // Get KPI categories
+        Route::get('/categories', [KpiController::class, 'categories']);
+
+        // Get single KPI
+        Route::get('/{id}', [KpiController::class, 'show']);
+
+        // Create new KPI
+        Route::post('/', [KpiController::class, 'store']);
+
+        // Update KPI
+        Route::put('/{id}', [KpiController::class, 'update']);
+
+        // Delete KPI
+        Route::delete('/{id}', [KpiController::class, 'destroy']);
+    });
 
     // SSO Authentication Routes (Simple Test)
     Route::prefix('auth/sso')->group(function () {

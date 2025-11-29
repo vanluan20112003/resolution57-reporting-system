@@ -34,6 +34,12 @@ class Kpi extends Model
         'updated_at' => 'datetime',
     ];
 
+    /**
+     * KPI Sources
+     */
+    public const SOURCE_CENTRAL = 'CENTRAL';  // Trung ương
+    public const SOURCE_VNU = 'VNU';          // ĐHQG-HCM
+
     public function activityKpis(): HasMany
     {
         return $this->hasMany(ActivityKpi::class);
@@ -46,6 +52,11 @@ class Kpi extends Model
             ->withTimestamps();
     }
 
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by', 'id');
+    }
+
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
@@ -53,11 +64,49 @@ class Kpi extends Model
 
     public function scopeCentral($query)
     {
-        return $query->where('source', 'CENTRAL');
+        return $query->where('source', self::SOURCE_CENTRAL);
     }
 
     public function scopeVnu($query)
     {
-        return $query->where('source', 'VNU');
+        return $query->where('source', self::SOURCE_VNU);
+    }
+
+    public function scopeBySource($query, $source)
+    {
+        return $query->where('source', $source);
+    }
+
+    public function scopeByCategory($query, $category)
+    {
+        return $query->where('category', $category);
+    }
+
+    /**
+     * Check if KPI is from central government
+     */
+    public function isCentral(): bool
+    {
+        return $this->source === self::SOURCE_CENTRAL;
+    }
+
+    /**
+     * Check if KPI is from VNU
+     */
+    public function isVnu(): bool
+    {
+        return $this->source === self::SOURCE_VNU;
+    }
+
+    /**
+     * Get source label
+     */
+    public function getSourceLabel(): string
+    {
+        return match($this->source) {
+            self::SOURCE_CENTRAL => 'Trung ương',
+            self::SOURCE_VNU => 'ĐHQG-HCM',
+            default => $this->source,
+        };
     }
 }
