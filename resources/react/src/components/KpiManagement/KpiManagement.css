@@ -1,0 +1,28 @@
+.kpi-management-container {
+  padding: 24px;
+}
+
+.kpi-table .ant-table-thead > tr > th {
+  background-color: #fafafa;
+  font-weight: 600;
+}
+
+.kpi-table .ant-table-tbody > tr:hover {
+  background-color: #f5f5f5;
+}
+
+.kpi-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.kpi-code {
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  color: #1890ff;
+}
+
+.kpi-source-tag {
+  font-weight: 500;
+}
