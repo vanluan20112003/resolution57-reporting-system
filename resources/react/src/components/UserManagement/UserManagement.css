@@ -69,3 +69,149 @@
   color: #8c8c8c;
   cursor: not-allowed;
 }
+
+/* User Management Card Header - Responsive */
+.user-management-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ========================================
+   RESPONSIVE STYLES - TABLET & MOBILE
+   ======================================== */
+
+/* Tablet Portrait - 768px and below */
+@media (max-width: 768px) {
+  /* Card Header - Stack filters vertically */
+  .user-management-card-header {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .user-management-card-header .ant-input,
+  .user-management-card-header .ant-select,
+  .user-management-card-header .ant-btn {
+    width: 100% !important;
+  }
+
+  /* Modal - Full width on mobile */
+  .user-management-modal {
+    max-width: calc(100vw - 32px) !important;
+    margin: 16px !important;
+  }
+
+  .user-management-modal .ant-modal-body {
+    padding: 16px;
+  }
+
+  .user-management-modal .ant-modal-title {
+    font-size: 16px;
+  }
+
+  /* Form - Stack columns vertically */
+  .user-management-modal .ant-row {
+    flex-direction: column;
+  }
+
+  .user-management-modal .ant-col {
+    max-width: 100% !important;
+  }
+
+  /* Table - Smaller font and padding */
+  .user-management-table .ant-table-thead > tr > th {
+    font-size: 11px !important;
+    padding: 6px 4px !important;
+  }
+
+  .user-management-table .ant-table-tbody > tr > td {
+    font-size: 11px !important;
+    padding: 6px 4px !important;
+  }
+
+  /* Hide less important columns on mobile */
+  .user-management-table .ant-table-cell-mobile-hide {
+    display: none !important;
+  }
+
+  /* Action buttons - Stack vertically */
+  .user-management-table .ant-space {
+    flex-direction: column;
+    gap: 4px !important;
+  }
+
+  .user-management-table .ant-space-item {
+    width: 100%;
+  }
+
+  .user-management-table .ant-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Mobile - 480px and below */
+@media (max-width: 480px) {
+  /* Modal - Nearly full screen */
+  .user-management-modal {
+    max-width: calc(100vw - 16px) !important;
+    margin: 8px !important;
+  }
+
+  .user-management-modal .ant-modal-body {
+    padding: 12px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+  }
+
+  .user-management-modal .ant-modal-title {
+    font-size: 14px;
+  }
+
+  .user-management-modal .ant-divider-inner-text {
+    font-size: 12px;
+  }
+
+  .user-management-modal .ant-form-item {
+    margin-bottom: 12px;
+  }
+
+  .user-management-modal .ant-form-item-label > label {
+    font-size: 12px;
+  }
+
+  .user-management-modal .ant-input,
+  .user-management-modal .ant-select-selector {
+    font-size: 14px !important;
+  }
+
+  /* Table - Very compact on small mobile */
+  .user-management-table .ant-table-thead > tr > th {
+    font-size: 10px !important;
+    padding: 4px 2px !important;
+  }
+
+  .user-management-table .ant-table-tbody > tr > td {
+    font-size: 10px !important;
+    padding: 4px 2px !important;
+  }
+
+  .user-management-table .ant-tag {
+    font-size: 9px !important;
+    padding: 0 4px;
+  }
+
+  /* Pagination - Smaller on mobile */
+  .user-management-table .ant-pagination {
+    font-size: 12px;
+  }
+
+  .user-management-table .ant-pagination-item,
+  .user-management-table .ant-pagination-prev,
+  .user-management-table .ant-pagination-next {
+    min-width: 28px;
+    height: 28px;
+    line-height: 28px;
+  }
+}

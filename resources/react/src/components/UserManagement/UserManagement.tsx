@@ -77,8 +77,21 @@ function UserManagement() {
   const [form] = Form.useForm()
   const { user: currentUser } = useAuth()
 
+  // Detect mobile view for responsive column visibility
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth <= 768)
+
   // Check if current user can manage users
   const canManage = currentUser?.role === 'OPERATOR' || currentUser?.role === 'ADMIN'
+
+  // Window resize listener for responsive behavior
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   // Save pagination to localStorage whenever it changes
   useEffect(() => {
@@ -273,16 +286,22 @@ function UserManagement() {
       title: 'Email',
       dataIndex: 'email',
       key: 'email',
+      fixed: isMobile ? false : 'left',
+      width: isMobile ? 180 : 250,
+      ellipsis: true,
     },
     {
       title: 'Họ và tên',
       key: 'name',
+      width: isMobile ? 150 : 200,
+      ellipsis: true,
       render: (_, record) => `${record.first_name} ${record.last_name}`,
     },
     {
       title: 'Vai trò',
       dataIndex: 'role',
       key: 'role',
+      width: 100,
       render: (role: string) => (
         <Tag color={roleColors[role] || 'default'}>{role}</Tag>
       ),
@@ -291,6 +310,8 @@ function UserManagement() {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
+      width: 100,
+      className: isMobile ? 'ant-table-cell-mobile-hide' : '',
       render: (status: string) => (
         <Tag color={statusColors[status] || 'default'}>
           {status === 'active' ? 'Hoạt động' : status === 'inactive' ? 'Không hoạt động' : 'Khóa'}
@@ -301,6 +322,8 @@ function UserManagement() {
       title: 'VNUHCM',
       dataIndex: 'is_vnuhcm',
       key: 'is_vnuhcm',
+      width: 80,
+      className: isMobile ? 'ant-table-cell-mobile-hide' : '',
       render: (isVnuhcm: boolean) => (
         <Tag color={isVnuhcm ? 'blue' : 'default'}>
           {isVnuhcm ? 'Có' : 'Không'}
@@ -311,19 +334,24 @@ function UserManagement() {
       title: 'Ngày tạo',
       dataIndex: 'created_at',
       key: 'created_at',
+      width: 100,
+      className: isMobile ? 'ant-table-cell-mobile-hide' : '',
       render: (date: string) => new Date(date).toLocaleDateString('vi-VN'),
     },
     {
       title: 'Thao tác',
       key: 'actions',
+      fixed: isMobile ? false : 'right',
+      width: isMobile ? 120 : 150,
       render: (_, record) => (
-        <Space>
+        <Space size={isMobile ? 2 : 8} direction={isMobile ? 'horizontal' : 'horizontal'}>
           <Tooltip title="Chỉnh sửa">
             <Button
               type="text"
               icon={<EditOutlined />}
               onClick={() => handleEdit(record)}
               disabled={!canManage}
+              size={isMobile ? 'small' : 'middle'}
             />
           </Tooltip>
           {currentUser?.role === 'ADMIN' && record.id !== currentUser?.id && (
@@ -333,6 +361,7 @@ function UserManagement() {
                 icon={<LoginOutlined />}
                 onClick={() => handleImpersonate(record)}
                 style={{ color: '#1890ff' }}
+                size={isMobile ? 'small' : 'middle'}
               />
             </Tooltip>
           )}
@@ -343,6 +372,7 @@ function UserManagement() {
               icon={<DeleteOutlined />}
               onClick={() => handleDelete(record.id)}
               disabled={!canManage || record.id === currentUser?.id}
+              size={isMobile ? 'small' : 'middle'}
             />
           </Tooltip>
         </Space>
@@ -379,18 +409,18 @@ function UserManagement() {
         </Space>
       }
       extra={
-        <Space>
+        <Space className="user-management-card-header" wrap>
           <Input
             placeholder="Tìm kiếm..."
             prefix={<SearchOutlined />}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            style={{ width: 200 }}
+            style={{ width: isMobile ? '100%' : 200 }}
           />
           <Select
             placeholder="Vai trò"
             allowClear
-            style={{ width: 120 }}
+            style={{ width: isMobile ? '100%' : 120 }}
             value={roleFilter}
             onChange={setRoleFilter}
           >
@@ -403,7 +433,7 @@ function UserManagement() {
           <Select
             placeholder="Trạng thái"
             allowClear
-            style={{ width: 120 }}
+            style={{ width: isMobile ? '100%' : 120 }}
             value={statusFilter}
             onChange={setStatusFilter}
           >
@@ -411,8 +441,12 @@ function UserManagement() {
             <Option value="inactive">Không hoạt động</Option>
             <Option value="locked">Khóa</Option>
           </Select>
-          <Button icon={<ReloadOutlined />} onClick={() => fetchUsers(pagination.current, pagination.pageSize)}>
-            Làm mới
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() => fetchUsers(pagination.current, pagination.pageSize)}
+            style={{ width: isMobile ? '100%' : 'auto' }}
+          >
+            {isMobile ? 'Làm mới' : 'Làm mới'}
           </Button>
           <Button
             type="primary"
@@ -422,28 +456,34 @@ function UserManagement() {
               form.resetFields()
               setEditModalVisible(true)
             }}
+            style={{ width: isMobile ? '100%' : 'auto' }}
           >
             Thêm người dùng
           </Button>
         </Space>
       }
     >
-      <Table
-        columns={columns}
-        dataSource={users}
-        rowKey="id"
-        loading={loading}
-        pagination={{
-          current: pagination.current,
-          pageSize: pagination.pageSize,
-          total: pagination.total,
-          showSizeChanger: true,
-          showTotal: (total) => `Tổng ${total} người dùng`,
-          onChange: (page, pageSize) => {
-            fetchUsers(page, pageSize)
-          },
-        }}
-      />
+      <div className="user-management-table">
+        <Table
+          columns={columns}
+          dataSource={users}
+          rowKey="id"
+          loading={loading}
+          scroll={{ x: isMobile ? 600 : 1200 }}
+          pagination={{
+            current: pagination.current,
+            pageSize: pagination.pageSize,
+            total: pagination.total,
+            showSizeChanger: true,
+            showTotal: (total) => `Tổng ${total} người dùng`,
+            onChange: (page, pageSize) => {
+              fetchUsers(page, pageSize)
+            },
+            responsive: true,
+            size: isMobile ? 'small' : 'default',
+          }}
+        />
+      </div>
 
       <Modal
         title={
@@ -459,12 +499,14 @@ function UserManagement() {
           form.resetFields()
           setSelectedUser(null)
         }}
-        width={700}
+        width={isMobile ? '100%' : 700}
         okText={selectedUser ? 'Cập nhật' : 'Thêm mới'}
         cancelText="Hủy"
         className="user-management-modal"
         destroyOnClose
         confirmLoading={actionLoading}
+        centered={!isMobile}
+        style={isMobile ? { top: 20, maxWidth: 'calc(100vw - 32px)' } : {}}
       >
         <Form form={form} layout="vertical">
           {/* Thông tin cơ bản */}
@@ -476,7 +518,7 @@ function UserManagement() {
           </Divider>
 
           <Row gutter={16}>
-            <Col span={12}>
+            <Col xs={24} sm={24} md={12}>
               <Form.Item
                 name="first_name"
                 label="Họ"
@@ -485,7 +527,7 @@ function UserManagement() {
                 <Input placeholder="Nguyễn Văn" prefix={<UserOutlined />} />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={24} md={12}>
               <Form.Item
                 name="last_name"
                 label="Tên"
@@ -497,7 +539,7 @@ function UserManagement() {
           </Row>
 
           <Row gutter={16}>
-            <Col span={12}>
+            <Col xs={24} sm={24} md={12}>
               <Form.Item
                 name="email"
                 label="Email"
@@ -513,7 +555,7 @@ function UserManagement() {
                 />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={24} md={12}>
               <Form.Item name="phone" label="Số điện thoại">
                 <Input placeholder="0123456789" prefix={<PhoneOutlined />} />
               </Form.Item>
@@ -553,7 +595,7 @@ function UserManagement() {
           </Divider>
 
           <Row gutter={16}>
-            <Col span={12}>
+            <Col xs={24} sm={24} md={12}>
               <Form.Item
                 name="role"
                 label="Vai trò"
@@ -580,7 +622,7 @@ function UserManagement() {
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={24} md={12}>
               <Form.Item
                 name="status"
                 label="Trạng thái"
