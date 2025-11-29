@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Card, Typography, Space, Button, Badge, Descriptions, Divider, Tag } from 'antd'
+import { Card, Typography, Space, Button, Descriptions, Divider, Tag } from 'antd'
 import {
   TeamOutlined,
   ArrowLeftOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import 'dayjs/locale/vi'
-import { mockActivities, mockActivityTypes, mockActivityFields, mockOrganizations, ActivityStatus } from '../../data/mockData'
+import { mockActivities, mockActivityTypes, mockActivityFields, mockOrganizations } from '../../data/mockData'
 import { DataTable, DisplayMode } from '../../shared/components/DataTable'
 import { getActivityColumns, statusConfig, formatBudget } from '../../shared/config/activityColumns'
 import ActivityFilters from '../../shared/components/Filters/ActivityFilters'
@@ -201,34 +201,20 @@ function AllActivitiesList() {
 
   // Render list view
   return (
-    <div style={{ padding: '24px' }}>
+    <div style={{ padding: '16px' }}>
       <Card>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          {/* Header */}
-          <div>
-            <Title level={3}>
-              <TeamOutlined /> Tất cả hoạt động trong hệ thống
-            </Title>
-            <Text type="secondary">
-              Hiển thị toàn bộ hoạt động của ĐHQG-HCM
-            </Text>
+        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          {/* Header with inline info */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <Title level={3} style={{ marginBottom: '4px' }}>
+                <TeamOutlined /> Tất cả hoạt động trong hệ thống
+              </Title>
+              <Text type="secondary">
+                Hiển thị các hoạt động đã được phê duyệt • {filteredActivities.length} hoạt động
+              </Text>
+            </div>
           </div>
-
-          {/* Statistics */}
-          <Space size="large" wrap>
-            <Badge count={filteredActivities.length} showZero color="blue">
-              <Text strong>Tổng số: </Text>
-            </Badge>
-            <Badge count={filteredActivities.filter(a => a.status === ActivityStatus.COMPLETED).length} showZero color="green">
-              <Text strong>Hoàn thành: </Text>
-            </Badge>
-            <Badge count={filteredActivities.filter(a => a.status === ActivityStatus.IN_PROGRESS).length} showZero color="orange">
-              <Text strong>Đang thực hiện: </Text>
-            </Badge>
-            <Badge count={filteredActivities.filter(a => a.status === ActivityStatus.PENDING_APPROVAL).length} showZero color="gold">
-              <Text strong>Chờ duyệt: </Text>
-            </Badge>
-          </Space>
 
           {/* Filters */}
           <ActivityFilters

@@ -210,9 +210,9 @@ function DepartmentActivitiesList() {
 
   // Render list view
   return (
-    <div style={{ padding: '24px' }}>
+    <div style={{ padding: '16px' }}>
       <Card>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
           {/* Header */}
           <div>
             <Title level={3}>

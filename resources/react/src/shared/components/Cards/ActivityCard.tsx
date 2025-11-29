@@ -49,21 +49,22 @@ function ActivityCard({
   const config = statusConfig[activity.status]
 
   return (
-    <List.Item>
+    <List.Item style={{ marginBottom: '8px', paddingTop: '8px', paddingBottom: '8px' }}>
       <Card
         hoverable
+        size="small"
         title={
-          <Space direction="vertical" size="small" style={{ width: '100%' }}>
-            <Text strong ellipsis={{ tooltip: activity.title }}>
+          <Space direction="vertical" size={4} style={{ width: '100%' }}>
+            <Text strong ellipsis={{ tooltip: activity.title }} style={{ fontSize: '14px' }}>
               {activity.title}
             </Text>
-            <Text type="secondary" style={{ fontSize: '12px' }}>
+            <Text type="secondary" style={{ fontSize: '11px' }}>
               {activity.code}
             </Text>
           </Space>
         }
         extra={
-          <Tag color={config.color} icon={config.icon}>
+          <Tag color={config.color} icon={config.icon} style={{ margin: 0 }}>
             {config.label}
           </Tag>
         }
@@ -72,31 +73,33 @@ function ActivityCard({
             type="link"
             icon={<EyeOutlined />}
             key="view"
+            size="small"
             onClick={() => onViewDetail(activity)}
           >
             Chi tiết
           </Button>,
         ]}
+        style={{ marginBottom: 0 }}
       >
-        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+        <Space direction="vertical" size={6} style={{ width: '100%' }}>
           {/* Organization */}
-          <Space>
-            <TeamOutlined style={{ color: '#1890ff' }} />
-            <Text strong>{getOrganizationName(activity.lead_organization_id)}</Text>
+          <Space size="small">
+            <TeamOutlined style={{ color: '#1890ff', fontSize: '13px' }} />
+            <Text strong style={{ fontSize: '13px' }}>{getOrganizationName(activity.lead_organization_id)}</Text>
           </Space>
 
           {/* Type & Field */}
-          <Space wrap>
-            <Tag color="blue">{getActivityTypeName(activity.activity_type_id)}</Tag>
+          <Space wrap size={4}>
+            <Tag color="blue" style={{ fontSize: '11px', margin: 0 }}>{getActivityTypeName(activity.activity_type_id)}</Tag>
             {activity.activity_field_id && (
-              <Tag color="cyan">{getActivityFieldName(activity.activity_field_id)}</Tag>
+              <Tag color="cyan" style={{ fontSize: '11px', margin: 0 }}>{getActivityFieldName(activity.activity_field_id)}</Tag>
             )}
           </Space>
 
           {/* Date */}
-          <Space>
-            <CalendarOutlined style={{ color: '#52c41a' }} />
-            <Text style={{ fontSize: '13px' }}>
+          <Space size="small">
+            <CalendarOutlined style={{ color: '#52c41a', fontSize: '12px' }} />
+            <Text style={{ fontSize: '12px' }}>
               {dayjs(activity.start_date).format('DD/MM/YYYY')} -{' '}
               {dayjs(activity.end_date).format('DD/MM/YYYY')}
             </Text>
@@ -104,9 +107,9 @@ function ActivityCard({
 
           {/* Location */}
           {activity.location && (
-            <Space>
-              <EnvironmentOutlined style={{ color: '#fa8c16' }} />
-              <Text ellipsis={{ tooltip: activity.location }} style={{ fontSize: '13px' }}>
+            <Space size="small">
+              <EnvironmentOutlined style={{ color: '#fa8c16', fontSize: '12px' }} />
+              <Text ellipsis={{ tooltip: activity.location }} style={{ fontSize: '12px' }}>
                 {activity.location}
               </Text>
             </Space>
@@ -114,9 +117,9 @@ function ActivityCard({
 
           {/* Budget */}
           {activity.budget && (
-            <Space>
-              <Text type="secondary" style={{ fontSize: '13px' }}>
-                Kinh phí: <Text strong>{formatBudget(activity.budget)}</Text>
+            <Space size="small">
+              <Text type="secondary" style={{ fontSize: '12px' }}>
+                Kinh phí: <Text strong style={{ fontSize: '12px' }}>{formatBudget(activity.budget)}</Text>
               </Text>
             </Space>
           )}
@@ -124,16 +127,16 @@ function ActivityCard({
           {/* Progress */}
           {activity.completion_percentage > 0 && (
             <div>
-              <Text style={{ fontSize: '12px' }}>
+              <Text style={{ fontSize: '11px' }}>
                 Tiến độ: {activity.completion_percentage}%
               </Text>
               <div
                 style={{
                   width: '100%',
-                  marginTop: '4px',
+                  marginTop: '2px',
                   background: '#f0f0f0',
-                  borderRadius: '4px',
-                  height: '6px',
+                  borderRadius: '3px',
+                  height: '5px',
                 }}
               >
                 <div
@@ -142,7 +145,7 @@ function ActivityCard({
                     background:
                       activity.completion_percentage === 100 ? '#52c41a' : '#1890ff',
                     height: '100%',
-                    borderRadius: '4px',
+                    borderRadius: '3px',
                     transition: 'width 0.3s',
                   }}
                 />

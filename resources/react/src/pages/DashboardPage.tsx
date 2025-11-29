@@ -33,8 +33,20 @@ const { Text, Title } = Typography
 function DashboardPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const [collapsed, setCollapsed] = useState<boolean>(false)
+
+  // Get initial collapsed state from localStorage
+  const getInitialCollapsed = () => {
+    const saved = localStorage.getItem('dashboard_sidebar_collapsed')
+    return saved === 'true'
+  }
+
+  const [collapsed, setCollapsed] = useState<boolean>(getInitialCollapsed())
   const { user, isLoading } = useAuth()
+
+  // Save collapsed state to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('dashboard_sidebar_collapsed', String(collapsed))
+  }, [collapsed])
 
   // Get initial menu from URL query params or localStorage
   const getInitialMenu = () => {
@@ -62,13 +74,37 @@ function DashboardPage() {
     return getMenuItemsForRole(user.role)
   }, [user])
 
+  // Detect mobile view
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth <= 768)
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // On mobile, sidebar should be collapsed by default
+  useEffect(() => {
+    if (isMobile && !collapsed) {
+      setCollapsed(true)
+    }
+  }, [isMobile])
+
   // Handle menu change with URL update
   const handleMenuChange = useCallback((key: string) => {
     setSelectedMenu(key)
     const tabName = KEY_TO_TAB[key] || 'home'
     navigate(`/dashboard?tab=${tabName}`, { replace: true })
     localStorage.setItem('dashboard_selected_menu', key)
-  }, [navigate])
+
+    // Auto-close sidebar on mobile after selecting menu
+    if (isMobile) {
+      setCollapsed(true)
+    }
+  }, [navigate, isMobile])
 
   // Validate selected menu based on user permissions
   useEffect(() => {
@@ -173,6 +209,20 @@ function DashboardPage() {
       {/* Header - Fixed at top */}
       <Header className="dashboard-header">
         <div className="header-left">
+          {/* Mobile Menu Button */}
+          {isMobile && (
+            <Button
+              type="text"
+              icon={<MenuOutlined />}
+              onClick={() => setCollapsed(!collapsed)}
+              style={{
+                color: '#fff',
+                fontSize: '20px',
+                marginRight: '12px',
+                padding: '4px 8px',
+              }}
+            />
+          )}
           <div className="vietnam-flag">
             <img
               src="https://nq57.vn/static/appbuilder/images/nq57_logo.png"
@@ -198,6 +248,22 @@ function DashboardPage() {
 
       {/* Content area with Sidebar and Main content */}
       <Layout className="dashboard-body" style={{ marginTop: isImpersonating ? 48 : 0 }}>
+        {/* Mobile Overlay Backdrop */}
+        {isMobile && !collapsed && (
+          <div
+            onClick={() => setCollapsed(true)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.45)',
+              zIndex: 999,
+            }}
+          />
+        )}
+
         {/* Fixed Sidebar */}
         <Sider
           trigger={null}
@@ -214,7 +280,14 @@ function DashboardPage() {
             bottom: 0,
           }}
         >
-          {/* Toggle button inside sidebar */}
+          {/* Logo at the top */}
+          <div className="dashboard-logo">
+            <div className="logo-icon">
+              <img src="/vnuhcm.png" alt="ĐHQG-HCM Logo" />
+            </div>
+          </div>
+
+          {/* Toggle button below logo */}
           <div className="sidebar-toggle-wrapper">
             <Button
               type="text"
@@ -222,28 +295,6 @@ function DashboardPage() {
               onClick={() => setCollapsed(!collapsed)}
               className="sidebar-toggle-btn"
             />
-          </div>
-
-          <div className="dashboard-logo">
-            <div className="logo-icon">
-              <img src="/vnuhcm.png" alt="ĐHQG-HCM Logo" />
-            </div>
-            {!collapsed && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <Text strong className="logo-text">
-                  NQ57 Portal
-                </Text>
-                {user && (
-                  <Text type="secondary" style={{ fontSize: '12px' }}>
-                    {user.role === 'ADMIN' && 'Quản trị viên'}
-                    {user.role === 'OPERATOR' && 'Điều hành'}
-                    {user.role === 'MANAGER' && 'Quản lý'}
-                    {user.role === 'STAFF' && 'Chuyên viên'}
-                    {user.role === 'GUEST' && 'Khách'}
-                  </Text>
-                )}
-              </div>
-            )}
           </div>
 
           <Menu
