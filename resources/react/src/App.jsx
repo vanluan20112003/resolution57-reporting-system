@@ -4,6 +4,7 @@ import './App.css'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
+import UserProfilePage from './pages/UserProfilePage'
 import GoogleCallbackPage from './pages/GoogleCallbackPage'
 import UnauthorizedPage from './pages/UnauthorizedPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
@@ -48,6 +49,12 @@ function App() {
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <DashboardPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <UserProfilePage />
           </ProtectedRoute>
         } />
 

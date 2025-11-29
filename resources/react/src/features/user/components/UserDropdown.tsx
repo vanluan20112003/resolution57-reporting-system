@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Dropdown, Avatar, Typography, message } from 'antd'
 import { UserOutlined, LogoutOutlined, LockOutlined, QuestionCircleOutlined, BellOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
@@ -27,8 +28,13 @@ interface UserDropdownProps {
 }
 
 function UserDropdown({ user }: UserDropdownProps) {
+  const navigate = useNavigate()
   const { logout, loading } = useLogout()
   const [changePasswordVisible, setChangePasswordVisible] = useState(false)
+
+  const handleProfile = () => {
+    navigate('/dashboard?tab=profile')
+  }
 
   const handleChangePassword = () => {
     setChangePasswordVisible(true)
@@ -47,8 +53,29 @@ function UserDropdown({ user }: UserDropdownProps) {
     return name.substring(0, 2).toUpperCase()
   }
 
+  // Get avatar URL with proper path handling
+  const getAvatarUrl = () => {
+    if (user.avatar) {
+      // If avatar starts with http/https (Google avatar), use it directly
+      if (user.avatar.startsWith('http://') || user.avatar.startsWith('https://')) {
+        return user.avatar
+      }
+      // If avatar is a relative path, prepend the base URL
+      if (user.avatar.startsWith('avatars/')) {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+        return `${apiUrl.replace('/api/v1', '')}/storage/${user.avatar}`
+      }
+      return user.avatar
+    }
+    if (user.avatar_url) {
+      return user.avatar_url
+    }
+    return null
+  }
+
   const userInitials = getUserInitials(user.name)
-  const hasAvatar = user.avatar_url || user.avatar
+  const avatarUrl = getAvatarUrl()
+  const hasAvatar = !!avatarUrl
 
   const items: MenuProps['items'] = [
     {
@@ -58,7 +85,7 @@ function UserDropdown({ user }: UserDropdownProps) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <Avatar
               size={56}
-              src={hasAvatar ? (user.avatar_url || user.avatar) : undefined}
+              src={avatarUrl || undefined}
               style={{
                 backgroundColor: hasAvatar ? '#1890ff' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                 background: hasAvatar ? '#1890ff' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -100,6 +127,12 @@ function UserDropdown({ user }: UserDropdownProps) {
     },
     {
       type: 'divider',
+    },
+    {
+      key: 'profile',
+      icon: <UserOutlined />,
+      label: 'Thông tin cá nhân',
+      onClick: handleProfile,
     },
     {
       key: 'help',
@@ -205,7 +238,7 @@ function UserDropdown({ user }: UserDropdownProps) {
           >
             <Avatar
               size={36}
-              src={hasAvatar ? (user.avatar_url || user.avatar) : undefined}
+              src={avatarUrl || undefined}
               style={{
                 backgroundColor: hasAvatar ? '#1890ff' : undefined,
                 background: hasAvatar ? '#1890ff' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',

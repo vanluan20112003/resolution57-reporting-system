@@ -11,6 +11,7 @@ import DepartmentActivitiesList from '../components/Dashboard/DepartmentActiviti
 import { UserManagement } from '../components/UserManagement'
 import { KpiManagement } from '../components/KpiManagement'
 import { OrganizationManagement } from '../components/OrganizationManagement'
+import { UserProfile } from '../components/UserProfile'
 import { UserDropdown } from '../features/user'
 import { useAuth } from '../shared/hooks'
 import { ImpersonationBanner } from '../shared/components'
@@ -151,6 +152,9 @@ function DashboardPage() {
           </div>
         )
 
+      case 'profile':
+        return <UserProfile />
+
       default:
         return (
           <div className="empty-content">
@@ -173,10 +177,7 @@ function DashboardPage() {
             <img
               src="https://nq57.vn/static/appbuilder/images/nq57_logo.png"
               alt="NQ57 Logo"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-              }}
+              style={{ height: '48px', width: 'auto', objectFit: 'contain' }}
             />
           </div>
           <Title level={4} className="header-title" style={{ margin: 0 }}>
@@ -225,7 +226,7 @@ function DashboardPage() {
 
           <div className="dashboard-logo">
             <div className="logo-icon">
-              <img src="https://pms.vnuhcm.edu.vn/logo.png" alt="Logo" />
+              <img src="/vnuhcm.png" alt="ĐHQG-HCM Logo" />
             </div>
             {!collapsed && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>

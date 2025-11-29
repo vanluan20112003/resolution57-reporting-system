@@ -7,6 +7,7 @@ use App\Http\Controllers\API\GoogleAuthController;
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\API\KpiController;
+use App\Http\Controllers\API\ProfileController;
 
 /*
 |--------------------------------------------------------------------------
@@ -121,6 +122,21 @@ Route::prefix('v1')->group(function () {
 
     // Stop impersonation - Must be outside role:ADMIN group so impersonated users can call it
     Route::middleware('auth:sanctum')->post('/users/stop-impersonate', [UserController::class, 'stopImpersonate']);
+
+    // User Profile Routes (All authenticated users can access their own profile)
+    Route::middleware('auth:sanctum')->prefix('profile')->group(function () {
+        // Get current user profile
+        Route::get('/', [ProfileController::class, 'show']);
+
+        // Update current user profile (only allowed fields)
+        Route::put('/', [ProfileController::class, 'update']);
+
+        // Upload avatar
+        Route::post('/avatar', [ProfileController::class, 'uploadAvatar']);
+
+        // Delete avatar
+        Route::delete('/avatar', [ProfileController::class, 'deleteAvatar']);
+    });
 
     // KPI Management Routes (OPERATOR and ADMIN only)
     Route::middleware(['auth:sanctum', 'role:OPERATOR,ADMIN'])->prefix('kpis')->group(function () {

@@ -10,6 +10,7 @@ import {
   FolderOpenOutlined,
   CheckCircleOutlined,
   FileDoneOutlined,
+  IdcardOutlined,
 } from '@ant-design/icons'
 import { UserRole, canManageUsers, canManageActivities, canApproveActivities, canManageKPI } from './roles'
 import type { MenuProps } from 'antd'
@@ -114,6 +115,14 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
     tab: 'system',
     roles: [UserRole.ADMIN],
     description: 'Cấu hình và quản trị hệ thống',
+  },
+  {
+    key: 'profile',
+    icon: <IdcardOutlined />,
+    label: 'Thông tin cá nhân',
+    tab: 'profile',
+    roles: [UserRole.GUEST, UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
+    description: 'Quản lý thông tin cá nhân',
   },
 ]
 

@@ -11,6 +11,7 @@ interface UseAuthResult {
   user: UserData | null
   isAuthenticated: boolean
   isLoading: boolean
+  refreshUser: () => Promise<void>
 }
 
 export function useAuth(): UseAuthResult {
@@ -18,6 +19,10 @@ export function useAuth(): UseAuthResult {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    loadUser()
+  }, [])
+
+  const loadUser = () => {
     try {
       const token = localStorage.getItem('access_token')
       const userStr = localStorage.getItem('user')
@@ -43,11 +48,16 @@ export function useAuth(): UseAuthResult {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }
+
+  const refreshUser = async () => {
+    loadUser()
+  }
 
   return {
     user,
     isAuthenticated: !!user,
     isLoading,
+    refreshUser,
   }
 }
