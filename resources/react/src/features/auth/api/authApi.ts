@@ -86,6 +86,26 @@ export const getGoogleAuthUrl = async (): Promise<GoogleAuthResponse> => {
 }
 
 /**
+ * Exchange Google OAuth code for access token
+ * SECURITY: This implements the secure authorization code flow
+ */
+export const exchangeGoogleCode = async (code: string): Promise<LoginResponse> => {
+  const response = await fetch(API_CONFIG.AUTH.GOOGLE_EXCHANGE_CODE, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ code }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`)
+  }
+
+  return await response.json()
+}
+
+/**
  * Logout current user
  */
 export const logout = async (token: string): Promise<void> => {

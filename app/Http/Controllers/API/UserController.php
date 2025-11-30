@@ -185,24 +185,46 @@ class UserController extends Controller
     /**
      * Display the specified user
      */
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
+        Log::info('=== User Management: Show User ===', [
+            'requester_id' => $request->user()->id,
+            'requester_email' => $request->user()->email,
+            'requester_role' => $request->user()->role,
+            'target_user_id' => $id,
+        ]);
+
         try {
             // Permission check handled by middleware
             $user = User::find($id);
 
             if (!$user) {
+                Log::warning('User not found', [
+                    'target_user_id' => $id,
+                ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'User not found',
                 ], 404);
             }
 
+            Log::info('User details fetched successfully', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+            ]);
+
             return response()->json([
                 'success' => true,
                 'data' => $user,
             ]);
         } catch (\Exception $e) {
+            Log::error('Failed to fetch user', [
+                'target_user_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch user',

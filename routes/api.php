@@ -96,6 +96,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('google')->group(function () {
             Route::get('/redirect', [GoogleAuthController::class, 'redirectToGoogle']);
             Route::get('/callback', [GoogleAuthController::class, 'handleGoogleCallbackWeb']);
+            Route::post('/exchange-code', [GoogleAuthController::class, 'exchangeCode']);
         });
     });
 

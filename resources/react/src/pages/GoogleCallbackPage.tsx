@@ -1,58 +1,67 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Spin, Typography } from 'antd'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { exchangeGoogleCode } from '../features/auth/api/authApi'
 
-const { Title } = Typography
+const { Title, Text } = Typography
 
 function GoogleCallbackPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const [statusMessage, setStatusMessage] = useState('Đang xử lý đăng nhập...')
 
   useEffect(() => {
-    const handleCallback = () => {
+    const handleCallback = async () => {
       const params = new URLSearchParams(location.search)
-      const token = params.get('token')
-      const userStr = params.get('user')
+      const code = params.get('code')
       const error = params.get('error')
-      const reason = params.get('reason')
+      const message = params.get('message')
 
       // Debug logging
       console.log('GoogleCallbackPage - All params:', Object.fromEntries(params))
-      console.log('GoogleCallbackPage - reason:', reason)
-      console.log('GoogleCallbackPage - token:', token)
+      console.log('GoogleCallbackPage - code:', code ? 'present' : 'missing')
       console.log('GoogleCallbackPage - error:', error)
 
-      // Check if this is an unauthorized redirect
-      if (reason === 'email_not_authorized') {
-        console.log('Redirecting to unauthorized page...')
-        navigate('/unauthorized?reason=' + reason)
-        return
-      }
-
+      // Check for errors from backend
       if (error) {
         console.error('Google login error:', error)
-        navigate('/login?error=' + error)
+        const errorMessage = message ? decodeURIComponent(message) : error
+        navigate('/login?error=' + encodeURIComponent(errorMessage))
         return
       }
 
-      if (token && userStr) {
+      // SECURITY: New flow - Exchange authorization code for token
+      if (code) {
         try {
-          const user = JSON.parse(decodeURIComponent(userStr))
+          setStatusMessage('Đang xác thực...')
 
-          // Store token and user data
-          localStorage.setItem('access_token', token)
-          localStorage.setItem('user', JSON.stringify(user))
-          localStorage.setItem('token_type', 'Bearer')
+          // Exchange code for token using API layer
+          const data = await exchangeGoogleCode(code)
 
-          // Redirect to dashboard
-          navigate('/dashboard')
-          window.location.reload()
+          if (data.success && data.data) {
+            // Store token and user data
+            localStorage.setItem('access_token', data.data.access_token)
+            localStorage.setItem('user', JSON.stringify(data.data.user))
+            localStorage.setItem('token_type', 'Bearer')
+
+            setStatusMessage('Đăng nhập thành công! Đang chuyển hướng...')
+
+            // Redirect to dashboard
+            setTimeout(() => {
+              navigate('/dashboard')
+              window.location.reload()
+            }, 500)
+          } else {
+            console.error('Code exchange failed:', data.message)
+            navigate('/login?error=' + encodeURIComponent(data.message || 'Xác thực thất bại'))
+          }
         } catch (err) {
-          console.error('Failed to parse user data:', err)
-          navigate('/login?error=invalid_data')
+          console.error('Failed to exchange code:', err)
+          navigate('/login?error=' + encodeURIComponent('Có lỗi xảy ra trong quá trình xác thực'))
         }
       } else {
-        navigate('/login?error=missing_data')
+        console.error('No code provided in callback')
+        navigate('/login?error=missing_code')
       }
     }
 
@@ -69,7 +78,8 @@ function GoogleCallbackPage() {
       gap: '20px'
     }}>
       <Spin size="large" />
-      <Title level={4}>Đang xử lý đăng nhập...</Title>
+      <Title level={4}>{statusMessage}</Title>
+      <Text type="secondary">Vui lòng không đóng trang này...</Text>
     </div>
   )
 }

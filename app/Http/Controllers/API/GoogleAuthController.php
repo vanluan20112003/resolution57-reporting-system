@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -19,11 +20,19 @@ class GoogleAuthController extends Controller
      */
     public function redirectToGoogle(): JsonResponse
     {
+        Log::info('=== Google OAuth: Initiate Redirect ===', [
+            'timestamp' => now()->toDateTimeString(),
+        ]);
+
         try {
             $url = Socialite::driver('google')
                 ->stateless()
                 ->redirect()
                 ->getTargetUrl();
+
+            Log::info('Google OAuth redirect URL generated', [
+                'url_domain' => parse_url($url, PHP_URL_HOST),
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -31,6 +40,11 @@ class GoogleAuthController extends Controller
                 'message' => 'Redirect to Google OAuth',
             ]);
         } catch (\Exception $e) {
+            Log::error('Failed to initiate Google OAuth', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to initiate Google OAuth',
@@ -44,11 +58,20 @@ class GoogleAuthController extends Controller
      */
     public function handleGoogleCallback(Request $request): JsonResponse
     {
+        Log::info('=== Google OAuth: API Callback ===', [
+            'timestamp' => now()->toDateTimeString(),
+        ]);
+
         try {
             // Get user info from Google
             $googleUser = Socialite::driver('google')
                 ->stateless()
                 ->user();
+
+            Log::info('Google user info retrieved', [
+                'email' => $googleUser->getEmail(),
+                'google_id' => $googleUser->getId(),
+            ]);
 
             // Find or create user
             $user = User::where('email', $googleUser->getEmail())->first();
@@ -59,6 +82,11 @@ class GoogleAuthController extends Controller
                 $nameParts = explode(' ', $fullName, 2);
                 $firstName = $nameParts[0] ?? '';
                 $lastName = $nameParts[1] ?? '';
+
+                Log::info('Creating new user from Google OAuth', [
+                    'email' => $googleUser->getEmail(),
+                    'first_name' => $firstName,
+                ]);
 
                 // Create new user
                 $user = User::create([
@@ -74,7 +102,17 @@ class GoogleAuthController extends Controller
                     'status' => 'active',
                     'is_vnuhcm' => false,
                 ]);
+
+                Log::info('New user created successfully', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                ]);
             } else {
+                Log::info('Existing user found', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                ]);
+
                 // Update Google ID and avatar if not set
                 if (!$user->google_id) {
                     $user->update([
@@ -82,11 +120,18 @@ class GoogleAuthController extends Controller
                         'avatar' => $googleUser->getAvatar(),
                         'avatar_url' => $googleUser->getAvatar(),
                     ]);
+                    Log::info('User Google info updated', ['user_id' => $user->id]);
                 }
             }
 
             // Create Sanctum token
             $token = $user->createToken('google-auth-token')->plainTextToken;
+
+            Log::info('Google OAuth login successful', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'role' => $user->role,
+            ]);
 
             // Return user data and token
             return response()->json([
@@ -105,6 +150,11 @@ class GoogleAuthController extends Controller
                 ],
             ]);
         } catch (\Exception $e) {
+            Log::error('Google OAuth callback failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Google authentication failed',
@@ -231,15 +281,42 @@ class GoogleAuthController extends Controller
             // Create Sanctum token
             $token = $user->createToken('google-auth-token')->plainTextToken;
 
-            // Redirect to frontend with token
+            // SECURITY: Store token temporarily in database to exchange for code
+            // Create a temporary one-time code that will be exchanged for the token
+            $oneTimeCode = bin2hex(random_bytes(32));
+            $expiresAt = now()->addMinutes(5);
+
+            // Store in database (oauth_codes table)
+            DB::table('oauth_codes')->insert([
+                'code' => $oneTimeCode,
+                'token' => $token,
+                'user_data' => json_encode([
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'avatar' => $user->avatar,
+                    'role' => $user->role,
+                ]),
+                'expires_at' => $expiresAt,
+                'created_at' => now(),
+            ]);
+
+            // Clean up expired codes
+            DB::table('oauth_codes')->where('expires_at', '<', now())->delete();
+
+            Log::info('One-time auth code generated', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'code_hash' => hash('sha256', $oneTimeCode),
+                'code_length' => strlen($oneTimeCode),
+                'code_preview' => substr($oneTimeCode, 0, 10) . '...',
+                'expires_at' => $expiresAt->toDateTimeString(),
+            ]);
+
+            // Redirect with one-time code instead of token
             $frontendUrl = env('FRONTEND_URL', 'http://localhost:5000');
-            $redirectUrl = $frontendUrl . '/auth/callback?token=' . urlencode($token) . '&user=' . urlencode(json_encode([
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'avatar' => $user->avatar,
-                'role' => $user->role,
-            ]));
+            // NOTE: No need to urlencode because code is hex string (only 0-9a-f)
+            $redirectUrl = $frontendUrl . '/auth/callback?code=' . $oneTimeCode;
 
             return redirect($redirectUrl);
         } catch (\Exception $e) {
@@ -261,14 +338,28 @@ class GoogleAuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
+        Log::info('=== Google OAuth: Logout ===', [
+            'user_id' => $request->user()->id,
+            'user_email' => $request->user()->email,
+        ]);
+
         try {
             $request->user()->currentAccessToken()->delete();
+
+            Log::info('Logout successful', [
+                'user_id' => $request->user()->id,
+            ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Logout successful',
             ]);
         } catch (\Exception $e) {
+            Log::error('Logout failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Logout failed',
@@ -285,6 +376,11 @@ class GoogleAuthController extends Controller
         try {
             $user = $request->user();
 
+            Log::info('=== Get current user info ===', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+            ]);
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -296,9 +392,100 @@ class GoogleAuthController extends Controller
                 ],
             ]);
         } catch (\Exception $e) {
+            Log::error('Failed to get user info', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to get user',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Exchange one-time auth code for access token
+     * SECURITY: This endpoint exchanges the one-time code from URL for the actual token
+     */
+    public function exchangeCode(Request $request): JsonResponse
+    {
+        Log::info('=== Exchange auth code for token ===', [
+            'has_code' => $request->has('code'),
+            'timestamp' => now()->toDateTimeString(),
+        ]);
+
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'code' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            Log::warning('Code exchange validation failed', [
+                'errors' => $validator->errors(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            $code = $request->input('code');
+
+            Log::info('DEBUG: Checking oauth code in database', [
+                'code_length' => strlen($code),
+                'code_preview' => substr($code, 0, 10) . '...',
+            ]);
+
+            // Retrieve data from database
+            $oauthCode = DB::table('oauth_codes')
+                ->where('code', $code)
+                ->where('expires_at', '>', now())
+                ->first();
+
+            if (!$oauthCode) {
+                Log::warning('Invalid or expired auth code', [
+                    'code_hash' => hash('sha256', $code),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid or expired authorization code',
+                ], 400);
+            }
+
+            // Parse user data
+            $userData = json_decode($oauthCode->user_data, true);
+
+            // Delete the one-time code (can only be used once)
+            DB::table('oauth_codes')->where('code', $code)->delete();
+
+            Log::info('Auth code exchanged successfully', [
+                'user_id' => $userData['id'],
+                'user_email' => $userData['email'],
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Authentication successful',
+                'data' => [
+                    'access_token' => $oauthCode->token,
+                    'token_type' => 'Bearer',
+                    'user' => $userData,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Code exchange failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to exchange authorization code',
                 'error' => $e->getMessage(),
             ], 500);
         }

@@ -32,23 +32,27 @@ function GoogleLoginButton({
         block={block}
         style={{
           height: 45,
-          background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-          borderColor: '#f093fb',
+          background: 'linear-gradient(135deg, #4285f4 0%, #357ae8 100%)',
+          borderColor: '#4285f4',
           color: '#fff',
           fontWeight: 500,
-          boxShadow: '0 4px 15px 0 rgba(245, 87, 108, 0.35)',
+          fontSize: '15px',
+          borderRadius: '6px',
+          boxShadow: '0 2px 8px 0 rgba(66, 133, 244, 0.25)',
           ...style,
         }}
         onMouseEnter={(e) => {
           if (!loading) {
-            e.currentTarget.style.background = 'linear-gradient(135deg, #f5576c 0%, #f093fb 100%)'
-            e.currentTarget.style.boxShadow = '0 6px 20px 0 rgba(245, 87, 108, 0.45)'
+            e.currentTarget.style.background = 'linear-gradient(135deg, #357ae8 0%, #2a5dcc 100%)'
+            e.currentTarget.style.boxShadow = '0 4px 12px 0 rgba(66, 133, 244, 0.35)'
+            e.currentTarget.style.transform = 'translateY(-1px)'
           }
         }}
         onMouseLeave={(e) => {
           if (!loading) {
-            e.currentTarget.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)'
-            e.currentTarget.style.boxShadow = '0 4px 15px 0 rgba(245, 87, 108, 0.35)'
+            e.currentTarget.style.background = 'linear-gradient(135deg, #4285f4 0%, #357ae8 100%)'
+            e.currentTarget.style.boxShadow = '0 2px 8px 0 rgba(66, 133, 244, 0.25)'
+            e.currentTarget.style.transform = 'translateY(0)'
           }
         }}
       >

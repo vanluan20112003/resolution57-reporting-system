@@ -36,6 +36,7 @@ export const API_CONFIG = {
     ME: `${getApiBaseUrl()}/auth/me`,
     GOOGLE_REDIRECT: `${getApiBaseUrl()}/auth/google/redirect`,
     GOOGLE_CALLBACK: `${getApiBaseUrl()}/auth/google/callback`,
+    GOOGLE_EXCHANGE_CODE: `${getApiBaseUrl()}/auth/google/exchange-code`,
     FORGOT_PASSWORD: `${getApiBaseUrl()}/auth/forgot-password`,
     RESET_PASSWORD: `${getApiBaseUrl()}/auth/reset-password`,
     CHANGE_PASSWORD: `${getApiBaseUrl()}/auth/change-password`
