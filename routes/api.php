@@ -7,6 +7,7 @@ use App\Http\Controllers\API\GoogleAuthController;
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\API\KpiController;
+use App\Http\Controllers\API\OrganizationController;
 use App\Http\Controllers\API\ProfileController;
 
 /*
@@ -157,6 +158,15 @@ Route::prefix('v1')->group(function () {
 
         // Delete KPI
         Route::delete('/{id}', [KpiController::class, 'destroy']);
+    });
+
+    // Organization Management Routes (OPERATOR and ADMIN only)
+    Route::middleware('auth:sanctum', 'role:OPERATOR,ADMIN')->prefix('organizations')->group(function(){
+        Route::get("/",[OrganizationController::class,'index']);
+        Route::get("/{id}",[OrganizationController::class,'show']);
+        Route::post("/",[OrganizationController::class,'store']);
+        Route::put("/{id}",[OrganizationController::class,'update']);
+        Route::delete("/{id}",[OrganizationController::class,'destroy']);
     });
 
     // SSO Authentication Routes (Simple Test)

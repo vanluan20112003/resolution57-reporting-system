@@ -8,11 +8,11 @@ const getApiBaseUrl = (): string => {
   // Check if running in production
   if (import.meta.env.PROD) {
     // In production, use relative path (same domain as frontend)
-    return '/api/v1'
+    return "/api/v1"
   }
 
   // In development, use localhost
-  return import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+  return import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1"
 }
 
 // Determine frontend base URL
@@ -21,7 +21,7 @@ const getFrontendBaseUrl = (): string => {
     return import.meta.env.VITE_FRONTEND_URL || window.location.origin
   }
 
-  return import.meta.env.VITE_FRONTEND_URL || 'http://localhost:5000'
+  return import.meta.env.VITE_FRONTEND_URL || "http://localhost:5000"
 }
 
 export const API_CONFIG = {
@@ -38,7 +38,7 @@ export const API_CONFIG = {
     GOOGLE_CALLBACK: `${getApiBaseUrl()}/auth/google/callback`,
     FORGOT_PASSWORD: `${getApiBaseUrl()}/auth/forgot-password`,
     RESET_PASSWORD: `${getApiBaseUrl()}/auth/reset-password`,
-    CHANGE_PASSWORD: `${getApiBaseUrl()}/auth/change-password`,
+    CHANGE_PASSWORD: `${getApiBaseUrl()}/auth/change-password`
   },
 
   // Other endpoints can be added here
@@ -46,16 +46,24 @@ export const API_CONFIG = {
     LIST: `${getApiBaseUrl()}/activities`,
     CREATE: `${getApiBaseUrl()}/activities`,
     UPDATE: (id: string) => `${getApiBaseUrl()}/activities/${id}`,
-    DELETE: (id: string) => `${getApiBaseUrl()}/activities/${id}`,
+    DELETE: (id: string) => `${getApiBaseUrl()}/activities/${id}`
+  },
+
+  ORGANIZATIONS: {
+    LIST: `${getApiBaseUrl()}/organizations`,
+    GET: (id: string) => `${getApiBaseUrl()}/organizations/${id}`,
+    CREATE: `${getApiBaseUrl()}/organizations`,
+    UPDATE: (id: string) => `${getApiBaseUrl()}/organizations/${id}`,
+    DELETE: (id: string) => `${getApiBaseUrl()}/organizations/${id}`
   },
 
   STATUS: `${getApiBaseUrl()}/status`,
-  HEALTH: `${getApiBaseUrl()}/health`,
+  HEALTH: `${getApiBaseUrl()}/health`
 }
 
 // Helper function to get full URL
 export const getFullUrl = (path: string): string => {
-  if (path.startsWith('http')) {
+  if (path.startsWith("http")) {
     return path
   }
 
@@ -63,7 +71,10 @@ export const getFullUrl = (path: string): string => {
 }
 
 // Helper function to build URL with query parameters
-export const buildUrl = (baseUrl: string, params?: Record<string, any>): string => {
+export const buildUrl = (
+  baseUrl: string,
+  params?: Record<string, any>
+): string => {
   if (!params) return baseUrl
 
   const queryString = new URLSearchParams(
