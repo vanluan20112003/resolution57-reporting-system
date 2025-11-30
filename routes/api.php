@@ -160,7 +160,7 @@ Route::prefix('v1')->group(function () {
         Route::delete('/{id}', [KpiController::class, 'destroy']);
     });
 
-    // Organization Management Routes (OPERATOR and ADMIN only)
+   // Organization Management Routes (OPERATOR and ADMIN only)
     Route::middleware('auth:sanctum', 'role:OPERATOR,ADMIN')->prefix('organizations')->group(function(){
         Route::get("/",[OrganizationController::class,'index'])->middleware('permission:organizations.view');
         Route::get("/{id}",[OrganizationController::class,'show'])->middleware('permission:organizations.view');
