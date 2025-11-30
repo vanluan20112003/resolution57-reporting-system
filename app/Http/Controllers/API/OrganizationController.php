@@ -23,9 +23,9 @@ class OrganizationController extends Controller
             if($request->filled('search')){
                 $search = $request->input('search');
                 $query->where(function($q) use ($search){
-                    $q->where('name','like',"%$search%")
-                      ->orWhere('code','like',"%$search%")
-                      ->orWhere('short_name','like',"%$search%");
+                    $q->where('name','like',"%{$search}%")
+                      ->orWhere('code','like',"%{$search}%")
+                      ->orWhere('short_name','like',"%{$search}%");
                 });
             } 
             if($request->has('type')){
@@ -118,7 +118,7 @@ class OrganizationController extends Controller
             'requester_id' => $request->user()->id,
             'requester_email' => $request->user()->email,
             'requester_role' => $request->user()->role,
-            'input_data' => $request->all(),
+            'input_data' => $request->only(["code", "name", "short_name", "type"]),
         ]);
 
         try{
@@ -139,9 +139,9 @@ class OrganizationController extends Controller
             ]);
 
             if ($validator->fails()) {
-                Log::warning('User creation validation failed', [
+                Log::warning('Organization creation validation failed', [
                     'errors' => $validator->errors(),
-                    'input' => $request->only(['email', 'first_name', 'last_name', 'role']),
+                    'input' => $request->only(["code", "name", "short_name", "type"]),
                 ]);
 
                 return response()->json([
@@ -184,7 +184,7 @@ class OrganizationController extends Controller
             'requester_email' => $request->user()->email,
             'requester_role' => $request->user()->role,
             'organization_id' => $id,
-            'input_data' => $request->all(),
+            'input_data' => $request->only(["code", "name", "short_name", "type"]),
         ]);
 
         try{
@@ -269,8 +269,7 @@ class OrganizationController extends Controller
                     'message' => 'Organization not found',
                 ], 404);
             }
-
-            $organization->delete();
+            $organization->update(['status' => 'inactive']);
 
             Log::info('Organization deleted successfully', [
                 'organization_id' => $id,

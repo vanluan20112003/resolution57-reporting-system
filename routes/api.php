@@ -161,13 +161,13 @@ Route::prefix('v1')->group(function () {
         Route::delete('/{id}', [KpiController::class, 'destroy']);
     });
 
-    // Organization Management Routes (OPERATOR and ADMIN only)
+   // Organization Management Routes (OPERATOR and ADMIN only)
     Route::middleware('auth:sanctum', 'role:OPERATOR,ADMIN')->prefix('organizations')->group(function(){
-        Route::get("/",[OrganizationController::class,'index']);
-        Route::get("/{id}",[OrganizationController::class,'show']);
-        Route::post("/",[OrganizationController::class,'store']);
-        Route::put("/{id}",[OrganizationController::class,'update']);
-        Route::delete("/{id}",[OrganizationController::class,'destroy']);
+        Route::get("/",[OrganizationController::class,'index'])->middleware('permission:organizations.view');
+        Route::get("/{id}",[OrganizationController::class,'show'])->middleware('permission:organizations.view');
+        Route::post("/",[OrganizationController::class,'store'])->middleware('permission:organizations.create');
+        Route::put("/{id}",[OrganizationController::class,'update'])->middleware('permission:organizations.update');
+        Route::delete("/{id}",[OrganizationController::class,'destroy'])->middleware('permission:organizations.update');
     });
 
     // SSO Authentication Routes (Simple Test)
