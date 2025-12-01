@@ -29,11 +29,14 @@ import {
   PhoneOutlined,
   IdcardOutlined,
   LoginOutlined,
+  TeamOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { useAuth } from '../../shared/hooks'
 import * as userApi from '../../services/userApi'
+import * as organizationApi from '../../services/organizationApi'
 import type { User } from '../../services/userApi'
+import type { Organization, OrganizationStatus } from '../../services/organizationApi'
 import './UserManagement.css'
 
 const { Title, Text } = Typography
@@ -74,6 +77,8 @@ function UserManagement() {
   const [statusFilter, setStatusFilter] = useState<string | undefined>()
   const [editModalVisible, setEditModalVisible] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [organizations, setOrganizations] = useState<Organization[]>([])
+  const [loadingOrganizations, setLoadingOrganizations] = useState(false)
   const [form] = Form.useForm()
   const { user: currentUser } = useAuth()
 
@@ -102,8 +107,28 @@ function UserManagement() {
   useEffect(() => {
     if (canManage) {
       fetchUsers(pagination.current, pagination.pageSize)
+      fetchOrganizations()
     }
   }, [canManage])
+
+  // Fetch organizations for dropdown
+  const fetchOrganizations = async () => {
+    setLoadingOrganizations(true)
+    try {
+      const response = await organizationApi.getOrganizationList({
+        status: 'active' as OrganizationStatus,
+        per_page: 100,
+        page: 1,
+      })
+      if (response.success) {
+        setOrganizations(response.data)
+      }
+    } catch (error) {
+      console.error('Error fetching organizations:', error)
+    } finally {
+      setLoadingOrganizations(false)
+    }
+  }
 
   // Debounced search effect
   useEffect(() => {
@@ -643,17 +668,75 @@ function UserManagement() {
             </Col>
           </Row>
 
-          <Form.Item
-            name="is_vnuhcm"
-            label="Thuộc ĐHQG-HCM"
-            valuePropName="checked"
-            initialValue={false}
-          >
-            <Switch
-              checkedChildren="Có"
-              unCheckedChildren="Không"
-            />
-          </Form.Item>
+          <Row gutter={16}>
+            <Col xs={24} sm={24} md={12}>
+              <Form.Item
+                name="organization_id"
+                label={
+                  <Space>
+                    <TeamOutlined />
+                    <span>Đơn vị/Phòng ban</span>
+                  </Space>
+                }
+                extra={
+                  selectedUser?.organization_id
+                    ? "Chọn đơn vị khác hoặc bấm X để xóa khỏi đơn vị hiện tại"
+                    : "Tìm kiếm và chọn đơn vị cho người dùng"
+                }
+              >
+                <Select
+                  placeholder="Tìm kiếm đơn vị..."
+                  size="large"
+                  allowClear
+                  showSearch
+                  loading={loadingOrganizations}
+                  optionFilterProp="children"
+                  filterOption={(input, option) => {
+                    const label = option?.label as string
+                    const searchValue = option?.['data-search'] as string
+                    return (
+                      label?.toLowerCase().includes(input.toLowerCase()) ||
+                      searchValue?.toLowerCase().includes(input.toLowerCase())
+                    )
+                  }}
+                  notFoundContent={
+                    loadingOrganizations ? "Đang tải..." : "Không tìm thấy đơn vị"
+                  }
+                  options={organizations.map((org) => ({
+                    value: org.id,
+                    label: org.short_name || org.name,
+                    'data-search': `${org.name} ${org.short_name || ''} ${org.code || ''}`,
+                  }))}
+                  optionRender={(option) => {
+                    const org = organizations.find(o => o.id === option.value)
+                    return (
+                      <Space direction="vertical" size={0} style={{ width: '100%' }}>
+                        <Text strong>{org?.short_name || org?.name}</Text>
+                        {org?.short_name && org?.name !== org?.short_name && (
+                          <Text type="secondary" style={{ fontSize: '12px' }}>
+                            {org.name}
+                          </Text>
+                        )}
+                      </Space>
+                    )
+                  }}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={24} md={12}>
+              <Form.Item
+                name="is_vnuhcm"
+                label="Thuộc ĐHQG-HCM"
+                valuePropName="checked"
+                initialValue={false}
+              >
+                <Switch
+                  checkedChildren="Có"
+                  unCheckedChildren="Không"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
     </Card>

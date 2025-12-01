@@ -1,4 +1,4 @@
-/* Login Page - Compact Form */
+/* Login Page - Compact Form with Background */
 
 * {
   margin: 0;
@@ -11,8 +11,25 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #ffffff;
+  background-image: url('../assets/images/Login-Background.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   padding: 20px;
+  position: relative;
+}
+
+/* Overlay để làm mờ nhẹ background */
+.login-page::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.15);
+  z-index: 0;
 }
 
 .login-box {
@@ -20,10 +37,13 @@
   max-width: 420px;
   margin: 0 auto;
   padding: 36px 32px;
-  background: #ffffff;
-  border: 1px solid #e8e8e8;
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  position: relative;
+  z-index: 1;
 }
 
 /* Logo */

@@ -84,124 +84,117 @@ function AllActivitiesList() {
     onViewDetail: handleViewDetail,
   })
 
-  // Render detail view
+  // Render detail view - All info in one Card like other pages
   if (viewMode === 'detail' && selectedActivity) {
     return (
-      <div style={{ padding: '24px' }}>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          {/* Back Button */}
-          <Button
-            type="link"
-            icon={<ArrowLeftOutlined />}
-            onClick={handleBackToList}
-            style={{ padding: 0 }}
-          >
-            Quay lại danh sách
-          </Button>
+      <Card>
+        {/* Back Button */}
+        <Button
+          type="link"
+          icon={<ArrowLeftOutlined />}
+          onClick={handleBackToList}
+          style={{ padding: 0, marginBottom: 16 }}
+        >
+          Quay lại danh sách
+        </Button>
 
-          {/* Header */}
-          <div>
-            <Space align="start">
-              <Title level={3} style={{ margin: 0 }}>
-                {selectedActivity.title}
-              </Title>
-              <Tag
-                color={statusConfig[selectedActivity.status]?.color}
-                icon={statusConfig[selectedActivity.status]?.icon}
-                style={{ fontSize: '14px', padding: '4px 12px' }}
-              >
-                {statusConfig[selectedActivity.status]?.label}
-              </Tag>
-            </Space>
-            <Text type="secondary" style={{ fontSize: '12px' }}>
-              {selectedActivity.code}
-            </Text>
-          </div>
+        {/* Header */}
+        <div style={{ marginBottom: 16 }}>
+          <Space align="start">
+            <Title level={3} style={{ margin: 0 }}>
+              {selectedActivity.title}
+            </Title>
+            <Tag
+              color={statusConfig[selectedActivity.status]?.color}
+              icon={statusConfig[selectedActivity.status]?.icon}
+              style={{ fontSize: '14px', padding: '4px 12px' }}
+            >
+              {statusConfig[selectedActivity.status]?.label}
+            </Tag>
+          </Space>
+          <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginTop: 4 }}>
+            {selectedActivity.code}
+          </Text>
+        </div>
 
-          <Divider style={{ margin: '12px 0' }} />
+        <Divider style={{ margin: '12px 0 24px 0' }} />
 
-          {/* Basic Info */}
-          <Descriptions title="Thông tin cơ bản" column={2} bordered>
-            <Descriptions.Item label="Mã hoạt động" span={2}>
-              <Text strong>{selectedActivity.code}</Text>
-            </Descriptions.Item>
-            <Descriptions.Item label="Tên hoạt động" span={2}>
-              <Text strong>{selectedActivity.title}</Text>
-            </Descriptions.Item>
-            <Descriptions.Item label="Đơn vị chủ trì" span={2}>
-              {mockOrganizations.find(o => o.id === selectedActivity.lead_organization_id)?.name || 'N/A'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Loại hoạt động">
-              {getActivityTypeName(selectedActivity.activity_type_id)}
-            </Descriptions.Item>
-            <Descriptions.Item label="Lĩnh vực">
-              {selectedActivity.activity_field_id ? getActivityFieldName(selectedActivity.activity_field_id) : 'N/A'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Mô tả" span={2}>
-              {selectedActivity.description}
-            </Descriptions.Item>
-          </Descriptions>
+        {/* All Info in One Table */}
+        <Descriptions column={2} bordered>
+          {/* Basic Info Section */}
+          <Descriptions.Item label="Mã hoạt động" span={2}>
+            <Text strong>{selectedActivity.code}</Text>
+          </Descriptions.Item>
+          <Descriptions.Item label="Tên hoạt động" span={2}>
+            <Text strong>{selectedActivity.title}</Text>
+          </Descriptions.Item>
+          <Descriptions.Item label="Đơn vị chủ trì" span={2}>
+            {mockOrganizations.find(o => o.id === selectedActivity.lead_organization_id)?.name || 'N/A'}
+          </Descriptions.Item>
+          <Descriptions.Item label="Loại hoạt động">
+            {getActivityTypeName(selectedActivity.activity_type_id)}
+          </Descriptions.Item>
+          <Descriptions.Item label="Lĩnh vực">
+            {selectedActivity.activity_field_id ? getActivityFieldName(selectedActivity.activity_field_id) : 'N/A'}
+          </Descriptions.Item>
+          <Descriptions.Item label="Mô tả" span={2}>
+            {selectedActivity.description}
+          </Descriptions.Item>
 
-          {/* Timeline */}
-          <Descriptions title="Thời gian" column={2} bordered>
-            <Descriptions.Item label="Thời gian kế hoạch" span={2}>
-              {dayjs(selectedActivity.start_date).format('DD/MM/YYYY')} - {dayjs(selectedActivity.end_date).format('DD/MM/YYYY')}
+          {/* Timeline Section */}
+          <Descriptions.Item label="Thời gian kế hoạch" span={2}>
+            {dayjs(selectedActivity.start_date).format('DD/MM/YYYY')} - {dayjs(selectedActivity.end_date).format('DD/MM/YYYY')}
+          </Descriptions.Item>
+          {selectedActivity.actual_start_date && (
+            <Descriptions.Item label="Thời gian thực tế" span={2}>
+              {dayjs(selectedActivity.actual_start_date).format('DD/MM/YYYY')}
+              {selectedActivity.actual_end_date ? ` - ${dayjs(selectedActivity.actual_end_date).format('DD/MM/YYYY')}` : ' - Đang thực hiện'}
             </Descriptions.Item>
-            {selectedActivity.actual_start_date && (
-              <Descriptions.Item label="Thời gian thực tế" span={2}>
-                {dayjs(selectedActivity.actual_start_date).format('DD/MM/YYYY')}
-                {selectedActivity.actual_end_date ? ` - ${dayjs(selectedActivity.actual_end_date).format('DD/MM/YYYY')}` : ' - Đang thực hiện'}
-              </Descriptions.Item>
-            )}
-            <Descriptions.Item label="Ngày tạo">
-              {dayjs(selectedActivity.created_at).format('DD/MM/YYYY HH:mm')}
-            </Descriptions.Item>
-            <Descriptions.Item label="Tiến độ">
-              <Space>
-                <div style={{ width: '120px', background: '#f0f0f0', borderRadius: '4px', height: '16px' }}>
-                  <div
-                    style={{
-                      width: `${selectedActivity.completion_percentage}%`,
-                      background: selectedActivity.completion_percentage === 100 ? '#52c41a' : '#1890ff',
-                      height: '100%',
-                      borderRadius: '4px',
-                    }}
-                  />
-                </div>
-                <Text strong>{selectedActivity.completion_percentage}%</Text>
-              </Space>
-            </Descriptions.Item>
-          </Descriptions>
-
-          {/* Budget & Location */}
-          <Descriptions title="Kinh phí & Địa điểm" column={2} bordered>
-            <Descriptions.Item label="Kinh phí">
-              <Text strong style={{ color: '#1890ff' }}>{formatBudget(selectedActivity.budget)}</Text>
-            </Descriptions.Item>
-            <Descriptions.Item label="Nguồn kinh phí">
-              {selectedActivity.budget_source}
-            </Descriptions.Item>
-            <Descriptions.Item label="Địa điểm" span={2}>
-              {selectedActivity.location}
-            </Descriptions.Item>
-          </Descriptions>
-
-          {/* Results */}
-          {selectedActivity.result_summary && (
-            <Descriptions title="Kết quả" column={1} bordered>
-              <Descriptions.Item label="Tóm tắt kết quả">
-                {selectedActivity.result_summary}
-              </Descriptions.Item>
-            </Descriptions>
           )}
-        </Space>
-      </div>
+          <Descriptions.Item label="Ngày tạo">
+            {dayjs(selectedActivity.created_at).format('DD/MM/YYYY HH:mm')}
+          </Descriptions.Item>
+          <Descriptions.Item label="Tiến độ">
+            <Space>
+              <div style={{ width: '120px', background: '#f0f0f0', borderRadius: '4px', height: '16px' }}>
+                <div
+                  style={{
+                    width: `${selectedActivity.completion_percentage}%`,
+                    background: selectedActivity.completion_percentage === 100 ? '#52c41a' : '#1890ff',
+                    height: '100%',
+                    borderRadius: '4px',
+                  }}
+                />
+              </div>
+              <Text strong>{selectedActivity.completion_percentage}%</Text>
+            </Space>
+          </Descriptions.Item>
+
+          {/* Budget & Location Section */}
+          <Descriptions.Item label="Kinh phí">
+            <Text strong style={{ color: '#1890ff' }}>{formatBudget(selectedActivity.budget)}</Text>
+          </Descriptions.Item>
+          <Descriptions.Item label="Nguồn kinh phí">
+            {selectedActivity.budget_source}
+          </Descriptions.Item>
+          <Descriptions.Item label="Địa điểm" span={2}>
+            {selectedActivity.location}
+          </Descriptions.Item>
+
+          {/* Results Section */}
+          {selectedActivity.result_summary && (
+            <Descriptions.Item label="Tóm tắt kết quả" span={2}>
+              {selectedActivity.result_summary}
+            </Descriptions.Item>
+          )}
+        </Descriptions>
+      </Card>
     )
   }
 
   // Render list view
   return (
-    <div style={{ padding: '16px' }}>
+    <div style={{ padding: '0' }}>
       <Card>
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
           {/* Header with inline info */}

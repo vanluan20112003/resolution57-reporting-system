@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import LanguageSwitcher from '../components/LanguageSwitcher'
 import { LoginForm, GoogleLoginButton } from '../features/auth'
 import '../styles/LoginPage.css'
+import loginLogo from '../assets/images/vnuhcm.png'
 
 const { Title } = Typography
 
@@ -71,21 +72,17 @@ function LoginPage({ onLoginSuccess }: LoginPageProps) {
   return (
     <div className="login-page">
       {contextHolder}
+      {/* Language Switcher - góc phải trên màn hình */}
+      <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 10 }}>
+        <LanguageSwitcher />
+      </div>
       <div className="login-box">
-        {/* Language Switcher */}
-        <div style={{ position: 'absolute', top: 20, right: 20 }}>
-          <LanguageSwitcher />
-        </div>
 
         {/* Logo */}
         <div className="login-logo">
           <img
-            src="https://pms.vnuhcm.edu.vn/logo.png"
-            alt="VNUHCM Logo"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-            }}
+            src={loginLogo}
+            alt="NQ57 Logo"
           />
         </div>
 

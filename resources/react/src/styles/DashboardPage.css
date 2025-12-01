@@ -2,7 +2,14 @@
    Dashboard Layout - Professional & Modern
    =================================== */
 
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&family=Montserrat:wght@500;600;700;800&display=swap');
+
 :root {
+  /* Font Family */
+  --font-primary: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-heading: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
   /* Primary Colors - Trang nghiêm */
   --primary-color: #1890ff;
   --primary-hover: #40a9ff;
@@ -59,7 +66,23 @@
 
 .dashboard-layout {
   min-height: 100vh;
-  background: var(--gray-100);
+  background-image: url('../assets/images/Home-Background.png') !important;
+  background-color: transparent !important;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  font-family: var(--font-primary);
+}
+
+/* Override Ant Design Layout default background */
+.dashboard-layout.ant-layout {
+  background-image: url('../assets/images/Home-Background.png') !important;
+  background-color: transparent !important;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 /* ===================================
@@ -67,42 +90,44 @@
    =================================== */
 
 .dashboard-sider {
-  background: var(--white);
-  box-shadow: var(--shadow-lg);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   position: relative;
   z-index: 10;
-  border-right: 1px solid var(--gray-200);
+  border-right: none;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  display: flex;
+  flex-direction: column;
 }
 
-.dashboard-sider::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(
-    90deg,
-    var(--red-gradient-start) 0%,
-    var(--red-gradient-end) 100%
-  );
+/* Ensure Ant Design sider inner also uses flex */
+.dashboard-sider > .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
 }
+
 
 /* Logo Area - Clean & Prominent */
 .dashboard-logo {
-  height: 140px;
+  height: 100px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-xl);
-  border-bottom: 1px solid var(--gray-200);
-  background: var(--white);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: transparent;
   transition: all var(--transition-base);
 }
 
 .logo-icon {
-  width: 100px;
-  height: 100px;
+  width: 100%;
+  max-width: 240px;
+  height: 70px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -111,32 +136,48 @@
   transition: all var(--transition-base);
 }
 
+/* Logo when sidebar is collapsed */
+.dashboard-logo.collapsed {
+  height: 70px;
+  padding: var(--spacing-sm);
+}
+
+.dashboard-logo.collapsed .logo-icon {
+  width: 50px;
+  height: 50px;
+  max-width: 50px;
+}
+
 .dashboard-logo:hover .logo-icon {
   transform: scale(1.05);
 }
 
 .logo-icon img {
-  width: 100%;
-  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
   object-fit: contain;
-  filter: none;
-  drop-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.1));
 }
 
 /* Menu Items - Professional */
 .dashboard-sider .ant-menu {
   border-right: none;
   padding: var(--spacing-md);
+  background: transparent;
 }
 
 .dashboard-sider .ant-menu-item {
   margin: var(--spacing-xs) 0;
   width: 100%;
-  height: 44px;
-  line-height: 44px;
+  height: 48px;
+  line-height: 48px;
   border-radius: var(--radius-md);
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-800);
+  letter-spacing: 0.2px;
   transition: all var(--transition-base);
   position: relative;
   overflow: hidden;
@@ -160,18 +201,18 @@
 }
 
 .dashboard-sider .ant-menu-item-selected {
-  background: linear-gradient(90deg, var(--primary-light) 0%, transparent 100%) !important;
+  background: linear-gradient(90deg, rgba(24, 144, 255, 0.15) 0%, transparent 100%) !important;
   color: var(--primary-color) !important;
   font-weight: 600;
 }
 
 .dashboard-sider .ant-menu-item:hover {
-  background: var(--gray-100);
+  background: rgba(0, 0, 0, 0.04);
   color: var(--primary-color);
 }
 
 .dashboard-sider .ant-menu-item-icon {
-  font-size: 16px;
+  font-size: 18px;
 }
 
 /* Submenu Styles */
@@ -180,36 +221,40 @@
 }
 
 .dashboard-sider .ant-menu-submenu-title {
-  height: 44px;
-  line-height: 44px;
+  height: 48px;
+  line-height: 48px;
   border-radius: var(--radius-md);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
+  color: var(--gray-800);
+  letter-spacing: 0.2px;
   transition: all var(--transition-base);
   margin: 0;
 }
 
 .dashboard-sider .ant-menu-submenu-title:hover {
-  background: var(--gray-100);
+  background: rgba(0, 0, 0, 0.04);
   color: var(--primary-color);
 }
 
 .dashboard-sider .ant-menu-submenu-open > .ant-menu-submenu-title {
-  background: var(--primary-light);
+  background: rgba(24, 144, 255, 0.1);
   color: var(--primary-color);
 }
 
 .dashboard-sider .ant-menu-sub {
-  background: var(--gray-50) !important;
+  background: rgba(0, 0, 0, 0.02) !important;
   border-radius: var(--radius-md);
   margin-top: var(--spacing-xs);
   margin-bottom: var(--spacing-xs);
 }
 
 .dashboard-sider .ant-menu-sub .ant-menu-item {
-  height: 40px;
-  line-height: 40px;
-  font-size: 13px;
+  height: 44px;
+  line-height: 44px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-700);
   margin: 2px 0;
   padding-left: 48px !important;
 }
@@ -219,17 +264,16 @@
 }
 
 /* ===================================
-   Header - Clean & Professional
+   Header - Clean & Professional with Background Image
    =================================== */
 
 .dashboard-header {
-  background: linear-gradient(
-    135deg,
-    var(--red-gradient-start) 0%,
-    var(--red-gradient-end) 100%
-  );
+  background-image: url('../assets/images/Header-Background.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   padding: 0 var(--spacing-xl);
-  box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -243,30 +287,36 @@
   overflow: hidden;
 }
 
+/* Overlay tối nhẹ để chữ dễ đọc hơn */
 .dashboard-header::before {
   content: '';
   position: absolute;
   top: 0;
+  left: 0;
   right: 0;
-  width: 200px;
-  height: 200px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
-  transform: translate(50%, -50%);
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.3) 0%,
+    rgba(0, 0, 0, 0.1) 50%,
+    rgba(0, 0, 0, 0.3) 100%
+  );
+  z-index: 0;
 }
 
 .dashboard-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 150px;
-  height: 150px;
-  background: radial-gradient(circle, rgba(0, 0, 0, 0.1) 0%, transparent 70%);
-  transform: translate(-50%, 50%);
+  display: none;
 }
 
 .dashboard-body {
   margin-top: 64px;
+  padding-top: 16px;
+  background: transparent !important;
+}
+
+/* Override nested Layout background */
+.dashboard-body.ant-layout {
+  background: transparent !important;
 }
 
 .header-left {
@@ -295,13 +345,19 @@
 }
 
 .header-title {
-  font-size: 16px;
-  font-weight: 700;
+  font-family: 'Montserrat', 'Arial Black', 'Impact', sans-serif;
+  font-size: 18px;
+  font-weight: 900;
   color: var(--white);
-  letter-spacing: 0.8px;
-  line-height: 1.6;
+  letter-spacing: 0.3px;
+  line-height: 1.4;
   text-transform: uppercase;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  /* White outline */
+  text-shadow:
+    -1px -1px 0 #fff,
+    1px -1px 0 #fff,
+    -1px 1px 0 #fff,
+    1px 1px 0 #fff;
 }
 
 .header-right {
@@ -312,32 +368,65 @@
   z-index: 1;
 }
 
-/* Sidebar Toggle Button */
+/* Sidebar Menu Wrapper - Scrollable */
+.sidebar-menu-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0; /* Important for flex child to allow scrolling */
+}
+
+/* Custom scrollbar for sidebar menu */
+.sidebar-menu-wrapper::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-menu-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-menu-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+
+.sidebar-menu-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Sidebar Toggle Button - Bottom */
 .sidebar-toggle-wrapper {
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-md);
   display: flex;
   justify-content: center;
-  border-bottom: 1px solid var(--gray-200);
-  background: var(--white);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+  margin-top: auto;
 }
 
 .sidebar-toggle-btn {
-  font-size: 18px;
+  font-size: 16px;
   width: 100%;
-  height: 36px;
+  height: 40px;
   border-radius: var(--radius-md);
   color: var(--gray-700);
   transition: all var(--transition-base);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--gray-300);
+  border: none;
+  background: transparent;
 }
 
 .sidebar-toggle-btn:hover {
-  background: var(--primary-light);
+  background: rgba(24, 144, 255, 0.1);
   color: var(--primary-color);
-  border-color: var(--primary-color);
+}
+
+/* When sidebar is collapsed */
+.ant-layout-sider-collapsed .sidebar-toggle-btn {
+  padding: 0;
+  justify-content: center;
 }
 
 .header-icon-btn {
@@ -408,17 +497,28 @@
    =================================== */
 
 .dashboard-content {
-  margin: 0;
-  padding: var(--spacing-xl);
-  padding-top: calc(var(--spacing-xl) + 20px);
-  background: var(--gray-100);
-  min-height: calc(100vh - 80px);
+  padding: 0 !important;
+  background: transparent;
+  min-height: calc(100vh - 64px - 32px);
+  border-radius: var(--radius-xl);
+  /* margin is set inline in DashboardPage.tsx */
 }
 
 .content-wrapper {
   padding: 0;
-  min-height: calc(100vh - 200px);
-  margin-top: var(--spacing-md);
+  min-height: calc(100vh - 64px - 32px - 48px);
+}
+
+/* Ensure all direct children of content-wrapper start at same position */
+.content-wrapper > * {
+  margin-top: 0;
+}
+
+.content-wrapper > div:first-child,
+.content-wrapper > .ant-card:first-child,
+.content-wrapper > .ant-table-wrapper:first-child {
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .empty-content {
@@ -428,9 +528,12 @@
   justify-content: center;
   padding: var(--spacing-2xl) var(--spacing-lg);
   gap: var(--spacing-md);
-  background: linear-gradient(135deg, var(--gray-50) 0%, var(--white) 100%);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
   border-radius: var(--radius-lg);
-  margin: var(--spacing-lg);
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 
 .empty-content .anticon {
@@ -695,23 +798,15 @@
   }
 
   .header-title {
-    font-size: 14px;
+    font-size: 16px;
   }
 
   .dashboard-content {
-    padding: var(--spacing-lg);
+    padding: 0;
   }
 
-  .dashboard-sider {
-    width: 240px !important;
-  }
-
-  .dashboard-content {
-    margin-left: 240px !important;
-  }
-
-  .dashboard-sider.ant-layout-sider-collapsed + .dashboard-content {
-    margin-left: 80px !important;
+  .content-wrapper {
+    padding: 0;
   }
 }
 
@@ -724,7 +819,7 @@
   }
 
   .header-title {
-    font-size: 11px;
+    font-size: 13px;
     line-height: 1.4;
   }
 
@@ -739,6 +834,8 @@
     position: fixed !important;
     z-index: 1000;
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+    margin: 0;
+    border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
   }
 
   .dashboard-sider:not(.ant-layout-sider-collapsed) {
@@ -751,30 +848,50 @@
 
   /* Content always full width on mobile */
   .dashboard-content {
-    margin-left: 0 !important;
-    padding: var(--spacing-md);
-    padding-top: var(--spacing-lg);
+    margin: var(--spacing-sm) !important;
+    padding: 0;
+    border-radius: var(--radius-lg);
+    background: transparent;
+  }
+
+  .content-wrapper {
+    padding: 0;
   }
 
   /* Logo smaller on mobile */
   .dashboard-logo {
-    height: 100px;
-    padding: var(--spacing-md);
+    height: 80px;
+    padding: var(--spacing-sm) var(--spacing-md);
   }
 
   .logo-icon {
-    width: 70px;
-    height: 70px;
+    max-width: 200px;
+    height: 60px;
+  }
+
+  .dashboard-logo.collapsed {
+    height: 60px;
+  }
+
+  .dashboard-logo.collapsed .logo-icon {
+    width: 40px;
+    height: 40px;
+    max-width: 40px;
   }
 
   /* Toggle button */
   .sidebar-toggle-wrapper {
-    padding: var(--spacing-xs) var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
   }
 
   .sidebar-toggle-btn {
-    height: 32px;
-    font-size: 16px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .sidebar-menu-wrapper {
+    flex: 1;
+    overflow-y: auto;
   }
 
   /* Tables */
@@ -817,9 +934,9 @@
   }
 
   .dashboard-sider .ant-menu-sub .ant-menu-item {
-    height: 36px;
-    line-height: 36px;
-    font-size: 12px;
+    height: 40px;
+    line-height: 40px;
+    font-size: 13px;
   }
 }
 
@@ -832,7 +949,7 @@
   }
 
   .header-title {
-    font-size: 9px;
+    font-size: 11px;
     line-height: 1.3;
   }
 
@@ -844,8 +961,11 @@
 
   /* Content */
   .dashboard-content {
-    padding: var(--spacing-sm);
-    padding-top: var(--spacing-md);
+    padding: 0;
+  }
+
+  .content-wrapper {
+    padding: 0;
   }
 
   /* Logo */
@@ -1065,17 +1185,46 @@
   box-shadow: var(--shadow-md);
 }
 
-/* Card Enhancement (if used later) */
+/* Card Enhancement - Glass Effect */
 .ant-card {
   border-radius: var(--radius-lg);
-  border-color: var(--gray-200);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   transition: all var(--transition-base);
 }
 
 .ant-card:hover {
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
   transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* Table wrapper - Glass Effect */
+.ant-table-wrapper {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.ant-table {
+  background: transparent;
+}
+
+.ant-table-thead > tr > th {
+  background: rgba(250, 250, 250, 0.8) !important;
+}
+
+.ant-table-tbody > tr > td {
+  background: transparent;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: rgba(24, 144, 255, 0.05) !important;
 }
 
 /* Ensure content stays below header and impersonation banner */
@@ -1083,15 +1232,135 @@
 .dashboard-content .ant-table-wrapper {
   position: relative;
   z-index: 1;
-  margin-top: var(--spacing-md);
+  margin-top: 0;
 }
 
-/* First card should have more top margin */
-.dashboard-content > .content-wrapper > .ant-card:first-child {
-  margin-top: var(--spacing-lg);
+/* First card/table - no extra margin */
+.dashboard-content > .content-wrapper > .ant-card:first-child,
+.dashboard-content > .content-wrapper > .ant-table-wrapper:first-child,
+.dashboard-content > .content-wrapper > div:first-child {
+  margin-top: 0;
 }
 
 /* Make sure header and banner are above content */
 .dashboard-header {
   z-index: 100;
+}
+
+/* ===================================
+   Solid Background Card - Override Glass Effect
+   =================================== */
+
+/* Card with solid white background - highest specificity to override glass effect */
+.dashboard-content .solid-background-card.ant-card,
+.content-wrapper .solid-background-card.ant-card,
+.solid-background-card.ant-card {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid #e8e8e8 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+.dashboard-content .solid-background-card.ant-card:hover,
+.content-wrapper .solid-background-card.ant-card:hover,
+.solid-background-card.ant-card:hover {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  background-image: none !important;
+  transform: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Card body - solid white - this is the key! */
+.solid-background-card.ant-card .ant-card-body,
+.solid-background-card > .ant-card-body,
+.solid-background-card.ant-card > .ant-card-body {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+}
+
+/* Descriptions styling inside solid card */
+.solid-background-card .ant-descriptions {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+}
+
+.solid-background-card .ant-descriptions-header {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  margin-bottom: 12px;
+}
+
+.solid-background-card .ant-descriptions-title {
+  background: transparent !important;
+}
+
+.solid-background-card .ant-descriptions-bordered .ant-descriptions-view {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  border: 1px solid #f0f0f0;
+  border-radius: var(--radius-md);
+}
+
+.solid-background-card .ant-descriptions-bordered .ant-descriptions-item-label {
+  background: #fafafa !important;
+  background-color: #fafafa !important;
+  font-weight: 600;
+  color: var(--gray-700);
+  border-color: #f0f0f0;
+}
+
+.solid-background-card .ant-descriptions-bordered .ant-descriptions-item-content {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  border-color: #f0f0f0;
+}
+
+.solid-background-card .ant-descriptions-bordered .ant-descriptions-row {
+  border-color: #f0f0f0;
+}
+
+/* Space and div inside card - for gaps between sections */
+.solid-background-card .ant-space,
+.solid-background-card .ant-space-item {
+  background: transparent !important;
+}
+
+/* Divider */
+.solid-background-card .ant-divider {
+  background: #f0f0f0 !important;
+}
+
+/* Button - keep transparent for proper styling */
+.solid-background-card .ant-btn {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Tag - keep its original color */
+.solid-background-card .ant-tag {
+  background-color: unset !important;
+}
+
+/* Typography */
+.solid-background-card .ant-typography {
+  background: transparent !important;
+}
+
+/* Global Descriptions styling */
+.ant-descriptions-bordered .ant-descriptions-view {
+  border: 1px solid #f0f0f0;
+}
+
+.ant-descriptions-bordered .ant-descriptions-item-label {
+  background-color: #fafafa !important;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.ant-descriptions-bordered .ant-descriptions-item-content {
+  background-color: #ffffff !important;
 }

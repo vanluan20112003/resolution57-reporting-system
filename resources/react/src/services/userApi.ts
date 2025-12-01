@@ -155,10 +155,20 @@ export const createUser = async (data: CreateUserRequest): Promise<UserResponse>
  * Update an existing user
  */
 export const updateUser = async (id: string, data: UpdateUserRequest): Promise<UserResponse> => {
+  // Ensure organization_id is explicitly sent as null when clearing
+  // This is important because backend needs to know the intent to clear vs not changing
+  const payload = {
+    ...data,
+    // Explicitly set organization_id to null if it's undefined or empty string
+    organization_id: data.organization_id === undefined || data.organization_id === ''
+      ? null
+      : data.organization_id,
+  }
+
   const response = await fetch(`${API_CONFIG.BASE_URL}/users/${id}`, {
     method: 'PUT',
     headers: getAuthHeaders(),
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   })
 
   if (!response.ok) {

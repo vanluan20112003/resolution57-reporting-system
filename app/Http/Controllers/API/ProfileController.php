@@ -29,6 +29,18 @@ class ProfileController extends Controller
                 ], 401);
             }
 
+            // Load organization relationship
+            $userData = $user->toArray();
+            if ($user->organization_id) {
+                $organization = \App\Models\Organization::find($user->organization_id);
+                $userData['organization'] = $organization ? [
+                    'id' => $organization->id,
+                    'name' => $organization->name,
+                    'short_name' => $organization->short_name,
+                    'code' => $organization->code,
+                ] : null;
+            }
+
             Log::info('Profile viewed', [
                 'user_id' => $user->id,
                 'user_email' => $user->email,
@@ -36,7 +48,7 @@ class ProfileController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $user,
+                'data' => $userData,
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to fetch profile', [

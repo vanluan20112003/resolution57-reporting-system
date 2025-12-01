@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Layout, Space, Typography, Button } from 'antd'
 import { Menu } from 'antd'
-import { MenuOutlined } from '@ant-design/icons'
+import { MenuOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 import ResolutionList from '../components/Dashboard/ResolutionList'
 import ActivityList from '../components/Dashboard/ActivityList'
@@ -27,6 +27,7 @@ import {
   UserRole,
 } from '../constants'
 import '../styles/DashboardPage.css'
+import logoNQ57 from '../assets/images/cobualiem.png'
 
 const { Header, Sider, Content } = Layout
 const { Text, Title } = Typography
@@ -69,10 +70,10 @@ function DashboardPage() {
 
   const [selectedMenu, setSelectedMenu] = useState<string>(getInitialMenu())
 
-  // Build menu items based on user role
+  // Build menu items based on user role and organization
   const menuItems: MenuProps['items'] = useMemo(() => {
     if (!user) return []
-    return getMenuItemsForRole(user.role)
+    return getMenuItemsForRole(user.role, user.organization_id, user.organization_name)
   }, [user])
 
   // Detect mobile view
@@ -240,7 +241,7 @@ function DashboardPage() {
           )}
           <div className="vietnam-flag">
             <img
-              src="https://nq57.vn/static/appbuilder/images/nq57_logo.png"
+              src={logoNQ57}
               alt="NQ57 Logo"
               style={{ height: '48px', width: 'auto', objectFit: 'contain' }}
             />
@@ -265,7 +266,7 @@ function DashboardPage() {
       </Header>
 
       {/* Content area with Sidebar and Main content */}
-      <Layout className="dashboard-body" style={{ marginTop: isImpersonating ? 48 : 0 }}>
+      <Layout className="dashboard-body">
         {/* Mobile Overlay Backdrop */}
         {isMobile && !collapsed && (
           <div
@@ -290,44 +291,58 @@ function DashboardPage() {
           width={280}
           className="dashboard-sider"
           style={{
-            overflow: 'auto',
-            height: isImpersonating ? 'calc(100vh - 112px)' : 'calc(100vh - 64px)',
+            overflow: 'hidden',
+            height: isImpersonating ? 'calc(100vh - 112px - 32px)' : 'calc(100vh - 64px - 32px)',
             position: 'fixed',
-            left: 0,
-            top: isImpersonating ? 112 : 64,
-            bottom: 0,
+            left: 16,
+            top: isImpersonating ? 128 : 80,
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
           {/* Logo at the top */}
-          <div className="dashboard-logo">
+          <div className={`dashboard-logo ${collapsed ? 'collapsed' : ''}`}>
             <div className="logo-icon">
-              <img src="/vnuhcm.png" alt="ĐHQG-HCM Logo" />
+              <img
+                src={collapsed ? "/VNUHCM_logo.png" : "/vnuhcm.png"}
+                alt="ĐHQG-HCM Logo"
+              />
             </div>
           </div>
 
-          {/* Toggle button below logo */}
-          <div className="sidebar-toggle-wrapper">
-            <Button
-              type="text"
-              icon={<MenuOutlined />}
-              onClick={() => setCollapsed(!collapsed)}
-              className="sidebar-toggle-btn"
+          {/* Menu - scrollable */}
+          <div className="sidebar-menu-wrapper">
+            <Menu
+              theme="light"
+              mode="inline"
+              selectedKeys={[selectedMenu]}
+              items={menuItems}
+              onClick={({ key }) => handleMenuChange(key)}
             />
           </div>
 
-          <Menu
-            theme="light"
-            mode="inline"
-            selectedKeys={[selectedMenu]}
-            items={menuItems}
-            onClick={({ key }) => handleMenuChange(key)}
-          />
+          {/* Toggle button at bottom */}
+          <div className="sidebar-toggle-wrapper">
+            <Button
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed(!collapsed)}
+              className="sidebar-toggle-btn"
+            >
+              {!collapsed && <span style={{ marginLeft: 8 }}>Thu gọn</span>}
+            </Button>
+          </div>
         </Sider>
 
         {/* Main Content */}
         <Content
           className="dashboard-content"
-          style={{ marginLeft: collapsed ? 80 : 280, transition: 'margin-left 0.2s' }}
+          style={{
+            marginLeft: collapsed ? 112 : 312,
+            marginRight: 16,
+            marginBottom: 16,
+            transition: 'margin-left 0.2s'
+          }}
         >
           <div className="content-wrapper">
             {renderContent()}

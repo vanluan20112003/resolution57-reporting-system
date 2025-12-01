@@ -308,10 +308,19 @@ class UserController extends Controller
                 'role',
                 'status',
                 'is_vnuhcm',
-                'organization_id',
             ]);
 
-            if ($request->has('password')) {
+            // Handle organization_id separately to allow setting it to null
+            // $request->has() returns true even when value is null, which is what we want
+            if ($request->has('organization_id')) {
+                $updateData['organization_id'] = $request->input('organization_id');
+                Log::info('Updating organization_id', [
+                    'user_id' => $id,
+                    'new_organization_id' => $request->input('organization_id'),
+                ]);
+            }
+
+            if ($request->has('password') && $request->password) {
                 $updateData['password_hash'] = Hash::make($request->password);
             }
 
