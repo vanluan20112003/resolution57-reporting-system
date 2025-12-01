@@ -398,7 +398,7 @@ function OrganizationManagement() {
   }, [searchText])
 
   return (
-    <div style={{ padding: "24px" }}>
+    <div style={{ padding: "0" }}>
       <Card>
         <Space direction="vertical" size="large" style={{ width: "100%" }}>
           {/* Header */}

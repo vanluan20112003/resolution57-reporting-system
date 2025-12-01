@@ -1,10 +1,12 @@
 /**
  * Loading Overlay Component
  * Full-screen loading overlay for async operations
+ * Uses React Portal to ensure it renders at document body level
  */
 
 import { Spin } from 'antd'
 import { LoadingOutlined } from '@ant-design/icons'
+import { createPortal } from 'react-dom'
 
 interface LoadingOverlayProps {
   loading: boolean
@@ -23,7 +25,7 @@ function LoadingOverlay({
 
   const spinIcon = <LoadingOutlined style={{ fontSize: size === 'large' ? 48 : size === 'default' ? 32 : 24 }} spin />
 
-  return (
+  const overlay = (
     <div
       style={{
         position: fullScreen ? 'fixed' : 'absolute',
@@ -55,6 +57,13 @@ function LoadingOverlay({
       )}
     </div>
   )
+
+  // Use portal to render at document body level for fullScreen mode
+  if (fullScreen) {
+    return createPortal(overlay, document.body)
+  }
+
+  return overlay
 }
 
 export default LoadingOverlay

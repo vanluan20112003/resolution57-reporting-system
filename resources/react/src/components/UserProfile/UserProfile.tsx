@@ -235,7 +235,7 @@ export default function UserProfile() {
   }
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+    <div style={{ padding: '0', maxWidth: '1400px', margin: '0 auto' }}>
       <Title level={2} style={{ marginBottom: '24px' }}>
         <UserOutlined /> Thông tin cá nhân
       </Title>

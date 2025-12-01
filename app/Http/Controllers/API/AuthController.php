@@ -90,6 +90,13 @@ class AuthController extends Controller
                 'ip_address' => $request->ip(),
             ]);
 
+            // Load organization relationship if user has one
+            $organizationName = null;
+            if ($user->organization_id) {
+                $organization = \App\Models\Organization::find($user->organization_id);
+                $organizationName = $organization ? ($organization->short_name ?? $organization->name) : null;
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Đăng nhập thành công',
@@ -104,6 +111,8 @@ class AuthController extends Controller
                         'avatar_url' => $user->avatar_url,
                         'role' => $user->role,
                         'is_vnuhcm' => $user->is_vnuhcm,
+                        'organization_id' => $user->organization_id,
+                        'organization_name' => $organizationName,
                     ],
                     'access_token' => $token,
                     'token_type' => 'Bearer',

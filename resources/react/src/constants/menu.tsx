@@ -11,6 +11,7 @@ import {
   CheckCircleOutlined,
   FileDoneOutlined,
   IdcardOutlined,
+  ApartmentOutlined,
 } from '@ant-design/icons'
 import { UserRole, canManageUsers, canManageActivities, canApproveActivities, canManageKPI } from './roles'
 import type { MenuProps } from 'antd'
@@ -23,6 +24,7 @@ export interface MenuItem {
   roles: UserRole[] // Roles that can see this menu item
   description?: string
   children?: MenuItem[] // For submenu items
+  requiresOrganization?: boolean // If true, only show if user has organization_id
 }
 
 /**
@@ -39,19 +41,21 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
   },
   {
     key: 'activities-menu',
-    icon: <FileTextOutlined />,
-    label: 'Hoạt động',
+    icon: <ApartmentOutlined />,
+    label: 'Hoạt động đơn vị', // Will be replaced with organization name dynamically
     tab: 'activities',
     roles: [UserRole.GUEST, UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
-    description: 'Quản lý hoạt động',
+    description: 'Quản lý hoạt động của đơn vị',
+    requiresOrganization: true, // Entire menu requires organization
     children: [
       {
         key: 'activities',
         icon: <BellOutlined />,
-        label: 'Danh sách hoạt động',
+        label: 'Tất cả hoạt động',
         tab: 'activities',
         roles: [UserRole.GUEST, UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
-        description: 'Xem tất cả hoạt động',
+        description: 'Xem tất cả hoạt động của đơn vị',
+        requiresOrganization: true,
       },
       {
         key: 'my-activities',
@@ -60,6 +64,7 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
         tab: 'my-activities',
         roles: [UserRole.STAFF, UserRole.MANAGER, UserRole.ADMIN],
         description: 'Quản lý hoạt động do bạn tạo',
+        requiresOrganization: true,
       },
       {
         key: 'pending-approval',
@@ -68,6 +73,7 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
         tab: 'pending-approval',
         roles: [UserRole.MANAGER, UserRole.ADMIN],
         description: 'Danh sách hoạt động chờ phê duyệt',
+        requiresOrganization: true,
       },
     ],
   },
@@ -159,21 +165,44 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
 
 /**
  * Get menu items for a specific role with submenu support
+ * @param role - User's role
+ * @param organizationId - User's organization ID (optional)
+ * @param organizationName - User's organization name (optional) - used to customize menu labels
  */
-export const getMenuItemsForRole = (role: UserRole | string): MenuProps['items'] => {
-  const filterByRole = (items: MenuItem[]): MenuProps['items'] => {
+export const getMenuItemsForRole = (
+  role: UserRole | string,
+  organizationId?: string | null,
+  organizationName?: string | null
+): MenuProps['items'] => {
+  const filterByRoleAndOrg = (items: MenuItem[]): MenuProps['items'] => {
     return items
-      .filter(item => item.roles.includes(role as UserRole))
+      .filter(item => {
+        // Check role permission
+        if (!item.roles.includes(role as UserRole)) {
+          return false
+        }
+        // Check organization requirement
+        if (item.requiresOrganization && !organizationId) {
+          return false
+        }
+        return true
+      })
       .map(item => {
+        // Customize label for activities-menu with organization name
+        let label = item.label
+        if (item.key === 'activities-menu' && organizationName) {
+          label = `Hoạt động ${organizationName}`
+        }
+
         const menuItem: any = {
           key: item.key,
           icon: item.icon,
-          label: item.label,
+          label: label,
         }
 
         // If item has children, recursively filter them
         if (item.children) {
-          const filteredChildren = filterByRole(item.children)
+          const filteredChildren = filterByRoleAndOrg(item.children)
           if (filteredChildren && filteredChildren.length > 0) {
             menuItem.children = filteredChildren
           }
@@ -183,7 +212,7 @@ export const getMenuItemsForRole = (role: UserRole | string): MenuProps['items']
       })
   }
 
-  return filterByRole(ALL_MENU_ITEMS)
+  return filterByRoleAndOrg(ALL_MENU_ITEMS)
 }
 
 /**

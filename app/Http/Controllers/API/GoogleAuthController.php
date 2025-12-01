@@ -460,6 +460,17 @@ class GoogleAuthController extends Controller
             // Parse user data
             $userData = json_decode($oauthCode->user_data, true);
 
+            // Get organization info for the user
+            $user = User::find($userData['id']);
+            if ($user && $user->organization_id) {
+                $organization = \App\Models\Organization::find($user->organization_id);
+                $userData['organization_id'] = $user->organization_id;
+                $userData['organization_name'] = $organization ? ($organization->short_name ?? $organization->name) : null;
+            } else {
+                $userData['organization_id'] = null;
+                $userData['organization_name'] = null;
+            }
+
             // Delete the one-time code (can only be used once)
             DB::table('oauth_codes')->where('code', $code)->delete();
 
