@@ -32,14 +32,212 @@
   background: #555;
 }
 
-/* Smooth transitions */
+/* ===========================================
+   SMOOTH HOVER EFFECTS - Global Styles
+   Đảm bảo tất cả hiệu ứng hover mượt mà và đồng bộ
+   =========================================== */
+
+/* Card - Bỏ transform để tránh rung, chỉ giữ shadow nhẹ */
 .ant-card {
-  transition: all 0.3s ease;
+  transition: box-shadow 0.2s ease;
 }
 
 .ant-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+}
+
+/* Table Row Hover - Mượt và nhẹ nhàng */
+.ant-table-tbody > tr {
+  transition: background-color 0.15s ease;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background-color: #fafafa !important;
+}
+
+.ant-table-tbody > tr.ant-table-row-selected > td {
+  background-color: #e6f7ff !important;
+}
+
+/* Fixed columns - Đảm bảo background solid, không bị trong suốt */
+.ant-table-cell-fix-left,
+.ant-table-cell-fix-right {
+  background-color: #fff !important;
+}
+
+.ant-table-tbody > tr:hover > td.ant-table-cell-fix-left,
+.ant-table-tbody > tr:hover > td.ant-table-cell-fix-right {
+  background-color: #fafafa !important;
+}
+
+.ant-table-tbody > tr.ant-table-row-selected > td.ant-table-cell-fix-left,
+.ant-table-tbody > tr.ant-table-row-selected > td.ant-table-cell-fix-right {
+  background-color: #e6f7ff !important;
+}
+
+/* Header fixed columns */
+.ant-table-thead > tr > th.ant-table-cell-fix-left,
+.ant-table-thead > tr > th.ant-table-cell-fix-right {
+  background-color: #fafafa !important;
+}
+
+/* Đảm bảo z-index và shadow cho fixed columns */
+.ant-table-cell-fix-left,
+.ant-table-cell-fix-right {
+  z-index: 2;
+}
+
+.ant-table-cell-fix-left-last::after,
+.ant-table-cell-fix-right-first::after {
+  box-shadow: inset 10px 0 8px -8px rgba(0, 0, 0, 0.08);
+}
+
+.ant-table-cell-fix-right-first::after {
+  box-shadow: inset -10px 0 8px -8px rgba(0, 0, 0, 0.08);
+}
+
+/* Button Hover - Đồng bộ cho tất cả button */
+.ant-btn {
+  transition: all 0.15s ease;
+}
+
+.ant-btn:hover {
+  transform: none !important;
+}
+
+.ant-btn-text:hover,
+.ant-btn-link:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* Tag Hover */
+.ant-tag {
+  transition: opacity 0.15s ease;
+}
+
+/* Input, Select Focus - Mượt mà */
+.ant-input,
+.ant-select-selector,
+.ant-picker,
+.ant-input-number {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ant-input:hover,
+.ant-select-selector:hover,
+.ant-picker:hover,
+.ant-input-number:hover {
+  border-color: #40a9ff;
+}
+
+.ant-input:focus,
+.ant-input-focused,
+.ant-select-focused .ant-select-selector,
+.ant-picker-focused,
+.ant-input-number-focused {
+  border-color: #40a9ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+}
+
+/* Collapse Panel - Không rung */
+.ant-collapse-item {
+  transition: none;
+}
+
+.ant-collapse-header {
+  transition: background-color 0.15s ease;
+}
+
+.ant-collapse-header:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Dropdown Menu Item */
+.ant-dropdown-menu-item {
+  transition: background-color 0.15s ease;
+}
+
+.ant-dropdown-menu-item:hover {
+  background-color: #f5f5f5;
+}
+
+/* Checkbox, Switch - Mượt mà */
+.ant-checkbox-wrapper,
+.ant-switch {
+  transition: opacity 0.15s ease;
+}
+
+/* Tooltip - Không delay quá lâu */
+.ant-tooltip {
+  transition: opacity 0.1s ease;
+}
+
+/* Pagination */
+.ant-pagination-item,
+.ant-pagination-prev,
+.ant-pagination-next {
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.ant-pagination-item:hover,
+.ant-pagination-prev:hover,
+.ant-pagination-next:hover {
+  border-color: #40a9ff;
+}
+
+/* Modal - Mượt mà khi mở */
+.ant-modal {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* Popover, Popconfirm */
+.ant-popover {
+  transition: opacity 0.15s ease;
+}
+
+/* Progress Bar */
+.ant-progress-bg {
+  transition: width 0.3s ease;
+}
+
+/* Space between action buttons */
+.ant-space-item .ant-btn-text,
+.ant-space-item .ant-btn-link {
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+/* Table sort icons */
+.ant-table-column-sorter {
+  transition: color 0.15s ease;
+}
+
+/* Table filter dropdown */
+.ant-table-filter-trigger {
+  transition: background-color 0.15s ease;
+}
+
+.ant-table-filter-trigger:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* Tabs */
+.ant-tabs-tab {
+  transition: color 0.15s ease;
+}
+
+.ant-tabs-tab:hover {
+  color: #40a9ff;
+}
+
+/* Avatar hover */
+.ant-avatar {
+  transition: transform 0.15s ease;
+}
+
+/* Badge */
+.ant-badge-count {
+  transition: transform 0.15s ease;
 }
 
 /* Responsive */
@@ -50,5 +248,14 @@
 
   .ant-layout-header h1 {
     font-size: 18px !important;
+  }
+
+  /* Giảm transition trên mobile để cải thiện performance */
+  .ant-card,
+  .ant-btn,
+  .ant-table-tbody > tr,
+  .ant-input,
+  .ant-select-selector {
+    transition-duration: 0.1s;
   }
 }

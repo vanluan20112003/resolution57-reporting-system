@@ -26,6 +26,10 @@ export interface Organization {
   contact_phone: string | null
   address: string | null
   website: string | null
+  avatar: string | null
+  avatar_url?: string | null
+  cover_image: string | null
+  cover_image_url?: string | null
   description: string | null
   status: OrganizationStatus
   display_order: number
@@ -152,6 +156,136 @@ export const deleteOrganization = async (
   if (!response.ok) {
     const errorData = await response.json()
     throw new Error(errorData.message || "Failed to delete organization")
+  }
+  return response.json()
+}
+
+// ==========================================
+// My Organization APIs (for STAFF/MANAGER)
+// ==========================================
+
+export interface UpdateMyOrganizationRequest {
+  name?: string
+  short_name?: string
+  contact_email?: string
+  contact_phone?: string
+  address?: string
+  website?: string
+  description?: string
+}
+
+export interface AvatarUploadResponse {
+  success: boolean
+  message: string
+  data: {
+    avatar: string
+    avatar_url: string
+  }
+}
+
+export interface CoverImageUploadResponse {
+  success: boolean
+  message: string
+  data: {
+    cover_image: string
+    cover_image_url: string
+  }
+}
+
+/**
+ * Get current user's organization profile
+ */
+export const getMyOrganization = async (): Promise<OrganizationResponse> => {
+  const response = await fetch(API_CONFIG.MY_ORGANIZATION.GET, {
+    method: "GET",
+    headers: getAuthHeaders()
+  })
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || "Failed to fetch organization")
+  }
+  return response.json()
+}
+
+/**
+ * Update current user's organization basic info
+ */
+export const updateMyOrganization = async (
+  data: UpdateMyOrganizationRequest
+): Promise<OrganizationResponse> => {
+  const response = await fetch(API_CONFIG.MY_ORGANIZATION.UPDATE, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data)
+  })
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || "Failed to update organization")
+  }
+  return response.json()
+}
+
+/**
+ * Upload organization avatar
+ */
+export const uploadOrganizationAvatar = async (
+  file: File
+): Promise<AvatarUploadResponse> => {
+  const token = localStorage.getItem("access_token")
+  const formData = new FormData()
+  formData.append("avatar", file)
+
+  const response = await fetch(API_CONFIG.MY_ORGANIZATION.UPLOAD_AVATAR, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`
+    },
+    body: formData
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || "Failed to upload avatar")
+  }
+  return response.json()
+}
+
+/**
+ * Delete organization avatar
+ */
+export const deleteOrganizationAvatar = async (): Promise<DeleteOrganizationResponse> => {
+  const response = await fetch(API_CONFIG.MY_ORGANIZATION.DELETE_AVATAR, {
+    method: "DELETE",
+    headers: getAuthHeaders()
+  })
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || "Failed to delete avatar")
+  }
+  return response.json()
+}
+
+/**
+ * Upload organization cover image
+ */
+export const uploadOrganizationCover = async (
+  file: File
+): Promise<CoverImageUploadResponse> => {
+  const token = localStorage.getItem("access_token")
+  const formData = new FormData()
+  formData.append("cover_image", file)
+
+  const response = await fetch(API_CONFIG.MY_ORGANIZATION.UPLOAD_COVER, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`
+    },
+    body: formData
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || "Failed to upload cover image")
   }
   return response.json()
 }

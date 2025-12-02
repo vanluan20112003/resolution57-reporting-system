@@ -7,6 +7,7 @@ use App\Models\Organization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
 
 class OrganizationController extends Controller
 {
@@ -365,6 +366,408 @@ class OrganizationController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete organization',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get organization profile for STAFF/MANAGER
+     * User can only view their own organization
+     */
+    public function getMyOrganization(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user->organization_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are not assigned to any organization',
+                ], 404);
+            }
+
+            $organization = Organization::find($user->organization_id);
+
+            if (!$organization) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Organization not found',
+                ], 404);
+            }
+
+            // Add avatar URL if exists
+            $orgData = $organization->toArray();
+            if ($organization->avatar) {
+                $orgData['avatar_url'] = url('storage/' . $organization->avatar);
+            }
+            if ($organization->cover_image) {
+                $orgData['cover_image_url'] = url('storage/' . $organization->cover_image);
+            }
+
+            Log::info('My organization profile viewed', [
+                'user_id' => $user->id,
+                'organization_id' => $organization->id,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $orgData,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch my organization', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch organization',
+            ], 500);
+        }
+    }
+
+    /**
+     * Update organization profile for STAFF/MANAGER
+     * Only STAFF and MANAGER of the organization can update
+     */
+    public function updateMyOrganization(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            // Check if user has permission (STAFF or MANAGER)
+            if (!in_array($user->role, ['STAFF', 'MANAGER', 'OPERATOR', 'ADMIN'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have permission to update organization',
+                ], 403);
+            }
+
+            if (!$user->organization_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are not assigned to any organization',
+                ], 404);
+            }
+
+            $organization = Organization::find($user->organization_id);
+
+            if (!$organization) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Organization not found',
+                ], 404);
+            }
+
+            Log::info('My organization update attempt', [
+                'user_id' => $user->id,
+                'user_role' => $user->role,
+                'organization_id' => $organization->id,
+            ]);
+
+            // STAFF/MANAGER can only update basic info, not code, type, status, parent_id
+            $validator = Validator::make($request->all(), [
+                'name' => 'sometimes|required|string|max:255',
+                'short_name' => 'nullable|string|max:100',
+                'contact_email' => 'nullable|email|max:255',
+                'contact_phone' => 'nullable|string|max:20',
+                'address' => 'nullable|string',
+                'website' => 'nullable|url|max:500',
+                'description' => 'nullable|string',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $oldData = $organization->only(['name', 'short_name', 'contact_email', 'contact_phone', 'address', 'website', 'description']);
+            $organization->update($validator->validated());
+
+            // Add avatar URL if exists
+            $orgData = $organization->fresh()->toArray();
+            if ($organization->avatar) {
+                $orgData['avatar_url'] = url('storage/' . $organization->avatar);
+            }
+            if ($organization->cover_image) {
+                $orgData['cover_image_url'] = url('storage/' . $organization->cover_image);
+            }
+
+            Log::info('My organization updated successfully', [
+                'user_id' => $user->id,
+                'organization_id' => $organization->id,
+                'old_data' => $oldData,
+                'new_data' => $validator->validated(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Organization updated successfully',
+                'data' => $orgData,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to update my organization', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update organization',
+            ], 500);
+        }
+    }
+
+    /**
+     * Upload organization avatar
+     * Only STAFF and MANAGER of the organization can upload
+     */
+    public function uploadAvatar(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            // Check if user has permission
+            if (!in_array($user->role, ['STAFF', 'MANAGER', 'OPERATOR', 'ADMIN'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have permission to upload avatar',
+                ], 403);
+            }
+
+            if (!$user->organization_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are not assigned to any organization',
+                ], 404);
+            }
+
+            $organization = Organization::find($user->organization_id);
+
+            if (!$organization) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Organization not found',
+                ], 404);
+            }
+
+            Log::info('Organization avatar upload attempt', [
+                'user_id' => $user->id,
+                'organization_id' => $organization->id,
+            ]);
+
+            // Validate uploaded file
+            $validator = Validator::make($request->all(), [
+                'avatar' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // Max 5MB
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            // Delete old avatar if exists
+            if ($organization->avatar && Storage::disk('public')->exists($organization->avatar)) {
+                Storage::disk('public')->delete($organization->avatar);
+                Log::info('Old organization avatar deleted', [
+                    'organization_id' => $organization->id,
+                    'old_avatar' => $organization->avatar,
+                ]);
+            }
+
+            // Store new avatar in storage/app/public/organizations/{org_id}/
+            $file = $request->file('avatar');
+            $filename = 'avatar_' . time() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('organizations/' . $organization->id, $filename, 'public');
+
+            // Update organization avatar path
+            $organization->update([
+                'avatar' => $path,
+            ]);
+
+            // Generate public URL
+            $avatarUrl = url('storage/' . $path);
+
+            Log::info('Organization avatar uploaded successfully', [
+                'user_id' => $user->id,
+                'organization_id' => $organization->id,
+                'avatar_path' => $path,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Avatar uploaded successfully',
+                'data' => [
+                    'avatar' => $path,
+                    'avatar_url' => $avatarUrl,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to upload organization avatar', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload avatar',
+            ], 500);
+        }
+    }
+
+    /**
+     * Upload organization cover image
+     * Only STAFF and MANAGER of the organization can upload
+     */
+    public function uploadCoverImage(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            // Check if user has permission
+            if (!in_array($user->role, ['STAFF', 'MANAGER', 'OPERATOR', 'ADMIN'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have permission to upload cover image',
+                ], 403);
+            }
+
+            if (!$user->organization_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are not assigned to any organization',
+                ], 404);
+            }
+
+            $organization = Organization::find($user->organization_id);
+
+            if (!$organization) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Organization not found',
+                ], 404);
+            }
+
+            Log::info('Organization cover image upload attempt', [
+                'user_id' => $user->id,
+                'organization_id' => $organization->id,
+            ]);
+
+            // Validate uploaded file
+            $validator = Validator::make($request->all(), [
+                'cover_image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:10240', // Max 10MB for cover
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            // Delete old cover if exists
+            if ($organization->cover_image && Storage::disk('public')->exists($organization->cover_image)) {
+                Storage::disk('public')->delete($organization->cover_image);
+            }
+
+            // Store new cover image
+            $file = $request->file('cover_image');
+            $filename = 'cover_' . time() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('organizations/' . $organization->id, $filename, 'public');
+
+            // Update organization cover_image path
+            $organization->update([
+                'cover_image' => $path,
+            ]);
+
+            // Generate public URL
+            $coverUrl = url('storage/' . $path);
+
+            Log::info('Organization cover image uploaded successfully', [
+                'user_id' => $user->id,
+                'organization_id' => $organization->id,
+                'cover_path' => $path,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Cover image uploaded successfully',
+                'data' => [
+                    'cover_image' => $path,
+                    'cover_image_url' => $coverUrl,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to upload organization cover image', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload cover image',
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete organization avatar
+     */
+    public function deleteAvatar(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            if (!in_array($user->role, ['STAFF', 'MANAGER', 'OPERATOR', 'ADMIN'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have permission',
+                ], 403);
+            }
+
+            if (!$user->organization_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are not assigned to any organization',
+                ], 404);
+            }
+
+            $organization = Organization::find($user->organization_id);
+
+            if (!$organization || !$organization->avatar) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No avatar to delete',
+                ], 400);
+            }
+
+            // Delete avatar file
+            if (Storage::disk('public')->exists($organization->avatar)) {
+                Storage::disk('public')->delete($organization->avatar);
+            }
+
+            $organization->update(['avatar' => null]);
+
+            Log::info('Organization avatar deleted', [
+                'user_id' => $user->id,
+                'organization_id' => $organization->id,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Avatar deleted successfully',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to delete organization avatar', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete avatar',
             ], 500);
         }
     }

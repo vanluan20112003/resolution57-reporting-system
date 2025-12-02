@@ -1,21 +1,20 @@
 import {
   HomeOutlined,
   BellOutlined,
-  FileTextOutlined,
   ApiOutlined,
   BarChartOutlined,
   UserOutlined,
   TeamOutlined,
   SettingOutlined,
-  FolderOpenOutlined,
   CheckCircleOutlined,
   FileDoneOutlined,
   IdcardOutlined,
   ApartmentOutlined,
   AppstoreOutlined,
   FlagOutlined,
+  BankOutlined,
 } from '@ant-design/icons'
-import { UserRole, canManageUsers, canManageActivities, canApproveActivities, canManageKPI } from './roles'
+import { UserRole } from './roles'
 import type { MenuProps } from 'antd'
 
 export interface MenuItem {
@@ -78,6 +77,15 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
         descriptionKey: 'menu.pendingApprovalDescription',
         tab: 'pending-approval',
         roles: [UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
+        requiresOrganization: true,
+      },
+      {
+        key: 'organization-profile',
+        icon: <BankOutlined />,
+        labelKey: 'menu.organizationProfile',
+        descriptionKey: 'menu.organizationProfileDescription',
+        tab: 'organization-profile',
+        roles: [UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
         requiresOrganization: true,
       },
     ],

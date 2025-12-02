@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Table,
   Card,
@@ -27,7 +27,6 @@ import {
   EditOutlined,
   DeleteOutlined,
   PlusOutlined,
-  SearchOutlined,
   ReloadOutlined,
   FlagOutlined,
   EyeOutlined,
@@ -54,6 +53,8 @@ import type {
   KpiItem,
 } from '../../services/activityApi'
 import ApprovalWizardModal from './ApprovalWizardModal'
+import AdvancedFilter, { FilterField, FilterValues } from '../../shared/components/AdvancedFilter'
+import ColumnToggle, { ToggleableColumn } from '../../shared/components/ColumnToggle'
 import './ActivityManagement.css'
 
 const { Title, Text, Paragraph } = Typography
@@ -70,10 +71,18 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   const [actionLoading, setActionLoading] = useState(false)
   const [activities, setActivities] = useState<Activity[]>([])
   const [pagination, setPagination] = useState({ current: 1, pageSize: 15, total: 0 })
-  const [searchText, setSearchText] = useState('')
-  const [statusFilter, setStatusFilter] = useState<ActivityStatus | undefined>(defaultStatusFilter)
-  const [typeFilter, setTypeFilter] = useState<string | undefined>()
-  const [fieldFilter, setFieldFilter] = useState<string | undefined>()
+
+  // Advanced filter state
+  const [filterValues, setFilterValues] = useState<FilterValues>({
+    search: '',
+    status: defaultStatusFilter,
+    activity_type_id: undefined,
+    activity_field_id: undefined,
+    date_range: undefined,
+    completion_range: undefined,
+    is_locked: undefined,
+  })
+
   const [editModalVisible, setEditModalVisible] = useState(false)
   const [viewModalVisible, setViewModalVisible] = useState(false)
   const [approvalModalVisible, setApprovalModalVisible] = useState(false)
@@ -84,6 +93,11 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   const [selectedKpiIds, setSelectedKpiIds] = useState<string[]>([])
   const [form] = Form.useForm()
   const { user: currentUser } = useAuth()
+
+  // Visible columns state
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([
+    'index', 'code', 'title', 'activity_type', 'lead_organization', 'status', 'completion_percentage', 'date_range', 'actions'
+  ])
 
   // Watch start_date and end_date for duration calculation
   const watchStartDate = Form.useWatch('start_date', form)
@@ -102,13 +116,16 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     setLoading(true)
     try {
       // For approval view, default to PENDING_APPROVAL status
-      const effectiveStatus = showApprovalView && !statusFilter ? 'PENDING_APPROVAL' : statusFilter
+      const effectiveStatus = showApprovalView && !filterValues.status ? 'PENDING_APPROVAL' : filterValues.status
 
       const response = await activityApi.getActivities({
         status: effectiveStatus,
-        activity_type_id: typeFilter,
-        activity_field_id: fieldFilter,
-        search: searchText || undefined,
+        activity_type_id: filterValues.activity_type_id,
+        activity_field_id: filterValues.activity_field_id,
+        search: filterValues.search || undefined,
+        start_date: filterValues.date_range?.[0]?.format('YYYY-MM-DD'),
+        end_date: filterValues.date_range?.[1]?.format('YYYY-MM-DD'),
+        is_locked: filterValues.is_locked,
         page: pagination.current,
         per_page: pagination.pageSize,
       })
@@ -123,7 +140,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     } finally {
       setLoading(false)
     }
-  }, [statusFilter, typeFilter, fieldFilter, searchText, pagination.current, pagination.pageSize, showApprovalView])
+  }, [filterValues, pagination.current, pagination.pageSize, showApprovalView])
 
   // Fetch form data (dropdowns)
   const fetchFormData = async () => {
@@ -133,6 +150,85 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     } catch (error: any) {
       console.error('Failed to fetch form data:', error)
     }
+  }
+
+  // Advanced filter fields configuration
+  const filterFields: FilterField[] = useMemo(() => {
+    const fields: FilterField[] = [
+      {
+        key: 'search',
+        label: 'Tìm kiếm',
+        type: 'text',
+        placeholder: 'Tìm theo mã hoặc tên...',
+        span: 8,
+      },
+      {
+        key: 'status',
+        label: 'Trạng thái',
+        type: 'select',
+        span: 4,
+        options: (formData?.statuses || [])
+          .filter((s) => !showApprovalView || s.value === 'PENDING_APPROVAL')
+          .map((s) => ({
+            value: s.value,
+            label: s.label,
+            color: s.value === 'COMPLETED' ? 'green' :
+                   s.value === 'IN_PROGRESS' ? 'blue' :
+                   s.value === 'PENDING_APPROVAL' ? 'orange' :
+                   s.value === 'CANCELLED' ? 'red' :
+                   s.value === 'APPROVED' ? 'cyan' : undefined,
+          })),
+      },
+      {
+        key: 'activity_type_id',
+        label: 'Loại hoạt động',
+        type: 'select',
+        span: 6,
+        options: (formData?.activity_types || []).map((t) => ({
+          value: t.id,
+          label: t.name,
+        })),
+      },
+      {
+        key: 'activity_field_id',
+        label: 'Lĩnh vực',
+        type: 'select',
+        span: 6,
+        options: (formData?.activity_fields || []).map((f) => ({
+          value: f.id,
+          label: f.name,
+        })),
+      },
+      {
+        key: 'date_range',
+        label: 'Thời gian',
+        type: 'daterange',
+        span: 8,
+      },
+      {
+        key: 'is_locked',
+        label: 'Đã khóa',
+        type: 'boolean',
+        span: 4,
+      },
+    ]
+    return fields
+  }, [formData, showApprovalView])
+
+  // Handle filter change
+  const handleFilterChange = (newValues: FilterValues) => {
+    setFilterValues(newValues)
+  }
+
+  // Handle filter search
+  const handleFilterSearch = () => {
+    setPagination((prev) => ({ ...prev, current: 1 }))
+    fetchActivities()
+  }
+
+  // Handle filter reset
+  const handleFilterReset = () => {
+    setPagination((prev) => ({ ...prev, current: 1 }))
   }
 
   useEffect(() => {
@@ -430,7 +526,20 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     )
   }
 
-  const columns: ColumnsType<Activity> = [
+  // Toggleable columns configuration
+  const toggleableColumns: ToggleableColumn[] = useMemo(() => [
+    { key: 'index', title: 'STT', fixed: true },
+    { key: 'code', title: 'Mã hoạt động', defaultVisible: true },
+    { key: 'title', title: 'Tên hoạt động', fixed: true },
+    { key: 'activity_type', title: 'Loại hoạt động', defaultVisible: true },
+    { key: 'lead_organization', title: 'Đơn vị chủ trì', defaultVisible: true },
+    { key: 'status', title: 'Trạng thái', defaultVisible: true },
+    { key: 'completion_percentage', title: 'Tiến độ', defaultVisible: true },
+    { key: 'date_range', title: 'Thời gian', defaultVisible: true },
+    { key: 'actions', title: 'Thao tác', fixed: true },
+  ], [])
+
+  const allColumns: ColumnsType<Activity> = [
     {
       title: 'STT',
       key: 'index',
@@ -444,6 +553,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       dataIndex: 'code',
       key: 'code',
       width: 130,
+      sorter: (a, b) => (a.code || '').localeCompare(b.code || ''),
       render: (code: string) => (
         <Text strong style={{ color: '#1890ff' }}>
           {code || '-'}
@@ -455,6 +565,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       dataIndex: 'title',
       key: 'title',
       ellipsis: true,
+      sorter: (a, b) => (a.title || '').localeCompare(b.title || ''),
       render: (title: string, record: Activity) => (
         <Tooltip title={title}>
           <a onClick={() => handleView(record)}>{title}</a>
@@ -466,6 +577,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       dataIndex: ['activity_type', 'name'],
       key: 'activity_type',
       width: 150,
+      sorter: (a, b) => (a.activity_type?.name || '').localeCompare(b.activity_type?.name || ''),
       render: (name: string) =>
         name ? <Tag color="blue">{name}</Tag> : <Text type="secondary">-</Text>,
     },
@@ -474,6 +586,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       dataIndex: ['lead_organization', 'short_name'],
       key: 'lead_organization',
       width: 150,
+      sorter: (a, b) => (a.lead_organization?.short_name || a.lead_organization?.name || '').localeCompare(b.lead_organization?.short_name || b.lead_organization?.name || ''),
       render: (short_name: string, record: Activity) => (
         <Text>{short_name || record.lead_organization?.name || '-'}</Text>
       ),
@@ -484,6 +597,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       key: 'status',
       width: 130,
       align: 'center',
+      sorter: (a, b) => (a.status || '').localeCompare(b.status || ''),
       render: (status: ActivityStatus) => getStatusTag(status),
     },
     {
@@ -492,6 +606,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       key: 'completion_percentage',
       width: 100,
       align: 'center',
+      sorter: (a, b) => (a.completion_percentage || 0) - (b.completion_percentage || 0),
       render: (percentage: number) => (
         <Progress
           percent={percentage || 0}
@@ -504,6 +619,11 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       title: 'Thời gian',
       key: 'date_range',
       width: 180,
+      sorter: (a, b) => {
+        const dateA = a.start_date ? new Date(a.start_date).getTime() : 0
+        const dateB = b.start_date ? new Date(b.start_date).getTime() : 0
+        return dateA - dateB
+      },
       render: (_: any, record: Activity) => (
         <Text type="secondary">
           {record.start_date
@@ -636,6 +756,12 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     },
   ]
 
+  // Filter columns based on visibility
+  const columns = useMemo(() =>
+    allColumns.filter(col => visibleColumns.includes(col.key as string)),
+    [allColumns, visibleColumns]
+  )
+
   // KPI Checkbox Group component
   const KpiCheckboxGroup = ({
     title,
@@ -705,110 +831,47 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   return (
     <div style={{ padding: '0' }}>
       <Card>
+        {/* Header */}
+        <div style={{ marginBottom: 16 }}>
+          <Title level={3} style={{ marginBottom: 4 }}>
+            <FlagOutlined /> Quản lý Hoạt động
+          </Title>
+          <Text type="secondary">
+            {formData?.user_organization
+              ? `Các hoạt động của ${formData.user_organization.name}`
+              : 'Tất cả hoạt động trong hệ thống'}
+          </Text>
+        </div>
+
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          {/* Header */}
-          <div>
-            <Title level={3}>
-              <FlagOutlined /> Quản lý Hoạt động
-            </Title>
-            <Text type="secondary">
-              {formData?.user_organization
-                ? `Các hoạt động của ${formData.user_organization.name}`
-                : 'Tất cả hoạt động trong hệ thống'}
-            </Text>
-          </div>
-
-          {/* Filters and Actions */}
-          <Row gutter={[16, 16]} align="middle">
-            <Col xs={24} sm={12} md={6}>
-              <Input
-                placeholder="Tìm kiếm theo mã hoặc tên..."
-                prefix={<SearchOutlined />}
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                allowClear
-              />
-            </Col>
-
-            <Col xs={24} sm={12} md={4}>
-              <Select
-                placeholder="Trạng thái"
-                value={statusFilter}
-                onChange={setStatusFilter}
-                style={{ width: '100%' }}
-                allowClear
-              >
-                {formData?.statuses
-                  .filter((s) => {
-                    // In approval view, only show PENDING_APPROVAL
-                    if (showApprovalView) {
-                      return s.value === 'PENDING_APPROVAL'
-                    }
-                    return true
-                  })
-                  .map((s) => (
-                    <Option key={s.value} value={s.value}>
-                      {s.label}
-                    </Option>
-                  ))}
-              </Select>
-            </Col>
-
-            <Col xs={24} sm={12} md={4}>
-              <Select
-                placeholder="Loại hoạt động"
-                value={typeFilter}
-                onChange={setTypeFilter}
-                style={{ width: '100%' }}
-                allowClear
-              >
-                {formData?.activity_types.map((t) => (
-                  <Option key={t.id} value={t.id}>
-                    {t.name}
-                  </Option>
-                ))}
-              </Select>
-            </Col>
-
-            <Col xs={24} sm={12} md={4}>
-              <Select
-                placeholder="Lĩnh vực"
-                value={fieldFilter}
-                onChange={setFieldFilter}
-                style={{ width: '100%' }}
-                allowClear
-              >
-                {formData?.activity_fields.map((f) => (
-                  <Option key={f.id} value={f.id}>
-                    {f.name}
-                  </Option>
-                ))}
-              </Select>
-            </Col>
-
-            <Col xs={24} sm={12} md={6}>
+          {/* Advanced Filter */}
+          <AdvancedFilter
+            fields={filterFields}
+            values={filterValues}
+            onChange={handleFilterChange}
+            onSearch={handleFilterSearch}
+            onReset={handleFilterReset}
+            loading={loading}
+            storageKey="activity_management_filters"
+            showPresets={true}
+            collapsible={true}
+            defaultExpanded={true}
+            extra={
               <Space>
-                <Button
-                  icon={<ReloadOutlined />}
-                  onClick={() => {
-                    setSearchText('')
-                    setStatusFilter(undefined)
-                    setTypeFilter(undefined)
-                    setFieldFilter(undefined)
-                    fetchActivities()
-                  }}
-                >
-                  Làm mới
-                </Button>
-
+                <ColumnToggle
+                  columns={toggleableColumns}
+                  visibleColumns={visibleColumns}
+                  onChange={setVisibleColumns}
+                  storageKey="activity_management"
+                />
                 {canCreate && (
                   <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                     Thêm hoạt động
                   </Button>
                 )}
               </Space>
-            </Col>
-          </Row>
+            }
+          />
 
           {/* Table */}
           <Table

@@ -82,6 +82,8 @@
     "activityManagementDescription": "Create and manage activities",
     "pendingApproval": "Pending Approval",
     "pendingApprovalDescription": "Approve activities",
+    "organizationProfile": "Department Profile",
+    "organizationProfileDescription": "Manage department information",
     "reportsMenu": "Reports & KPI",
     "reportsDescription": "Reports and analytics",
     "reports": "Reports",

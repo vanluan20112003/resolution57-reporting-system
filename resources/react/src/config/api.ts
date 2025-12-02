@@ -58,6 +58,22 @@ export const API_CONFIG = {
     DELETE: (id: string) => `${getApiBaseUrl()}/organizations/${id}`
   },
 
+  // My Organization (for STAFF/MANAGER to manage their own org)
+  MY_ORGANIZATION: {
+    GET: `${getApiBaseUrl()}/my-organization`,
+    UPDATE: `${getApiBaseUrl()}/my-organization`,
+    UPLOAD_AVATAR: `${getApiBaseUrl()}/my-organization/avatar`,
+    DELETE_AVATAR: `${getApiBaseUrl()}/my-organization/avatar`,
+    UPLOAD_COVER: `${getApiBaseUrl()}/my-organization/cover`
+  },
+
+  // Import Excel
+  IMPORT: {
+    TEMPLATE_INFO: `${getApiBaseUrl()}/import/template-info`,
+    TEMPLATE: `${getApiBaseUrl()}/import/template`,
+    IMPORT: `${getApiBaseUrl()}/import`
+  },
+
   STATUS: `${getApiBaseUrl()}/status`,
   HEALTH: `${getApiBaseUrl()}/health`
 }

@@ -12,6 +12,7 @@ use App\Http\Controllers\API\ProfileController;
 use App\Http\Controllers\API\ActivityTypeController;
 use App\Http\Controllers\API\ActivityFieldController;
 use App\Http\Controllers\API\ActivityController;
+use App\Http\Controllers\API\ImportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -205,6 +206,24 @@ Route::prefix('v1')->group(function () {
         Route::delete("/{id}",[OrganizationController::class,'destroy'])->middleware('permission:organizations.update');
     });
 
+    // My Organization Routes (STAFF, MANAGER can view/edit their own organization)
+    Route::middleware('auth:sanctum')->prefix('my-organization')->group(function () {
+        // Get current user's organization profile
+        Route::get('/', [OrganizationController::class, 'getMyOrganization']);
+
+        // Update organization basic info (STAFF, MANAGER only)
+        Route::put('/', [OrganizationController::class, 'updateMyOrganization']);
+
+        // Upload organization avatar
+        Route::post('/avatar', [OrganizationController::class, 'uploadAvatar']);
+
+        // Delete organization avatar
+        Route::delete('/avatar', [OrganizationController::class, 'deleteAvatar']);
+
+        // Upload organization cover image
+        Route::post('/cover', [OrganizationController::class, 'uploadCoverImage']);
+    });
+
     // Activity Type Management Routes (OPERATOR and ADMIN only)
     Route::middleware(['auth:sanctum', 'role:OPERATOR,ADMIN'])->prefix('activity-types')->group(function () {
         Route::get('/', [ActivityTypeController::class, 'index']);
@@ -221,6 +240,18 @@ Route::prefix('v1')->group(function () {
         Route::post('/', [ActivityFieldController::class, 'store']);
         Route::put('/{id}', [ActivityFieldController::class, 'update']);
         Route::delete('/{id}', [ActivityFieldController::class, 'destroy']);
+    });
+
+    // Import Excel Routes (OPERATOR and ADMIN only)
+    Route::middleware(['auth:sanctum', 'role:OPERATOR,ADMIN'])->prefix('import')->group(function () {
+        // Get template info for a type
+        Route::get('/template-info', [ImportController::class, 'getTemplateInfo']);
+
+        // Download template file
+        Route::get('/template', [ImportController::class, 'downloadTemplate']);
+
+        // Import data from Excel
+        Route::post('/', [ImportController::class, 'import']);
     });
 
     // SSO Authentication Routes (Simple Test)

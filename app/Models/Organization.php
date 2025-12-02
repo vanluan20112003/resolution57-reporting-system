@@ -41,6 +41,8 @@ class Organization extends Model
         'contact_phone',
         'address',
         'website',
+        'avatar',
+        'cover_image',
         'description',
         'status',
         'display_order',

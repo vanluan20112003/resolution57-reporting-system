@@ -82,6 +82,8 @@
     "activityManagementDescription": "Tạo và quản lý hoạt động",
     "pendingApproval": "Chờ phê duyệt",
     "pendingApprovalDescription": "Phê duyệt hoạt động",
+    "organizationProfile": "Quản lý phòng ban",
+    "organizationProfileDescription": "Quản lý thông tin đơn vị",
     "reportsMenu": "Báo cáo & KPI",
     "reportsDescription": "Báo cáo và phân tích",
     "reports": "Báo cáo",

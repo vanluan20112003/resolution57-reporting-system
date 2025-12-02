@@ -16,6 +16,7 @@ import { OrganizationManagement } from '../components/OrganizationManagement'
 import ActivityConfigManagement from '../components/ActivityConfigManagement'
 import { ActivityManagement } from '../components/ActivityManagement'
 import { UserProfile } from '../components/UserProfile'
+import OrganizationProfile from '../components/OrganizationProfile'
 import { UserDropdown } from '../features/user'
 import { useAuth } from '../shared/hooks'
 import { ImpersonationBanner } from '../shared/components'
@@ -288,6 +289,9 @@ function DashboardPage() {
 
       case 'activity-config':
         return <ActivityConfigManagement />
+
+      case 'organization-profile':
+        return <OrganizationProfile />
 
       case 'system':
         return (
