@@ -3,7 +3,7 @@
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 3px 16px rgba(0, 0, 0, 0.12);
-  max-height: 600px;
+  max-height: 650px;
   display: flex;
   flex-direction: column;
 }
@@ -172,4 +172,62 @@
 
 .ant-badge-count {
   animation: pulse 2s infinite;
+}
+
+/* Archive button */
+.notification-item .archive-btn {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  color: #8c8c8c;
+}
+
+.notification-item:hover .archive-btn {
+  opacity: 1;
+}
+
+.notification-item .archive-btn:hover {
+  color: #1890ff;
+  background-color: rgba(24, 144, 255, 0.1);
+}
+
+/* Priority styles */
+.notification-item.priority-urgent {
+  border-left: 3px solid #ff4d4f;
+}
+
+.notification-item.priority-high {
+  border-left: 3px solid #faad14;
+}
+
+.notification-item.priority-low {
+  opacity: 0.85;
+}
+
+/* Tag styles in notification */
+.notification-item .ant-tag {
+  line-height: 1.4;
+  border-radius: 4px;
+}
+
+/* Tabs badge styling */
+.notification-dropdown .ant-tabs-tab .ant-badge {
+  display: inline-flex;
+}
+
+.notification-dropdown .ant-tabs-tab .ant-badge-count {
+  animation: none;
+  font-size: 10px;
+  height: 16px;
+  min-width: 16px;
+  line-height: 16px;
+}
+
+/* Skeleton loading */
+.notification-dropdown .ant-skeleton-input {
+  border-radius: 4px;
+}
+
+/* Better spacing for description tags */
+.notification-item .ant-list-item-meta-description .ant-tag {
+  vertical-align: middle;
 }

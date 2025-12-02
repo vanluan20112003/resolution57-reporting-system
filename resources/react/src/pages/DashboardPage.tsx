@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Layout, Space, Typography, Button } from 'antd'
+import { Layout, Space, Typography, Button, Badge } from 'antd'
 import { Menu } from 'antd'
 import { MenuOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
+import { getBadgeCounts, BadgeCounts } from '../services/activityApi'
 import ResolutionList from '../components/Dashboard/ResolutionList'
 import ActivityList from '../components/Dashboard/ActivityList'
 import AllActivitiesList from '../components/Dashboard/AllActivitiesList'
@@ -12,6 +13,7 @@ import { UserManagement } from '../components/UserManagement'
 import { KpiManagement } from '../components/KpiManagement'
 import { OrganizationManagement } from '../components/OrganizationManagement'
 import ActivityConfigManagement from '../components/ActivityConfigManagement'
+import { ActivityManagement } from '../components/ActivityManagement'
 import { UserProfile } from '../components/UserProfile'
 import { UserDropdown } from '../features/user'
 import { useAuth } from '../shared/hooks'
@@ -45,6 +47,39 @@ function DashboardPage() {
 
   const [collapsed, setCollapsed] = useState<boolean>(getInitialCollapsed())
   const { user, isLoading } = useAuth()
+  const [badgeCounts, setBadgeCounts] = useState<BadgeCounts>({ pending_approval: 0, draft: 0 })
+
+  // Fetch badge counts
+  const fetchBadgeCounts = useCallback(async () => {
+    try {
+      const response = await getBadgeCounts()
+      if (response.success) {
+        setBadgeCounts(response.data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch badge counts:', error)
+    }
+  }, [])
+
+  // Fetch badge counts on mount and every 30 seconds
+  // Also listen for custom event to refresh badges
+  useEffect(() => {
+    if (user) {
+      fetchBadgeCounts()
+      const interval = setInterval(fetchBadgeCounts, 30000)
+
+      // Listen for custom event from ActivityManagement
+      const handleActivityChange = () => {
+        fetchBadgeCounts()
+      }
+      window.addEventListener('activity-status-changed', handleActivityChange)
+
+      return () => {
+        clearInterval(interval)
+        window.removeEventListener('activity-status-changed', handleActivityChange)
+      }
+    }
+  }, [user, fetchBadgeCounts])
 
   // Save collapsed state to localStorage whenever it changes
   useEffect(() => {
@@ -74,8 +109,63 @@ function DashboardPage() {
   // Build menu items based on user role and organization
   const menuItems: MenuProps['items'] = useMemo(() => {
     if (!user) return []
-    return getMenuItemsForRole(user.role, user.organization_id, user.organization_name)
-  }, [user])
+    const items = getMenuItemsForRole(user.role, user.organization_id, user.organization_name)
+
+    // Add badges to menu items
+    const addBadgesToItems = (menuList: MenuProps['items']): MenuProps['items'] => {
+      if (!menuList) return []
+
+      return menuList.map((item: any) => {
+        if (!item) return item
+
+        let newItem = { ...item }
+
+        // Add badge for "Quản lý hoạt động" - draft count for STAFF
+        if (item.key === 'activity-management' && badgeCounts.draft > 0) {
+          newItem.label = (
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+              <span>{item.label}</span>
+              <Badge count={badgeCounts.draft} size="small" style={{ backgroundColor: '#ff4d4f' }} />
+            </span>
+          )
+        }
+
+        // Add badge for "Chờ phê duyệt" - pending approval count for MANAGER+
+        if (item.key === 'pending-approval') {
+          if (badgeCounts.pending_approval > 0) {
+            newItem.label = (
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <span>{item.label}</span>
+                <Badge count={badgeCounts.pending_approval} size="small" style={{ backgroundColor: '#ff4d4f' }} />
+              </span>
+            )
+          }
+        }
+
+        // Add total badge for activities-menu parent
+        if (item.key === 'activities-menu') {
+          const totalBadge = badgeCounts.draft + badgeCounts.pending_approval
+          if (totalBadge > 0) {
+            newItem.label = (
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <span>{item.label}</span>
+                <Badge count={totalBadge} size="small" style={{ backgroundColor: '#ff4d4f' }} />
+              </span>
+            )
+          }
+        }
+
+        // Recursively process children
+        if (item.children) {
+          newItem.children = addBadgesToItems(item.children)
+        }
+
+        return newItem
+      })
+    }
+
+    return addBadgesToItems(items)
+  }, [user, badgeCounts])
 
   // Detect mobile view
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth <= 768)
@@ -145,24 +235,21 @@ function DashboardPage() {
       case 'home':
         return <AllActivitiesList />
 
-      case 'activities':
+      case 'department-activities':
+        // View all activities of department (read-only for GUEST)
         return <DepartmentActivitiesList />
 
-      case 'my-activities':
-        return (
-          <div className="empty-content">
-            <Title level={3}>Hoạt động của tôi</Title>
-            <Text type="secondary">Danh sách các hoạt động do bạn tạo - Đang phát triển</Text>
-          </div>
-        )
+      case 'activity-management':
+        // CRUD for STAFF+ of department
+        return <ActivityManagement />
 
       case 'pending-approval':
-        return (
-          <div className="empty-content">
-            <Title level={3}>Chờ phê duyệt</Title>
-            <Text type="secondary">Danh sách hoạt động chờ bạn phê duyệt - Đang phát triển</Text>
-          </div>
-        )
+        // Approval list for MANAGER+
+        return <ActivityManagement defaultStatusFilter="PENDING_APPROVAL" showApprovalView />
+
+      case 'activities':
+        // Fallback for old route
+        return <DepartmentActivitiesList />
 
       case 'reports':
         return (

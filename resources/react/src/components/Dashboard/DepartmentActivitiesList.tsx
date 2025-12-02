@@ -1,219 +1,249 @@
-import { useState } from 'react'
-import { Card, Typography, Space, Button, Badge, Alert, Descriptions, Divider, Tag } from 'antd'
+import { useState, useEffect, useCallback } from 'react'
+import {
+  Card,
+  Typography,
+  Space,
+  Button,
+  Badge,
+  Descriptions,
+  Divider,
+  Tag,
+  Input,
+  Select,
+  Table,
+  message,
+  Modal,
+  Progress,
+  Tooltip,
+  Row,
+  Col,
+} from 'antd'
 import {
   FileTextOutlined,
   TeamOutlined,
-  InfoCircleOutlined,
   ArrowLeftOutlined,
   ApartmentOutlined,
+  SearchOutlined,
+  ReloadOutlined,
+  EyeOutlined,
+  GlobalOutlined,
+  BankOutlined,
 } from '@ant-design/icons'
+import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import 'dayjs/locale/vi'
-import { mockActivities, mockActivityTypes, mockActivityFields, mockOrganizations, ActivityStatus } from '../../data/mockData'
-import { DataTable } from '../../shared/components/DataTable'
-import { getActivityColumns, statusConfig, formatBudget } from '../../shared/config/activityColumns'
-import ActivityFilters from '../../shared/components/Filters/ActivityFilters'
-import { ActivityCard, ActivityListItem } from '../../shared/components/Cards'
 import { useAuth } from '../../shared/hooks'
+import * as activityApi from '../../services/activityApi'
+import type {
+  Activity,
+  ActivityStatus,
+  ActivityFormData,
+} from '../../services/activityApi'
 
 dayjs.locale('vi')
 
-const { Text, Title } = Typography
-
-interface Activity {
-  id: string
-  code: string
-  title: string
-  description: string
-  activity_type_id: string
-  activity_field_id: string
-  status: string
-  lead_organization_id: string
-  start_date: string
-  end_date: string
-  actual_start_date: string | null
-  actual_end_date: string | null
-  budget: number
-  budget_source: string
-  location: string
-  completion_percentage: number
-  result_summary?: string
-  created_at: string
-}
+const { Text, Title, Paragraph } = Typography
+const { Option } = Select
 
 function DepartmentActivitiesList() {
+  const [loading, setLoading] = useState(false)
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 15, total: 0 })
   const [searchText, setSearchText] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<ActivityStatus | undefined>()
+  const [typeFilter, setTypeFilter] = useState<string | undefined>()
+  const [formData, setFormData] = useState<ActivityFormData | null>(null)
+  const [viewModalVisible, setViewModalVisible] = useState(false)
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
-  const [viewMode, setViewMode] = useState<'list' | 'detail'>('list')
 
-  // Get current user from auth
   const { user } = useAuth()
+  const hasOrganization = user?.organization_id
 
-  // Get user's organization info from user data or fallback to mock
-  const userOrganizationId = user?.organization_id || '4' // Fallback to UIT for demo
-  const userOrganizationShortName = user?.organization_name || null
-  const userOrganizationFullName = (user as any)?.organization_full_name || null
-  const userOrganization = userOrganizationShortName
-    ? {
-        name: userOrganizationFullName || userOrganizationShortName,
-        short_name: userOrganizationShortName
-      }
-    : mockOrganizations.find(o => o.id === userOrganizationId)
+  // Fetch activities
+  const fetchActivities = useCallback(async () => {
+    setLoading(true)
+    try {
+      const response = await activityApi.getActivities({
+        status: statusFilter,
+        activity_type_id: typeFilter,
+        search: searchText || undefined,
+        page: pagination.current,
+        per_page: pagination.pageSize,
+      })
 
-  // Filter activities của phòng ban
-  const departmentActivities = mockActivities.filter(activity => {
-    return activity.lead_organization_id === userOrganizationId
-  })
+      setActivities(response.data)
+      setPagination(prev => ({
+        ...prev,
+        total: response.pagination.total,
+      }))
+    } catch (error: any) {
+      message.error(error.message || 'Không thể tải danh sách hoạt động')
+    } finally {
+      setLoading(false)
+    }
+  }, [statusFilter, typeFilter, searchText, pagination.current, pagination.pageSize])
 
-  // Apply search and status filter
-  const filteredActivities = departmentActivities.filter(activity => {
-    const matchSearch = activity.title.toLowerCase().includes(searchText.toLowerCase()) ||
-                       activity.code.toLowerCase().includes(searchText.toLowerCase())
-    const matchStatus = statusFilter === 'all' || activity.status === statusFilter
-    return matchSearch && matchStatus
-  })
-
-  // Helper functions
-  const getActivityTypeName = (typeId: string) => {
-    return mockActivityTypes.find(t => t.id === typeId)?.name || 'N/A'
+  // Fetch form data (dropdowns)
+  const fetchFormData = async () => {
+    try {
+      const response = await activityApi.getActivityFormData()
+      setFormData(response.data)
+    } catch (error: any) {
+      console.error('Failed to fetch form data:', error)
+    }
   }
 
-  const getActivityFieldName = (fieldId: string) => {
-    return mockActivityFields.find(f => f.id === fieldId)?.name || 'N/A'
+  useEffect(() => {
+    fetchActivities()
+    fetchFormData()
+  }, [fetchActivities])
+
+  const handleTableChange = (newPagination: any) => {
+    setPagination({
+      ...pagination,
+      current: newPagination.current,
+      pageSize: newPagination.pageSize,
+    })
   }
 
-  const getOrganizationName = (orgId: string) => {
-    return mockOrganizations.find(o => o.id === orgId)?.short_name || 'N/A'
+  const handleView = async (activity: Activity) => {
+    try {
+      const response = await activityApi.getActivityById(activity.id)
+      setSelectedActivity(response.data)
+      setViewModalVisible(true)
+    } catch (error: any) {
+      message.error(error.message || 'Không thể tải thông tin hoạt động')
+    }
   }
 
-  const handleViewDetail = (activity: Activity) => {
-    setSelectedActivity(activity)
-    setViewMode('detail')
+  // Get status tag
+  const getStatusTag = (status: ActivityStatus) => (
+    <Tag color={activityApi.getStatusColor(status)}>
+      {activityApi.getStatusLabel(status)}
+    </Tag>
+  )
+
+  // Calculate statistics
+  const stats = {
+    total: pagination.total,
+    completed: activities.filter(a => a.status === 'COMPLETED').length,
+    inProgress: activities.filter(a => a.status === 'IN_PROGRESS').length,
+    pending: activities.filter(a => a.status === 'PENDING_APPROVAL').length,
   }
 
-  const handleBackToList = () => {
-    setViewMode('list')
-    setSelectedActivity(null)
-  }
+  const columns: ColumnsType<Activity> = [
+    {
+      title: 'STT',
+      key: 'index',
+      width: 60,
+      align: 'center',
+      render: (_: any, __: any, index: number) =>
+        (pagination.current - 1) * pagination.pageSize + index + 1,
+    },
+    {
+      title: 'Mã hoạt động',
+      dataIndex: 'code',
+      key: 'code',
+      width: 130,
+      render: (code: string) => (
+        <Text strong style={{ color: '#1890ff' }}>
+          {code || '-'}
+        </Text>
+      ),
+    },
+    {
+      title: 'Tên hoạt động',
+      dataIndex: 'title',
+      key: 'title',
+      ellipsis: true,
+      render: (title: string, record: Activity) => (
+        <Tooltip title={title}>
+          <a onClick={() => handleView(record)}>{title}</a>
+        </Tooltip>
+      ),
+    },
+    {
+      title: 'Loại hoạt động',
+      dataIndex: ['activity_type', 'name'],
+      key: 'activity_type',
+      width: 150,
+      render: (name: string) =>
+        name ? <Tag color="blue">{name}</Tag> : <Text type="secondary">-</Text>,
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'status',
+      key: 'status',
+      width: 130,
+      align: 'center',
+      render: (status: ActivityStatus) => getStatusTag(status),
+    },
+    {
+      title: 'Tiến độ',
+      dataIndex: 'completion_percentage',
+      key: 'completion_percentage',
+      width: 100,
+      align: 'center',
+      render: (percentage: number) => (
+        <Progress
+          percent={percentage || 0}
+          size="small"
+          status={percentage === 100 ? 'success' : 'active'}
+        />
+      ),
+    },
+    {
+      title: 'Thời gian',
+      key: 'date_range',
+      width: 180,
+      render: (_: any, record: Activity) => (
+        <Text type="secondary">
+          {record.start_date
+            ? `${dayjs(record.start_date).format('DD/MM/YYYY')} - ${
+                record.end_date ? dayjs(record.end_date).format('DD/MM/YYYY') : '...'
+              }`
+            : '-'}
+        </Text>
+      ),
+    },
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      width: 100,
+      fixed: 'right',
+      align: 'center',
+      render: (_: any, record: Activity) => (
+        <Tooltip title="Xem chi tiết">
+          <Button
+            type="link"
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => handleView(record)}
+          >
+            Xem
+          </Button>
+        </Tooltip>
+      ),
+    },
+  ]
 
-  // Get columns configuration
-  const columns = getActivityColumns({
-    getActivityTypeName,
-    getActivityFieldName,
-    getOrganizationName,
-    onViewDetail: handleViewDetail,
-  })
-
-  // Render detail view - All info in one Card like other pages
-  if (viewMode === 'detail' && selectedActivity) {
+  // No organization warning
+  if (!hasOrganization) {
     return (
       <Card>
-        {/* Back Button */}
-        <Button
-          type="link"
-          icon={<ArrowLeftOutlined />}
-          onClick={handleBackToList}
-          style={{ padding: 0, marginBottom: 16 }}
-        >
-          Quay lại danh sách
-        </Button>
-
-        {/* Header */}
-        <div style={{ marginBottom: 16 }}>
-          <Space align="start">
-            <Title level={3} style={{ margin: 0 }}>
-              {selectedActivity.title}
-            </Title>
-            <Tag
-              color={statusConfig[selectedActivity.status]?.color}
-              icon={statusConfig[selectedActivity.status]?.icon}
-              style={{ fontSize: '14px', padding: '4px 12px' }}
-            >
-              {statusConfig[selectedActivity.status]?.label}
-            </Tag>
-          </Space>
-          <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginTop: 4 }}>
-            {selectedActivity.code}
+        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <ApartmentOutlined style={{ fontSize: 48, color: '#d9d9d9', marginBottom: 16 }} />
+          <Title level={4} type="secondary">
+            Bạn chưa thuộc đơn vị nào
+          </Title>
+          <Text type="secondary">
+            Vui lòng liên hệ quản trị viên để được gán vào đơn vị
           </Text>
         </div>
-
-        <Divider style={{ margin: '12px 0 24px 0' }} />
-
-        {/* All Info in One Table */}
-        <Descriptions column={2} bordered>
-          {/* Basic Info Section */}
-          <Descriptions.Item label="Mã hoạt động" span={2}>
-            <Text strong>{selectedActivity.code}</Text>
-          </Descriptions.Item>
-          <Descriptions.Item label="Tên hoạt động" span={2}>
-            <Text strong>{selectedActivity.title}</Text>
-          </Descriptions.Item>
-          <Descriptions.Item label="Đơn vị chủ trì" span={2}>
-            {mockOrganizations.find(o => o.id === selectedActivity.lead_organization_id)?.name || 'N/A'}
-          </Descriptions.Item>
-          <Descriptions.Item label="Loại hoạt động">
-            {getActivityTypeName(selectedActivity.activity_type_id)}
-          </Descriptions.Item>
-          <Descriptions.Item label="Lĩnh vực">
-            {selectedActivity.activity_field_id ? getActivityFieldName(selectedActivity.activity_field_id) : 'N/A'}
-          </Descriptions.Item>
-          <Descriptions.Item label="Mô tả" span={2}>
-            {selectedActivity.description}
-          </Descriptions.Item>
-
-          {/* Timeline Section */}
-          <Descriptions.Item label="Thời gian kế hoạch" span={2}>
-            {dayjs(selectedActivity.start_date).format('DD/MM/YYYY')} - {dayjs(selectedActivity.end_date).format('DD/MM/YYYY')}
-          </Descriptions.Item>
-          {selectedActivity.actual_start_date && (
-            <Descriptions.Item label="Thời gian thực tế" span={2}>
-              {dayjs(selectedActivity.actual_start_date).format('DD/MM/YYYY')}
-              {selectedActivity.actual_end_date ? ` - ${dayjs(selectedActivity.actual_end_date).format('DD/MM/YYYY')}` : ' - Đang thực hiện'}
-            </Descriptions.Item>
-          )}
-          <Descriptions.Item label="Ngày tạo">
-            {dayjs(selectedActivity.created_at).format('DD/MM/YYYY HH:mm')}
-          </Descriptions.Item>
-          <Descriptions.Item label="Tiến độ">
-            <Space>
-              <div style={{ width: '120px', background: '#f0f0f0', borderRadius: '4px', height: '16px' }}>
-                <div
-                  style={{
-                    width: `${selectedActivity.completion_percentage}%`,
-                    background: selectedActivity.completion_percentage === 100 ? '#52c41a' : '#1890ff',
-                    height: '100%',
-                    borderRadius: '4px',
-                  }}
-                />
-              </div>
-              <Text strong>{selectedActivity.completion_percentage}%</Text>
-            </Space>
-          </Descriptions.Item>
-
-          {/* Budget & Location Section */}
-          <Descriptions.Item label="Kinh phí">
-            <Text strong style={{ color: '#1890ff' }}>{formatBudget(selectedActivity.budget)}</Text>
-          </Descriptions.Item>
-          <Descriptions.Item label="Nguồn kinh phí">
-            {selectedActivity.budget_source}
-          </Descriptions.Item>
-          <Descriptions.Item label="Địa điểm" span={2}>
-            {selectedActivity.location}
-          </Descriptions.Item>
-
-          {/* Results Section */}
-          {selectedActivity.result_summary && (
-            <Descriptions.Item label="Tóm tắt kết quả" span={2}>
-              {selectedActivity.result_summary}
-            </Descriptions.Item>
-          )}
-        </Descriptions>
       </Card>
     )
   }
 
-  // Render list view
   return (
     <div style={{ padding: '0' }}>
       <Card>
@@ -223,107 +253,311 @@ function DepartmentActivitiesList() {
             <Space align="center" style={{ marginBottom: 8 }}>
               <ApartmentOutlined style={{ fontSize: 24, color: '#1890ff' }} />
               <Title level={3} style={{ margin: 0 }}>
-                Hoạt động của {userOrganization?.short_name || userOrganization?.name || 'Phòng ban'}
+                Hoạt động của {formData?.user_organization?.short_name || user?.organization_name || 'Đơn vị'}
               </Title>
             </Space>
-            {userOrganization?.name && userOrganization?.short_name && userOrganization.name !== userOrganization.short_name && (
+            {formData?.user_organization?.name && (
               <div style={{ marginLeft: 32, marginBottom: 8 }}>
                 <Tag color="blue" style={{ fontSize: 13, padding: '4px 12px' }}>
-                  <TeamOutlined /> {userOrganization.name}
+                  <TeamOutlined /> {formData.user_organization.name}
                 </Tag>
               </div>
             )}
             <Text type="secondary" style={{ marginLeft: 32, display: 'block' }}>
-              Hiển thị các hoạt động do {userOrganization?.name || 'phòng ban của bạn'} chủ trì
+              Hiển thị các hoạt động do đơn vị của bạn chủ trì
             </Text>
           </div>
 
-          {/* Info Alert - Only show if using mock data */}
-          {!user?.organization_id && (
-            <Alert
-              message="Dữ liệu mẫu"
-              description={`Đang hiển thị hoạt động của ${userOrganization?.name}. Trong phiên bản thực tế sẽ dựa vào tổ chức của user đang đăng nhập.`}
-              type="info"
-              icon={<InfoCircleOutlined />}
-              showIcon
-              closable
-            />
-          )}
-
           {/* Statistics */}
           <Space size="large" wrap>
-            <Badge count={filteredActivities.length} showZero color="blue">
+            <Badge count={stats.total} showZero color="blue">
               <Text strong>Tổng số: </Text>
             </Badge>
-            <Badge count={filteredActivities.filter(a => a.status === ActivityStatus.COMPLETED).length} showZero color="green">
+            <Badge count={stats.completed} showZero color="green">
               <Text strong>Hoàn thành: </Text>
             </Badge>
-            <Badge count={filteredActivities.filter(a => a.status === ActivityStatus.IN_PROGRESS).length} showZero color="orange">
+            <Badge count={stats.inProgress} showZero color="orange">
               <Text strong>Đang thực hiện: </Text>
             </Badge>
-            <Badge count={filteredActivities.filter(a => a.status === ActivityStatus.PENDING_APPROVAL).length} showZero color="gold">
+            <Badge count={stats.pending} showZero color="gold">
               <Text strong>Chờ duyệt: </Text>
             </Badge>
           </Space>
 
           {/* Filters */}
-          <ActivityFilters
-            searchText={searchText}
-            onSearchChange={setSearchText}
-            statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
-          />
+          <Row gutter={[16, 16]} align="middle">
+            <Col xs={24} sm={12} md={8}>
+              <Input
+                placeholder="Tìm kiếm theo mã hoặc tên..."
+                prefix={<SearchOutlined />}
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                allowClear
+              />
+            </Col>
 
-          {/* Activity List - Empty State */}
-          {filteredActivities.length === 0 && (
+            <Col xs={24} sm={12} md={5}>
+              <Select
+                placeholder="Trạng thái"
+                value={statusFilter}
+                onChange={setStatusFilter}
+                style={{ width: '100%' }}
+                allowClear
+              >
+                {formData?.statuses.map((s) => (
+                  <Option key={s.value} value={s.value}>
+                    {s.label}
+                  </Option>
+                ))}
+              </Select>
+            </Col>
+
+            <Col xs={24} sm={12} md={5}>
+              <Select
+                placeholder="Loại hoạt động"
+                value={typeFilter}
+                onChange={setTypeFilter}
+                style={{ width: '100%' }}
+                allowClear
+              >
+                {formData?.activity_types.map((t) => (
+                  <Option key={t.id} value={t.id}>
+                    {t.name}
+                  </Option>
+                ))}
+              </Select>
+            </Col>
+
+            <Col xs={24} sm={12} md={6}>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={() => {
+                  setSearchText('')
+                  setStatusFilter(undefined)
+                  setTypeFilter(undefined)
+                  fetchActivities()
+                }}
+              >
+                Làm mới
+              </Button>
+            </Col>
+          </Row>
+
+          {/* Empty State */}
+          {activities.length === 0 && !loading && (
             <div style={{ textAlign: 'center', padding: '40px' }}>
               <FileTextOutlined style={{ fontSize: '48px', color: '#d9d9d9' }} />
               <Title level={4} type="secondary">Chưa có hoạt động nào</Title>
               <Text type="secondary">
-                {departmentActivities.length === 0
-                  ? 'Phòng ban chưa có hoạt động nào được tạo'
-                  : 'Không tìm thấy hoạt động phù hợp với bộ lọc'}
+                Đơn vị chưa có hoạt động nào được tạo
               </Text>
             </div>
           )}
 
-          {/* Activity List - List/Card/Table View */}
-          {filteredActivities.length > 0 && (
-            <DataTable
+          {/* Table */}
+          {(activities.length > 0 || loading) && (
+            <Table
               columns={columns}
-              dataSource={filteredActivities}
+              dataSource={activities}
+              loading={loading}
               rowKey="id"
-              localStorageKey="activityDisplayMode"
-              tableProps={{
-                pagination: {
-                  pageSize: 20,
-                  showSizeChanger: true,
-                  showTotal: (total) => `Tổng ${total} hoạt động`,
-                },
-                scroll: { x: 2400 },
+              pagination={{
+                ...pagination,
+                showSizeChanger: true,
+                showTotal: (total) => `Tổng ${total} hoạt động`,
               }}
-              listRenderer={(activity) => (
-                <ActivityListItem
-                  activity={activity}
-                  getActivityTypeName={getActivityTypeName}
-                  getActivityFieldName={getActivityFieldName}
-                  getOrganizationName={getOrganizationName}
-                  onViewDetail={handleViewDetail}
-                />
-              )}
-              cardRenderer={(activity) => (
-                <ActivityCard
-                  activity={activity}
-                  getActivityTypeName={getActivityTypeName}
-                  getActivityFieldName={getActivityFieldName}
-                  getOrganizationName={getOrganizationName}
-                  onViewDetail={handleViewDetail}
-                />
-              )}
+              onChange={handleTableChange}
+              scroll={{ x: 1200 }}
             />
           )}
         </Space>
       </Card>
+
+      {/* View Modal */}
+      <Modal
+        title="Chi tiết hoạt động"
+        open={viewModalVisible}
+        onCancel={() => {
+          setViewModalVisible(false)
+          setSelectedActivity(null)
+        }}
+        footer={[
+          <Button key="close" onClick={() => setViewModalVisible(false)}>
+            Đóng
+          </Button>,
+        ]}
+        width={800}
+      >
+        {selectedActivity && (
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            {/* Header */}
+            <div>
+              <Text type="secondary">Mã hoạt động</Text>
+              <Title level={4} style={{ margin: '4px 0 8px' }}>
+                {selectedActivity.code}
+              </Title>
+              <Space>
+                {getStatusTag(selectedActivity.status)}
+                <Progress
+                  percent={selectedActivity.completion_percentage || 0}
+                  size="small"
+                  style={{ width: 150 }}
+                />
+              </Space>
+            </div>
+
+            <Divider />
+
+            {/* Title and Description */}
+            <div>
+              <Title level={5}>{selectedActivity.title}</Title>
+              <Paragraph type="secondary">
+                {selectedActivity.description || 'Không có mô tả'}
+              </Paragraph>
+            </div>
+
+            {/* Details Grid */}
+            <Row gutter={[16, 16]}>
+              <Col span={12}>
+                <Text type="secondary">Loại hoạt động</Text>
+                <div>
+                  <Tag color="blue">{selectedActivity.activity_type?.name || '-'}</Tag>
+                </div>
+              </Col>
+              <Col span={12}>
+                <Text type="secondary">Lĩnh vực</Text>
+                <div>
+                  <Tag>{selectedActivity.activity_field?.name || '-'}</Tag>
+                </div>
+              </Col>
+              <Col span={12}>
+                <Text type="secondary">Đơn vị chủ trì</Text>
+                <div>
+                  <Text strong>{selectedActivity.lead_organization?.name || '-'}</Text>
+                </div>
+              </Col>
+              <Col span={12}>
+                <Text type="secondary">Người tạo</Text>
+                <div>
+                  <Text>
+                    {selectedActivity.creator
+                      ? `${selectedActivity.creator.first_name} ${selectedActivity.creator.last_name}`
+                      : '-'}
+                  </Text>
+                </div>
+              </Col>
+              <Col span={12}>
+                <Text type="secondary">Thời gian</Text>
+                <div>
+                  <Text>
+                    {selectedActivity.start_date
+                      ? `${dayjs(selectedActivity.start_date).format('DD/MM/YYYY HH:mm')} - ${
+                          selectedActivity.end_date
+                            ? dayjs(selectedActivity.end_date).format('DD/MM/YYYY HH:mm')
+                            : '...'
+                        }`
+                      : '-'}
+                  </Text>
+                  {selectedActivity.start_date && selectedActivity.end_date && (
+                    <div style={{ marginTop: 4 }}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        (Thời lượng: {(() => {
+                          const start = dayjs(selectedActivity.start_date)
+                          const end = dayjs(selectedActivity.end_date)
+                          const diffDays = end.diff(start, 'day')
+                          const diffHours = end.diff(start, 'hour') % 24
+                          let text = ''
+                          if (diffDays > 0) text += `${diffDays} ngày `
+                          if (diffHours > 0) text += `${diffHours} giờ`
+                          return text || 'Cùng thời điểm'
+                        })()})
+                      </Text>
+                    </div>
+                  )}
+                </div>
+              </Col>
+              <Col span={12}>
+                <Text type="secondary">Địa điểm</Text>
+                <div>
+                  <Text>{selectedActivity.location || '-'}</Text>
+                </div>
+              </Col>
+              <Col span={12}>
+                <Text type="secondary">Kinh phí</Text>
+                <div>
+                  <Text>
+                    {selectedActivity.budget
+                      ? `${selectedActivity.budget.toLocaleString('vi-VN')} VNĐ`
+                      : '-'}
+                  </Text>
+                </div>
+              </Col>
+              <Col span={12}>
+                <Text type="secondary">Nguồn kinh phí</Text>
+                <div>
+                  <Text>{selectedActivity.budget_source || '-'}</Text>
+                </div>
+              </Col>
+            </Row>
+
+            {/* KPIs */}
+            {selectedActivity.kpis && selectedActivity.kpis.length > 0 && (
+              <>
+                <Divider />
+                <div>
+                  <Text type="secondary">Chỉ tiêu KPI liên quan</Text>
+                  <div style={{ marginTop: 8 }}>
+                    {selectedActivity.kpis.map((kpi) => (
+                      <Tag key={kpi.id} color={kpi.source === 'CENTRAL' ? 'blue' : 'purple'}>
+                        {kpi.source === 'CENTRAL' ? <GlobalOutlined /> : <BankOutlined />}
+                        {' '}
+                        {kpi.code ? `[${kpi.code}] ` : ''}
+                        {kpi.title}
+                      </Tag>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Result Summary */}
+            {selectedActivity.result_summary && (
+              <>
+                <Divider />
+                <div>
+                  <Text type="secondary">Tóm tắt kết quả</Text>
+                  <Paragraph>{selectedActivity.result_summary}</Paragraph>
+                </div>
+              </>
+            )}
+
+            {/* Approval Info */}
+            {selectedActivity.approved_by && (
+              <>
+                <Divider />
+                <div>
+                  <Text type="secondary">Thông tin phê duyệt</Text>
+                  <div>
+                    <Text>
+                      Người phê duyệt:{' '}
+                      {selectedActivity.approver
+                        ? `${selectedActivity.approver.first_name} ${selectedActivity.approver.last_name}`
+                        : '-'}
+                    </Text>
+                    <br />
+                    <Text>
+                      Thời gian:{' '}
+                      {selectedActivity.approved_at
+                        ? dayjs(selectedActivity.approved_at).format('DD/MM/YYYY HH:mm')
+                        : '-'}
+                    </Text>
+                  </div>
+                </div>
+              </>
+            )}
+          </Space>
+        )}
+      </Modal>
     </div>
   )
 }

@@ -13,6 +13,7 @@ import {
   IdcardOutlined,
   ApartmentOutlined,
   AppstoreOutlined,
+  FlagOutlined,
 } from '@ant-design/icons'
 import { UserRole, canManageUsers, canManageActivities, canApproveActivities, canManageKPI } from './roles'
 import type { MenuProps } from 'antd'
@@ -46,25 +47,25 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
     label: 'Hoạt động đơn vị', // Will be replaced with organization name dynamically
     tab: 'activities',
     roles: [UserRole.GUEST, UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
-    description: 'Quản lý hoạt động của đơn vị',
+    description: 'Hoạt động của đơn vị',
     requiresOrganization: true, // Entire menu requires organization
     children: [
       {
-        key: 'activities',
+        key: 'department-activities',
         icon: <BellOutlined />,
         label: 'Tất cả hoạt động',
-        tab: 'activities',
+        tab: 'department-activities',
         roles: [UserRole.GUEST, UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
         description: 'Xem tất cả hoạt động của đơn vị',
         requiresOrganization: true,
       },
       {
-        key: 'my-activities',
-        icon: <FolderOpenOutlined />,
-        label: 'Hoạt động của tôi',
-        tab: 'my-activities',
-        roles: [UserRole.STAFF, UserRole.MANAGER, UserRole.ADMIN],
-        description: 'Quản lý hoạt động do bạn tạo',
+        key: 'activity-management',
+        icon: <FlagOutlined />,
+        label: 'Quản lý hoạt động',
+        tab: 'activity-management',
+        roles: [UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
+        description: 'Tạo và quản lý hoạt động',
         requiresOrganization: true,
       },
       {
@@ -72,8 +73,8 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
         icon: <CheckCircleOutlined />,
         label: 'Chờ phê duyệt',
         tab: 'pending-approval',
-        roles: [UserRole.MANAGER, UserRole.ADMIN],
-        description: 'Danh sách hoạt động chờ phê duyệt',
+        roles: [UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
+        description: 'Phê duyệt hoạt động',
         requiresOrganization: true,
       },
     ],

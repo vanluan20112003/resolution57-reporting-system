@@ -45,10 +45,10 @@ class Activity extends Model
     ];
 
     protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
-        'actual_start_date' => 'date',
-        'actual_end_date' => 'date',
+        'start_date' => 'datetime',
+        'end_date' => 'datetime',
+        'actual_start_date' => 'datetime',
+        'actual_end_date' => 'datetime',
         'budget' => 'decimal:2',
         'approved_at' => 'datetime',
         'is_locked' => 'boolean',
@@ -102,6 +102,7 @@ class Activity extends Model
     public function kpis(): BelongsToMany
     {
         return $this->belongsToMany(Kpi::class, 'activity_kpis')
+            ->using(ActivityKpi::class)
             ->withPivot('contribution_description', 'target_value', 'actual_value')
             ->withTimestamps();
     }

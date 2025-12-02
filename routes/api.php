@@ -11,6 +11,7 @@ use App\Http\Controllers\API\OrganizationController;
 use App\Http\Controllers\API\ProfileController;
 use App\Http\Controllers\API\ActivityTypeController;
 use App\Http\Controllers\API\ActivityFieldController;
+use App\Http\Controllers\API\ActivityController;
 
 /*
 |--------------------------------------------------------------------------
@@ -74,15 +75,47 @@ Route::prefix('v1')->group(function () {
         ]);
     });
 
-    // Example: Activities routes (sẽ implement sau)
-    Route::prefix('activities')->group(function () {
-        Route::get('/', function () {
-            return response()->json([
-                'data' => [],
-                'message' => 'Danh sách hoạt động (chưa có dữ liệu)',
-                'total' => 0
-            ]);
-        });
+    // Activity Management Routes
+    // All authenticated users can access (security handled in controller based on role/organization)
+    Route::middleware('auth:sanctum')->prefix('activities')->group(function () {
+        // Get form data (dropdown options) for creating/editing
+        Route::get('/form-data', [ActivityController::class, 'getFormData']);
+
+        // Get badge counts for notifications
+        Route::get('/badge-counts', [ActivityController::class, 'getBadgeCounts']);
+
+        // List activities (filtered by user's organization for STAFF/MANAGER)
+        Route::get('/', [ActivityController::class, 'index']);
+
+        // Get single activity
+        Route::get('/{id}', [ActivityController::class, 'show']);
+
+        // Create new activity (STAFF, MANAGER, OPERATOR, ADMIN with organization)
+        Route::post('/', [ActivityController::class, 'store']);
+
+        // Update activity (security checked in controller)
+        Route::put('/{id}', [ActivityController::class, 'update']);
+
+        // Delete activity (only DRAFT status, security checked in controller)
+        Route::delete('/{id}', [ActivityController::class, 'destroy']);
+
+        // Submit activity for approval
+        Route::post('/{id}/submit', [ActivityController::class, 'submitForApproval']);
+
+        // Review activity - Step 1 (MANAGER, OPERATOR, ADMIN only)
+        Route::post('/{id}/review', [ActivityController::class, 'review']);
+
+        // Approve/Confirm activity - Step 2 (MANAGER, OPERATOR, ADMIN only)
+        Route::post('/{id}/approve', [ActivityController::class, 'approve']);
+
+        // Reject activity (MANAGER, OPERATOR, ADMIN only)
+        Route::post('/{id}/reject', [ActivityController::class, 'reject']);
+
+        // Lock activity (MANAGER, OPERATOR, ADMIN only - checked in controller)
+        Route::post('/{id}/lock', [ActivityController::class, 'lock']);
+
+        // Unlock activity (OPERATOR, ADMIN only - checked in controller)
+        Route::post('/{id}/unlock', [ActivityController::class, 'unlock']);
     });
 
     // Authentication Routes

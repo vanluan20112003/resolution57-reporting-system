@@ -1,0 +1,130 @@
+/* Activity Management Styles */
+
+.kpi-group {
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 16px;
+  background: #fafafa;
+  height: 100%;
+}
+
+.kpi-group-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.kpi-checkbox-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.kpi-checkbox-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.kpi-checkbox-list::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 3px;
+}
+
+.kpi-checkbox-list::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 3px;
+}
+
+.kpi-checkbox-list::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
+}
+
+.kpi-checkbox-list .ant-checkbox-wrapper {
+  padding: 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  width: 100%;
+}
+
+.kpi-checkbox-list .ant-checkbox-wrapper:hover {
+  background-color: #fff;
+}
+
+.kpi-checkbox-list .ant-checkbox-wrapper-checked {
+  background-color: #e6f7ff;
+}
+
+/* Activity status colors */
+.activity-status-draft {
+  background-color: #f5f5f5;
+  border-color: #d9d9d9;
+  color: #595959;
+}
+
+.activity-status-pending {
+  background-color: #fff7e6;
+  border-color: #ffd591;
+  color: #d46b08;
+}
+
+.activity-status-in-progress {
+  background-color: #e6f7ff;
+  border-color: #91d5ff;
+  color: #1890ff;
+}
+
+.activity-status-completed {
+  background-color: #f6ffed;
+  border-color: #b7eb8f;
+  color: #52c41a;
+}
+
+.activity-status-cancelled {
+  background-color: #fff1f0;
+  border-color: #ffa39e;
+  color: #ff4d4f;
+}
+
+.activity-status-on-hold {
+  background-color: #fff7e6;
+  border-color: #ffc069;
+  color: #fa8c16;
+}
+
+/* Table styles */
+.activity-table .ant-table-row:hover {
+  cursor: pointer;
+}
+
+/* Modal styles */
+.activity-modal .ant-modal-body {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+/* View modal details */
+.activity-detail-section {
+  margin-bottom: 20px;
+}
+
+.activity-detail-label {
+  color: #8c8c8c;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.activity-detail-value {
+  font-size: 14px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .kpi-group {
+    margin-bottom: 16px;
+  }
+
+  .kpi-checkbox-list {
+    max-height: 200px;
+  }
+}

@@ -285,19 +285,50 @@ class UserController extends Controller
                 ], 422);
             }
 
-            // OPERATOR không được update user thành ADMIN hoặc OPERATOR
-            if ($request->user()->isOperator() && $request->has('role') && in_array($request->role, ['ADMIN', 'OPERATOR'])) {
-                Log::warning('OPERATOR attempted to update user to ADMIN/OPERATOR role', [
-                    'operator_id' => $request->user()->id,
-                    'operator_email' => $request->user()->email,
-                    'target_user_id' => $id,
-                    'attempted_role' => $request->role,
-                ]);
+            // OPERATOR restrictions
+            if ($request->user()->isOperator()) {
+                // OPERATOR cannot edit other OPERATOR or ADMIN users (except themselves)
+                if (in_array($user->role, ['ADMIN', 'OPERATOR']) && $user->id !== $request->user()->id) {
+                    Log::warning('OPERATOR attempted to edit another ADMIN/OPERATOR user', [
+                        'operator_id' => $request->user()->id,
+                        'operator_email' => $request->user()->email,
+                        'target_user_id' => $id,
+                        'target_user_role' => $user->role,
+                    ]);
 
-                return response()->json([
-                    'success' => false,
-                    'message' => 'OPERATOR cannot change user role to ADMIN or OPERATOR. Only ADMIN can do this.',
-                ], 403);
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'OPERATOR không được chỉnh sửa thông tin của ADMIN hoặc OPERATOR khác.',
+                    ], 403);
+                }
+
+                // OPERATOR cannot change their own role
+                if ($user->id === $request->user()->id && $request->has('role') && $request->role !== $user->role) {
+                    Log::warning('OPERATOR attempted to change their own role', [
+                        'operator_id' => $request->user()->id,
+                        'attempted_role' => $request->role,
+                    ]);
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'OPERATOR không được thay đổi vai trò của chính mình.',
+                    ], 403);
+                }
+
+                // OPERATOR cannot change any user TO ADMIN or OPERATOR role
+                if ($request->has('role') && in_array($request->role, ['ADMIN', 'OPERATOR']) && $user->role !== $request->role) {
+                    Log::warning('OPERATOR attempted to update user to ADMIN/OPERATOR role', [
+                        'operator_id' => $request->user()->id,
+                        'operator_email' => $request->user()->email,
+                        'target_user_id' => $id,
+                        'attempted_role' => $request->role,
+                    ]);
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'OPERATOR không được gán vai trò ADMIN hoặc OPERATOR. Chỉ ADMIN mới có quyền này.',
+                    ], 403);
+                }
             }
 
             $updateData = $request->only([

@@ -273,7 +273,23 @@ function UserManagement() {
 
       if (selectedUser) {
         // Update existing user
-        const response = await userApi.updateUser(selectedUser.id, values)
+        const updateData = { ...values }
+
+        // OPERATOR restrictions:
+        // 1. Cannot change role of any OPERATOR/ADMIN (including themselves)
+        // 2. Cannot assign OPERATOR/ADMIN role to anyone
+        if (currentUser?.role === 'OPERATOR') {
+          // If editing OPERATOR/ADMIN user, don't send role
+          if (['ADMIN', 'OPERATOR'].includes(selectedUser.role)) {
+            delete updateData.role
+          }
+          // If trying to set role to OPERATOR/ADMIN, don't send role
+          if (['ADMIN', 'OPERATOR'].includes(updateData.role)) {
+            delete updateData.role
+          }
+        }
+
+        const response = await userApi.updateUser(selectedUser.id, updateData)
         if (response.success) {
           message.success(response.message || 'Cập nhật người dùng thành công')
           setEditModalVisible(false)
@@ -370,12 +386,25 @@ function UserManagement() {
       width: isMobile ? 120 : 150,
       render: (_, record) => (
         <Space size={isMobile ? 2 : 8} direction={isMobile ? 'horizontal' : 'horizontal'}>
-          <Tooltip title="Chỉnh sửa">
+          <Tooltip title={
+            // OPERATOR cannot edit other OPERATOR/ADMIN
+            currentUser?.role === 'OPERATOR' &&
+            ['ADMIN', 'OPERATOR'].includes(record.role) &&
+            record.id !== currentUser?.id
+              ? 'OPERATOR không được sửa ADMIN/OPERATOR khác'
+              : 'Chỉnh sửa'
+          }>
             <Button
               type="text"
               icon={<EditOutlined />}
               onClick={() => handleEdit(record)}
-              disabled={!canManage}
+              disabled={
+                !canManage ||
+                // OPERATOR cannot edit other OPERATOR/ADMIN (except themselves)
+                (currentUser?.role === 'OPERATOR' &&
+                  ['ADMIN', 'OPERATOR'].includes(record.role) &&
+                  record.id !== currentUser?.id)
+              }
               size={isMobile ? 'small' : 'middle'}
             />
           </Tooltip>
@@ -608,6 +637,7 @@ function UserManagement() {
               placeholder={selectedUser ? "Nhập mật khẩu mới (nếu muốn đổi)" : "Nhập mật khẩu"}
               prefix={<LockOutlined />}
               visibilityToggle
+              autoComplete="new-password"
             />
           </Form.Item>
 
@@ -625,8 +655,24 @@ function UserManagement() {
                 name="role"
                 label="Vai trò"
                 rules={[{ required: true, message: 'Vui lòng chọn vai trò' }]}
+                extra={
+                  selectedUser &&
+                  currentUser?.role === 'OPERATOR' &&
+                  ['ADMIN', 'OPERATOR'].includes(selectedUser.role)
+                    ? 'OPERATOR không được thay đổi vai trò của ADMIN hoặc OPERATOR khác'
+                    : undefined
+                }
               >
-                <Select placeholder="Chọn vai trò" size="large">
+                <Select
+                  placeholder="Chọn vai trò"
+                  size="large"
+                  disabled={
+                    // OPERATOR cannot change role of ADMIN or OPERATOR users
+                    selectedUser &&
+                    currentUser?.role === 'OPERATOR' &&
+                    ['ADMIN', 'OPERATOR'].includes(selectedUser.role)
+                  }
+                >
                   <Option value="GUEST">
                     <Tag color="default">GUEST</Tag> - Khách
                   </Option>
