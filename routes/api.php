@@ -9,6 +9,8 @@ use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\API\KpiController;
 use App\Http\Controllers\API\OrganizationController;
 use App\Http\Controllers\API\ProfileController;
+use App\Http\Controllers\API\ActivityTypeController;
+use App\Http\Controllers\API\ActivityFieldController;
 
 /*
 |--------------------------------------------------------------------------
@@ -168,6 +170,24 @@ Route::prefix('v1')->group(function () {
         Route::post("/",[OrganizationController::class,'store'])->middleware('permission:organizations.create');
         Route::put("/{id}",[OrganizationController::class,'update'])->middleware('permission:organizations.update');
         Route::delete("/{id}",[OrganizationController::class,'destroy'])->middleware('permission:organizations.update');
+    });
+
+    // Activity Type Management Routes (OPERATOR and ADMIN only)
+    Route::middleware(['auth:sanctum', 'role:OPERATOR,ADMIN'])->prefix('activity-types')->group(function () {
+        Route::get('/', [ActivityTypeController::class, 'index']);
+        Route::get('/{id}', [ActivityTypeController::class, 'show']);
+        Route::post('/', [ActivityTypeController::class, 'store']);
+        Route::put('/{id}', [ActivityTypeController::class, 'update']);
+        Route::delete('/{id}', [ActivityTypeController::class, 'destroy']);
+    });
+
+    // Activity Field Management Routes (OPERATOR and ADMIN only)
+    Route::middleware(['auth:sanctum', 'role:OPERATOR,ADMIN'])->prefix('activity-fields')->group(function () {
+        Route::get('/', [ActivityFieldController::class, 'index']);
+        Route::get('/{id}', [ActivityFieldController::class, 'show']);
+        Route::post('/', [ActivityFieldController::class, 'store']);
+        Route::put('/{id}', [ActivityFieldController::class, 'update']);
+        Route::delete('/{id}', [ActivityFieldController::class, 'destroy']);
     });
 
     // SSO Authentication Routes (Simple Test)

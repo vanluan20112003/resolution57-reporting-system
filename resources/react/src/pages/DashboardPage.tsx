@@ -11,6 +11,7 @@ import DepartmentActivitiesList from '../components/Dashboard/DepartmentActiviti
 import { UserManagement } from '../components/UserManagement'
 import { KpiManagement } from '../components/KpiManagement'
 import { OrganizationManagement } from '../components/OrganizationManagement'
+import ActivityConfigManagement from '../components/ActivityConfigManagement'
 import { UserProfile } from '../components/UserProfile'
 import { UserDropdown } from '../features/user'
 import { useAuth } from '../shared/hooks'
@@ -195,6 +196,9 @@ function DashboardPage() {
 
       case 'organizations':
         return <OrganizationManagement />
+
+      case 'activity-config':
+        return <ActivityConfigManagement />
 
       case 'system':
         return (

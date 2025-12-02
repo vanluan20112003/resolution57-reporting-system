@@ -101,6 +101,7 @@ class GoogleAuthController extends Controller
                     'role' => 'GUEST', // Default role
                     'status' => 'active',
                     'is_vnuhcm' => false,
+                    'last_login_at' => now(),
                 ]);
 
                 Log::info('New user created successfully', [
@@ -122,6 +123,10 @@ class GoogleAuthController extends Controller
                     ]);
                     Log::info('User Google info updated', ['user_id' => $user->id]);
                 }
+
+                // Update last login
+                $user->last_login_at = now();
+                $user->save();
             }
 
             // Create Sanctum token
@@ -250,6 +255,7 @@ class GoogleAuthController extends Controller
                         'role' => 'GUEST',
                         'status' => 'active',
                         'is_vnuhcm' => true,
+                        'last_login_at' => now(),
                     ]);
                     Log::info('User created successfully:', ['user_id' => $user->id]);
                 } catch (\Exception $e) {
@@ -276,6 +282,10 @@ class GoogleAuthController extends Controller
                 if ($isVNUHCMEmail && !$user->is_vnuhcm) {
                     $user->update(['is_vnuhcm' => true]);
                 }
+
+                // Update last login
+                $user->last_login_at = now();
+                $user->save();
             }
 
             // Create Sanctum token

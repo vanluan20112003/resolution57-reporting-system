@@ -12,6 +12,7 @@ import {
   FileDoneOutlined,
   IdcardOutlined,
   ApartmentOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons'
 import { UserRole, canManageUsers, canManageActivities, canApproveActivities, canManageKPI } from './roles'
 import type { MenuProps } from 'antd'
@@ -142,6 +143,14 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
         tab: 'organizations',
         roles: [UserRole.OPERATOR, UserRole.ADMIN],
         description: 'Quản lý các đơn vị trong ĐHQG',
+      },
+      {
+        key: 'activity-config',
+        icon: <AppstoreOutlined />,
+        label: 'Cấu hình hoạt động',
+        tab: 'activity-config',
+        roles: [UserRole.OPERATOR, UserRole.ADMIN],
+        description: 'Quản lý loại hoạt động và lĩnh vực hoạt động',
       },
       {
         key: 'system',
