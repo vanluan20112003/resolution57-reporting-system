@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { Form, Input, Button, Typography, Alert, Card } from 'antd'
+import { Form, Input, Button, Typography, Alert } from 'antd'
 import { MailOutlined, ArrowLeftOutlined } from '@ant-design/icons'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import API_CONFIG from '../config/api'
+import LanguageSwitcher from '../components/LanguageSwitcher'
 import '../styles/LoginPage.css'
 
 const { Title, Text } = Typography
@@ -12,6 +14,7 @@ interface ForgotPasswordFormData {
 }
 
 function ForgotPasswordPage() {
+  const { t } = useTranslation()
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -37,10 +40,10 @@ function ForgotPasswordPage() {
         setSuccess(true)
         form.resetFields()
       } else {
-        setError(data.message || 'Có lỗi xảy ra. Vui lòng thử lại.')
+        setError(data.message || t('forgotPassword.errors.serverError'))
       }
     } catch (err) {
-      setError('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.')
+      setError(t('forgotPassword.errors.connectionError'))
     } finally {
       setLoading(false)
     }
@@ -48,6 +51,11 @@ function ForgotPasswordPage() {
 
   return (
     <div className="login-page">
+      {/* Language Switcher - góc phải trên màn hình */}
+      <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 10 }}>
+        <LanguageSwitcher />
+      </div>
+
       <div className="login-box" style={{ maxWidth: 500 }}>
         {/* Logo */}
         <div className="login-logo">
@@ -63,18 +71,18 @@ function ForgotPasswordPage() {
 
         {/* Title */}
         <Title level={2} className="login-title">
-          Quên mật khẩu
+          {t('forgotPassword.title')}
         </Title>
 
         <Text type="secondary" style={{ display: 'block', marginBottom: 24, textAlign: 'center' }}>
-          Nhập địa chỉ email của bạn và chúng tôi sẽ gửi cho bạn hướng dẫn đặt lại mật khẩu.
+          {t('forgotPassword.description')}
         </Text>
 
         {/* Success Message */}
         {success && (
           <Alert
-            message="Email đã được gửi!"
-            description="Vui lòng kiểm tra hộp thư đến của bạn để biết hướng dẫn đặt lại mật khẩu."
+            message={t('forgotPassword.successTitle')}
+            description={t('forgotPassword.successDescription')}
             type="success"
             showIcon
             style={{ marginBottom: 24 }}
@@ -84,7 +92,7 @@ function ForgotPasswordPage() {
         {/* Error Message */}
         {error && (
           <Alert
-            message="Lỗi"
+            message={t('forgotPassword.errorTitle')}
             description={error}
             type="error"
             showIcon
@@ -107,17 +115,17 @@ function ForgotPasswordPage() {
             rules={[
               {
                 required: true,
-                message: 'Vui lòng nhập địa chỉ email của bạn'
+                message: t('forgotPassword.errors.emailRequired')
               },
               {
                 type: 'email',
-                message: 'Email không đúng định dạng'
+                message: t('forgotPassword.errors.emailInvalid')
               },
             ]}
           >
             <Input
               prefix={<MailOutlined />}
-              placeholder="Nhập email của bạn"
+              placeholder={t('forgotPassword.emailPlaceholder')}
               autoComplete="email"
               disabled={loading}
             />
@@ -138,7 +146,7 @@ function ForgotPasswordPage() {
                 boxShadow: '0 4px 15px 0 rgba(102, 126, 234, 0.35)',
               }}
             >
-              Gửi email khôi phục
+              {t('forgotPassword.submitButton')}
             </Button>
           </Form.Item>
         </Form>
@@ -147,7 +155,7 @@ function ForgotPasswordPage() {
         <div style={{ textAlign: 'center', marginTop: 16 }}>
           <Link to="/login" style={{ color: '#667eea', fontWeight: 500 }}>
             <ArrowLeftOutlined style={{ marginRight: 8 }} />
-            Quay lại đăng nhập
+            {t('forgotPassword.backToLogin')}
           </Link>
         </div>
       </div>

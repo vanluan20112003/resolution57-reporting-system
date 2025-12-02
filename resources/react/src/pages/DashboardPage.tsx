@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { Layout, Space, Typography, Button, Badge } from 'antd'
 import { Menu } from 'antd'
 import { MenuOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import type { MenuProps } from 'antd'
 import { getBadgeCounts, BadgeCounts } from '../services/activityApi'
 import ResolutionList from '../components/Dashboard/ResolutionList'
@@ -36,6 +37,7 @@ const { Header, Sider, Content } = Layout
 const { Text, Title } = Typography
 
 function DashboardPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -109,7 +111,7 @@ function DashboardPage() {
   // Build menu items based on user role and organization
   const menuItems: MenuProps['items'] = useMemo(() => {
     if (!user) return []
-    const items = getMenuItemsForRole(user.role, user.organization_id, user.organization_name)
+    const items = getMenuItemsForRole(user.role, user.organization_id, user.organization_name, t)
 
     // Add badges to menu items
     const addBadgesToItems = (menuList: MenuProps['items']): MenuProps['items'] => {
@@ -165,7 +167,7 @@ function DashboardPage() {
     }
 
     return addBadgesToItems(items)
-  }, [user, badgeCounts])
+  }, [user, badgeCounts, t])
 
   // Detect mobile view
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth <= 768)
@@ -254,16 +256,16 @@ function DashboardPage() {
       case 'reports':
         return (
           <div className="empty-content">
-            <Title level={3}>Báo cáo</Title>
-            <Text type="secondary">Xem và tạo báo cáo - Đang phát triển</Text>
+            <Title level={3}>{t('menu.reports')}</Title>
+            <Text type="secondary">{t('menu.reportsViewDescription')} - {t('menu.underDevelopment')}</Text>
           </div>
         )
 
       case 'kpi':
         return (
           <div className="empty-content">
-            <Title level={3}>Chỉ số KPI</Title>
-            <Text type="secondary">Theo dõi các chỉ số KPI - Đang phát triển</Text>
+            <Title level={3}>{t('menu.kpiIndicators')}</Title>
+            <Text type="secondary">{t('menu.kpiIndicatorsDescription')} - {t('menu.underDevelopment')}</Text>
           </div>
         )
 
@@ -273,8 +275,8 @@ function DashboardPage() {
       case 'analytics':
         return (
           <div className="empty-content">
-            <Title level={3}>Phân tích & Thống kê</Title>
-            <Text type="secondary">Biểu đồ và phân tích dữ liệu - Đang phát triển</Text>
+            <Title level={3}>{t('menu.analytics')}</Title>
+            <Text type="secondary">{t('menu.analyticsDescription')} - {t('menu.underDevelopment')}</Text>
           </div>
         )
 
@@ -290,8 +292,8 @@ function DashboardPage() {
       case 'system':
         return (
           <div className="empty-content">
-            <Title level={3}>Quản trị hệ thống</Title>
-            <Text type="secondary">Cấu hình và quản trị hệ thống - Đang phát triển</Text>
+            <Title level={3}>{t('menu.systemAdmin')}</Title>
+            <Text type="secondary">{t('menu.systemAdminDescription')} - {t('menu.underDevelopment')}</Text>
           </div>
         )
 
@@ -301,8 +303,8 @@ function DashboardPage() {
       default:
         return (
           <div className="empty-content">
-            <Title level={3}>{menuItem?.label || 'Trang'}</Title>
-            <Text type="secondary">{menuItem?.description || 'Đang phát triển'}</Text>
+            <Title level={3}>{menuItem?.labelKey ? t(menuItem.labelKey) : t('menu.home')}</Title>
+            <Text type="secondary">{menuItem?.descriptionKey ? t(menuItem.descriptionKey) : t('menu.underDevelopment')}</Text>
           </div>
         )
     }
@@ -338,7 +340,7 @@ function DashboardPage() {
             />
           </div>
           <Title level={4} className="header-title" style={{ margin: 0 }}>
-            HỆ THỐNG THÔNG TIN GIÁM SÁT, ĐÁNH GIÁ VIỆC THỰC HIỆN NGHỊ QUYẾT SỐ 57-NQ/TW CỦA ĐHQG-TPHCM
+            {t('dashboard.headerTitle')}
           </Title>
         </div>
 
@@ -350,7 +352,7 @@ function DashboardPage() {
             </Space>
           ) : (
             <Space>
-              <Text style={{ color: '#fff' }}>Đang tải...</Text>
+              <Text style={{ color: '#fff' }}>{t('common.loading')}</Text>
             </Space>
           )}
         </div>
@@ -420,7 +422,7 @@ function DashboardPage() {
               onClick={() => setCollapsed(!collapsed)}
               className="sidebar-toggle-btn"
             >
-              {!collapsed && <span style={{ marginLeft: 8 }}>Thu gọn</span>}
+              {!collapsed && <span style={{ marginLeft: 8 }}>{t('menu.collapse')}</span>}
             </Button>
           </div>
         </Sider>

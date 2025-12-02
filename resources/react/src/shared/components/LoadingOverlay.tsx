@@ -7,6 +7,7 @@
 import { Spin } from 'antd'
 import { LoadingOutlined } from '@ant-design/icons'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 
 interface LoadingOverlayProps {
   loading: boolean
@@ -17,10 +18,13 @@ interface LoadingOverlayProps {
 
 function LoadingOverlay({
   loading,
-  message = 'Đang xử lý...',
+  message,
   size = 'large',
   fullScreen = true
 }: LoadingOverlayProps) {
+  const { t } = useTranslation()
+  const displayMessage = message ?? t('login.processing')
+
   if (!loading) return null
 
   const spinIcon = <LoadingOutlined style={{ fontSize: size === 'large' ? 48 : size === 'default' ? 32 : 24 }} spin />
@@ -43,7 +47,7 @@ function LoadingOverlay({
       }}
     >
       <Spin indicator={spinIcon} size={size} />
-      {message && (
+      {displayMessage && (
         <div
           style={{
             color: '#fff',
@@ -52,7 +56,7 @@ function LoadingOverlay({
             textShadow: '0 2px 4px rgba(0,0,0,0.3)',
           }}
         >
-          {message}
+          {displayMessage}
         </div>
       )}
     </div>

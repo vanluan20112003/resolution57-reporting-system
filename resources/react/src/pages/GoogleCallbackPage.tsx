@@ -1,14 +1,21 @@
 import { useEffect, useState } from 'react'
 import { Spin, Typography } from 'antd'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { exchangeGoogleCode } from '../features/auth/api/authApi'
 
 const { Title, Text } = Typography
 
 function GoogleCallbackPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
-  const [statusMessage, setStatusMessage] = useState('Đang xử lý đăng nhập...')
+  const [statusMessage, setStatusMessage] = useState('')
+
+  // Set initial message after translation is ready
+  useEffect(() => {
+    setStatusMessage(t('login.processingLogin'))
+  }, [t])
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -33,7 +40,7 @@ function GoogleCallbackPage() {
       // SECURITY: New flow - Exchange authorization code for token
       if (code) {
         try {
-          setStatusMessage('Đang xác thực...')
+          setStatusMessage(t('login.authenticating'))
 
           // Exchange code for token using API layer
           const data = await exchangeGoogleCode(code)
@@ -44,7 +51,7 @@ function GoogleCallbackPage() {
             localStorage.setItem('user', JSON.stringify(data.data.user))
             localStorage.setItem('token_type', 'Bearer')
 
-            setStatusMessage('Đăng nhập thành công! Đang chuyển hướng...')
+            setStatusMessage(t('login.loginSuccess'))
 
             // Redirect to dashboard
             setTimeout(() => {
@@ -53,11 +60,11 @@ function GoogleCallbackPage() {
             }, 500)
           } else {
             console.error('Code exchange failed:', data.message)
-            navigate('/login?error=' + encodeURIComponent(data.message || 'Xác thực thất bại'))
+            navigate('/login?error=' + encodeURIComponent(data.message || t('login.errors.authFailed')))
           }
         } catch (err) {
           console.error('Failed to exchange code:', err)
-          navigate('/login?error=' + encodeURIComponent('Có lỗi xảy ra trong quá trình xác thực'))
+          navigate('/login?error=' + encodeURIComponent(t('login.errors.authError')))
         }
       } else {
         console.error('No code provided in callback')
@@ -66,7 +73,7 @@ function GoogleCallbackPage() {
     }
 
     handleCallback()
-  }, [location, navigate])
+  }, [location, navigate, t])
 
   return (
     <div style={{
@@ -79,7 +86,7 @@ function GoogleCallbackPage() {
     }}>
       <Spin size="large" />
       <Title level={4}>{statusMessage}</Title>
-      <Text type="secondary">Vui lòng không đóng trang này...</Text>
+      <Text type="secondary">{t('login.doNotClosePage')}</Text>
     </div>
   )
 }

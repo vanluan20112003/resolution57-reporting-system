@@ -24,8 +24,8 @@ i18n
   // Initialize i18next
   .init({
     resources,
-    fallbackLng: 'vi', // Default language is Vietnamese
-    lng: 'vi', // Set Vietnamese as default
+    fallbackLng: 'vi', // Fallback to Vietnamese if no saved preference
+    // Don't set lng - let LanguageDetector handle it from localStorage/cookie
     debug: false,
 
     interpolation: {
@@ -33,8 +33,10 @@ i18n
     },
 
     detection: {
-      order: ['localStorage', 'navigator'],
-      caches: ['localStorage']
+      order: ['localStorage', 'cookie', 'navigator'],
+      caches: ['localStorage', 'cookie'],
+      cookieMinutes: 525600, // 1 year
+      cookieOptions: { path: '/', sameSite: 'strict' }
     }
   })
 

@@ -33,7 +33,7 @@ function LoginForm({ onSuccess }: LoginFormProps) {
 
   return (
     <>
-      <LoadingOverlay loading={loading} message="Đang đăng nhập..." />
+      <LoadingOverlay loading={loading} message={t('login.loggingIn')} />
       <Form
         form={form}
         name="login"
@@ -46,18 +46,18 @@ function LoginForm({ onSuccess }: LoginFormProps) {
           rules={[
             {
               required: true,
-              message: '📧 Vui lòng nhập địa chỉ email của bạn'
+              message: t('login.errors.emailRequired')
             },
             {
               type: 'email',
-              message: '❌ Email không đúng định dạng. Ví dụ: user@vnuhcm.edu.vn'
+              message: t('login.errors.emailInvalid')
             },
           ]}
           validateTrigger={['onBlur', 'onChange']}
         >
           <Input
             prefix={<UserOutlined />}
-            placeholder="Nhập email của bạn"
+            placeholder={t('login.emailPlaceholder')}
             autoComplete="email"
             disabled={loading}
           />
@@ -68,18 +68,18 @@ function LoginForm({ onSuccess }: LoginFormProps) {
           rules={[
             {
               required: true,
-              message: '🔐 Vui lòng nhập mật khẩu của bạn'
+              message: t('login.errors.passwordRequired')
             },
             {
               min: 6,
-              message: '⚠️ Mật khẩu phải có ít nhất 6 ký tự'
+              message: t('login.errors.passwordMinLength')
             }
           ]}
           validateTrigger={['onBlur', 'onChange']}
         >
           <Input.Password
             prefix={<LockOutlined />}
-            placeholder="Nhập mật khẩu"
+            placeholder={t('login.passwordPlaceholder')}
             autoComplete="current-password"
             disabled={loading}
           />
@@ -95,7 +95,7 @@ function LoginForm({ onSuccess }: LoginFormProps) {
               fontWeight: 500
             }}
           >
-            Quên mật khẩu?
+            {t('login.forgotPassword')}
           </Link>
         </div>
 
@@ -126,7 +126,7 @@ function LoginForm({ onSuccess }: LoginFormProps) {
               }
             }}
           >
-            Đăng nhập
+            {t('login.loginButton')}
           </Button>
         </Form.Item>
       </Form>

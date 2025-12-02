@@ -4,6 +4,7 @@
 
 import { useState } from 'react'
 import { message } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { getGoogleAuthUrl } from '../api/authApi'
 
 interface UseGoogleAuthResult {
@@ -13,6 +14,7 @@ interface UseGoogleAuthResult {
 }
 
 export const useGoogleAuth = (): UseGoogleAuthResult => {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -27,12 +29,12 @@ export const useGoogleAuth = (): UseGoogleAuthResult => {
         // Redirect to Google OAuth
         window.location.href = data.url
       } else {
-        const errorMessage = data.message || 'Không thể kết nối với Google'
+        const errorMessage = data.message || t('login.errors.googleConnectError')
         setError(errorMessage)
         message.error(errorMessage)
       }
     } catch (err) {
-      const errorMessage = 'Có lỗi xảy ra. Vui lòng thử lại.'
+      const errorMessage = t('login.errors.generalError')
       setError(errorMessage)
       message.error(errorMessage)
       console.error('Google auth error:', err)

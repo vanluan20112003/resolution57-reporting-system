@@ -5,6 +5,7 @@
 
 import { Button } from 'antd'
 import { GoogleOutlined } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import { useGoogleAuth } from '../hooks/useGoogleAuth'
 import { LoadingOverlay } from '../../../shared/components'
 
@@ -15,15 +16,17 @@ interface GoogleLoginButtonProps {
 }
 
 function GoogleLoginButton({
-  text = 'Đăng nhập bằng tài khoản VNUHCM',
+  text,
   block = true,
   style
 }: GoogleLoginButtonProps) {
+  const { t } = useTranslation()
   const { loginWithGoogle, loading } = useGoogleAuth()
+  const buttonText = text || t('login.ssoLogin')
 
   return (
     <>
-      <LoadingOverlay loading={loading} message="Đang chuyển đến Google..." />
+      <LoadingOverlay loading={loading} message={t('login.redirectingToGoogle')} />
       <Button
         icon={<GoogleOutlined />}
         onClick={loginWithGoogle}
@@ -56,7 +59,7 @@ function GoogleLoginButton({
           }
         }}
       >
-        {text}
+        {buttonText}
       </Button>
     </>
   )

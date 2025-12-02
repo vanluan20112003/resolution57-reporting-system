@@ -24,13 +24,17 @@ import {
   PhoneOutlined,
   TeamOutlined,
   BankOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import { getProfile, updateProfile, uploadAvatar, deleteAvatar } from '../../services/profileService'
 import { useAuth } from '../../shared/hooks'
+import LanguageSwitcher from '../LanguageSwitcher'
 
 const { Title, Text } = Typography
 
 export default function UserProfile() {
+  const { t } = useTranslation()
   const { user: authUser, refreshUser } = useAuth()
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
@@ -57,7 +61,7 @@ export default function UserProfile() {
       })
     } catch (error: any) {
       console.error('Profile load error:', error)
-      message.error(error.message || 'Không thể tải thông tin người dùng')
+      message.error(error.message || t('profile.errors.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -71,7 +75,7 @@ export default function UserProfile() {
 
       const updatedData = response.success ? response.data : response
 
-      message.success('Cập nhật thông tin thành công')
+      message.success(t('profile.success.updateSuccess'))
       setUser(updatedData)
 
       // Update localStorage user data
@@ -88,7 +92,7 @@ export default function UserProfile() {
       }
     } catch (error: any) {
       console.error('Profile update error:', error)
-      message.error(error.message || 'Không thể cập nhật thông tin')
+      message.error(error.message || t('profile.errors.updateFailed'))
     } finally {
       setLoading(false)
     }
@@ -112,14 +116,14 @@ export default function UserProfile() {
     // Validate file type
     const isImage = actualFile.type.startsWith('image/')
     if (!isImage) {
-      message.error('Vui lòng chỉ tải lên file hình ảnh!')
+      message.error(t('profile.errors.onlyImageAllowed'))
       return false
     }
 
     // Validate file size (2MB)
     const isLt2M = actualFile.size / 1024 / 1024 < 2
     if (!isLt2M) {
-      message.error('Kích thước ảnh phải nhỏ hơn 2MB!')
+      message.error(t('profile.errors.imageTooLarge'))
       return false
     }
 
@@ -129,7 +133,7 @@ export default function UserProfile() {
 
       const updatedData = response.success ? response.data.user : response.user
 
-      message.success('Tải lên ảnh đại diện thành công')
+      message.success(t('profile.success.uploadSuccess'))
       setUser(updatedData)
 
       // Update localStorage user data
@@ -146,7 +150,7 @@ export default function UserProfile() {
       }
     } catch (error: any) {
       console.error('Avatar upload error:', error)
-      const errorMsg = error.errors?.avatar?.[0] || error.message || 'Không thể tải lên ảnh đại diện'
+      const errorMsg = error.errors?.avatar?.[0] || error.message || t('profile.errors.uploadFailed')
       message.error(errorMsg)
     } finally {
       setUploading(false)
@@ -158,10 +162,10 @@ export default function UserProfile() {
   // Handle avatar delete
   const handleDeleteAvatar = () => {
     Modal.confirm({
-      title: 'Xóa ảnh đại diện',
-      content: 'Bạn có chắc chắn muốn xóa ảnh đại diện?',
-      okText: 'Xóa',
-      cancelText: 'Hủy',
+      title: t('profile.deleteAvatarConfirmTitle'),
+      content: t('profile.deleteAvatarConfirmContent'),
+      okText: t('common.delete'),
+      cancelText: t('common.cancel'),
       okType: 'danger',
       onOk: async () => {
         try {
@@ -170,7 +174,7 @@ export default function UserProfile() {
 
           const updatedData = response.success ? response.data : response
 
-          message.success('Xóa ảnh đại diện thành công')
+          message.success(t('profile.success.deleteSuccess'))
           setUser(updatedData)
 
           // Update localStorage user data
@@ -187,7 +191,7 @@ export default function UserProfile() {
           }
         } catch (error: any) {
           console.error('Avatar delete error:', error)
-          message.error(error.message || 'Không thể xóa ảnh đại diện')
+          message.error(error.message || t('profile.errors.deleteFailed'))
         } finally {
           setUploading(false)
         }
@@ -223,7 +227,13 @@ export default function UserProfile() {
     if (user?.organization_id) {
       return user.organization_id
     }
-    return 'Chưa có thông tin'
+    return t('profile.noInfo')
+  }
+
+  // Get translated role name
+  const getRoleName = (role: string) => {
+    const roleKey = `profile.roles.${role}` as const
+    return t(roleKey)
   }
 
   if (loading && !user) {
@@ -236,9 +246,15 @@ export default function UserProfile() {
 
   return (
     <div style={{ padding: '0', maxWidth: '1400px', margin: '0 auto' }}>
-      <Title level={2} style={{ marginBottom: '24px' }}>
-        <UserOutlined /> Thông tin cá nhân
-      </Title>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <Title level={2} style={{ margin: 0 }}>
+          <UserOutlined /> {t('profile.title')}
+        </Title>
+        <Space>
+          <GlobalOutlined style={{ fontSize: 16 }} />
+          <LanguageSwitcher />
+        </Space>
+      </div>
 
       <Row gutter={24}>
         {/* Avatar Section */}
@@ -282,7 +298,7 @@ export default function UserProfile() {
                     size="large"
                     type="primary"
                   >
-                    Tải lên ảnh đại diện
+                    {t('profile.uploadAvatar')}
                   </Button>
                 </Upload>
 
@@ -295,14 +311,14 @@ export default function UserProfile() {
                     block
                     size="large"
                   >
-                    Xóa ảnh đại diện
+                    {t('profile.deleteAvatar')}
                   </Button>
                 )}
 
                 <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginTop: '8px' }}>
-                  Kích thước tối đa: 2MB
+                  {t('profile.avatarMaxSize')}
                   <br />
-                  Định dạng: JPG, PNG, GIF
+                  {t('profile.avatarFormats')}
                 </Text>
               </Space>
             </div>
@@ -312,7 +328,7 @@ export default function UserProfile() {
         {/* Profile Information */}
         <Col xs={24} lg={16}>
           <Card
-            title={<span style={{ fontSize: '18px', fontWeight: 600 }}>Thông tin chi tiết</span>}
+            title={<span style={{ fontSize: '18px', fontWeight: 600 }}>{t('profile.detailedInfo')}</span>}
             bordered={false}
             style={{
               borderRadius: '8px',
@@ -329,46 +345,42 @@ export default function UserProfile() {
               <Space direction="vertical" size="middle" style={{ width: '100%' }}>
                 <div>
                   <Text strong style={{ fontSize: '14px' }}>
-                    <MailOutlined /> Email:
+                    <MailOutlined /> {t('profile.email')}:
                   </Text>{' '}
                   <Text style={{ fontSize: '14px' }}>{user?.email}</Text>
                   <br />
                   <Text type="secondary" style={{ fontSize: '12px', marginLeft: '20px' }}>
-                    (Không thể thay đổi)
+                    ({t('profile.cannotChange')})
                   </Text>
                 </div>
 
                 <div>
                   <Text strong style={{ fontSize: '14px' }}>
-                    <TeamOutlined /> Vai trò:
+                    <TeamOutlined /> {t('profile.role')}:
                   </Text>{' '}
                   <Text style={{ fontSize: '14px' }}>
-                    {user?.role === 'ADMIN' && 'Quản trị viên'}
-                    {user?.role === 'OPERATOR' && 'Điều hành'}
-                    {user?.role === 'MANAGER' && 'Quản lý'}
-                    {user?.role === 'STAFF' && 'Chuyên viên'}
-                    {user?.role === 'GUEST' && 'Khách'}
+                    {user?.role && getRoleName(user.role)}
                   </Text>
                   <br />
                   <Text type="secondary" style={{ fontSize: '12px', marginLeft: '20px' }}>
-                    (Không thể thay đổi)
+                    ({t('profile.cannotChange')})
                   </Text>
                 </div>
 
                 <div>
                   <Text strong style={{ fontSize: '14px' }}>
-                    <BankOutlined /> Đơn vị:
+                    <BankOutlined /> {t('profile.organization')}:
                   </Text>{' '}
                   <Text style={{ fontSize: '14px' }}>{getOrganizationName()}</Text>
                   <br />
                   <Text type="secondary" style={{ fontSize: '12px', marginLeft: '20px' }}>
-                    (Không thể thay đổi)
+                    ({t('profile.cannotChange')})
                   </Text>
                 </div>
               </Space>
             </div>
 
-            <Divider orientation="left">Thông tin có thể chỉnh sửa</Divider>
+            <Divider orientation="left">{t('profile.editableInfo')}</Divider>
 
             {/* Editable form */}
             <Form
@@ -380,42 +392,42 @@ export default function UserProfile() {
               <Row gutter={16}>
                 <Col xs={24} md={12}>
                   <Form.Item
-                    label="Họ và tên đệm"
+                    label={t('profile.firstName')}
                     name="first_name"
                     rules={[
-                      { required: true, message: 'Vui lòng nhập họ và tên đệm' },
-                      { max: 100, message: 'Tối đa 100 ký tự' },
+                      { required: true, message: t('profile.errors.firstNameRequired') },
+                      { max: 100, message: t('profile.errors.maxLength100') },
                     ]}
                   >
-                    <Input placeholder="Nguyễn Văn" />
+                    <Input placeholder={t('profile.firstNamePlaceholder')} />
                   </Form.Item>
                 </Col>
 
                 <Col xs={24} md={12}>
                   <Form.Item
-                    label="Tên"
+                    label={t('profile.lastName')}
                     name="last_name"
                     rules={[
-                      { required: true, message: 'Vui lòng nhập tên' },
-                      { max: 100, message: 'Tối đa 100 ký tự' },
+                      { required: true, message: t('profile.errors.lastNameRequired') },
+                      { max: 100, message: t('profile.errors.maxLength100') },
                     ]}
                   >
-                    <Input placeholder="A" />
+                    <Input placeholder={t('profile.lastNamePlaceholder')} />
                   </Form.Item>
                 </Col>
               </Row>
 
               <Form.Item
-                label="Số điện thoại"
+                label={t('profile.phone')}
                 name="phone"
                 rules={[
-                  { max: 20, message: 'Tối đa 20 ký tự' },
-                  { pattern: /^[0-9+\-\s()]*$/, message: 'Số điện thoại không hợp lệ' },
+                  { max: 20, message: t('profile.errors.maxLength20') },
+                  { pattern: /^[0-9+\-\s()]*$/, message: t('profile.errors.invalidPhone') },
                 ]}
               >
                 <Input
                   prefix={<PhoneOutlined />}
-                  placeholder="0123456789"
+                  placeholder={t('profile.phonePlaceholder')}
                 />
               </Form.Item>
 
@@ -427,7 +439,7 @@ export default function UserProfile() {
                   loading={loading}
                   size="large"
                 >
-                  Lưu thay đổi
+                  {t('profile.saveChanges')}
                 </Button>
               </Form.Item>
             </Form>

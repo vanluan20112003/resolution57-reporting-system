@@ -38,7 +38,7 @@ function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
       // Show notification
       api.error({
-        message: 'Không có quyền truy cập',
+        message: t('login.accessDenied'),
         description: decodedMsg,
         icon: <CloseCircleOutlined style={{ color: '#ff4d4f' }} />,
         duration: 10,
@@ -57,8 +57,8 @@ function LoginPage({ onLoginSuccess }: LoginPageProps) {
       notificationShownRef.current = true
 
       api.error({
-        message: 'Lỗi đăng nhập',
-        description: 'Đã xảy ra lỗi trong quá trình đăng nhập. Vui lòng thử lại.',
+        message: t('login.loginError'),
+        description: t('login.loginErrorDescription'),
         duration: 8,
         placement: 'topRight',
       })
@@ -104,7 +104,7 @@ function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </div>
 
           {/* Google Login Button - Using feature component */}
-          <GoogleLoginButton text="Đăng nhập bằng tài khoản VNUHCM" />
+          <GoogleLoginButton text={t('login.ssoLogin')} />
         </div>
       </div>
     </div>

@@ -21,12 +21,15 @@ import type { MenuProps } from 'antd'
 export interface MenuItem {
   key: string
   icon: React.ReactNode
-  label: string
+  labelKey: string // i18n translation key for label
+  descriptionKey?: string // i18n translation key for description
   tab: string
   roles: UserRole[] // Roles that can see this menu item
-  description?: string
   children?: MenuItem[] // For submenu items
   requiresOrganization?: boolean // If true, only show if user has organization_id
+  // Legacy fields for backward compatibility (will be removed)
+  label?: string
+  description?: string
 }
 
 /**
@@ -36,45 +39,45 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
   {
     key: 'home',
     icon: <HomeOutlined />,
-    label: 'Trang chủ',
+    labelKey: 'menu.home',
+    descriptionKey: 'menu.homeDescription',
     tab: 'home',
     roles: [UserRole.GUEST, UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
-    description: 'Tổng quan hệ thống',
   },
   {
     key: 'activities-menu',
     icon: <ApartmentOutlined />,
-    label: 'Hoạt động đơn vị', // Will be replaced with organization name dynamically
+    labelKey: 'menu.activitiesMenu', // Will be replaced with organization name dynamically
+    descriptionKey: 'menu.activitiesDescription',
     tab: 'activities',
     roles: [UserRole.GUEST, UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
-    description: 'Hoạt động của đơn vị',
     requiresOrganization: true, // Entire menu requires organization
     children: [
       {
         key: 'department-activities',
         icon: <BellOutlined />,
-        label: 'Tất cả hoạt động',
+        labelKey: 'menu.allActivities',
+        descriptionKey: 'menu.allActivitiesDescription',
         tab: 'department-activities',
         roles: [UserRole.GUEST, UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
-        description: 'Xem tất cả hoạt động của đơn vị',
         requiresOrganization: true,
       },
       {
         key: 'activity-management',
         icon: <FlagOutlined />,
-        label: 'Quản lý hoạt động',
+        labelKey: 'menu.activityManagement',
+        descriptionKey: 'menu.activityManagementDescription',
         tab: 'activity-management',
         roles: [UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
-        description: 'Tạo và quản lý hoạt động',
         requiresOrganization: true,
       },
       {
         key: 'pending-approval',
         icon: <CheckCircleOutlined />,
-        label: 'Chờ phê duyệt',
+        labelKey: 'menu.pendingApproval',
+        descriptionKey: 'menu.pendingApprovalDescription',
         tab: 'pending-approval',
         roles: [UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
-        description: 'Phê duyệt hoạt động',
         requiresOrganization: true,
       },
     ],
@@ -82,107 +85,114 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
   {
     key: 'reports-menu',
     icon: <BarChartOutlined />,
-    label: 'Báo cáo động',
+    labelKey: 'menu.reportsMenu',
+    descriptionKey: 'menu.reportsDescription',
     tab: 'reports',
     roles: [UserRole.GUEST, UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
-    description: 'Báo cáo và phân tích',
     children: [
       {
         key: 'reports',
         icon: <FileDoneOutlined />,
-        label: 'Báo cáo',
+        labelKey: 'menu.reports',
+        descriptionKey: 'menu.reportsViewDescription',
         tab: 'reports',
         roles: [UserRole.GUEST, UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
-        description: 'Xem và tạo báo cáo',
       },
       {
         key: 'kpi',
         icon: <ApiOutlined />,
-        label: 'Chỉ số KPI',
+        labelKey: 'menu.kpiIndicators',
+        descriptionKey: 'menu.kpiIndicatorsDescription',
         tab: 'kpi',
         roles: [UserRole.GUEST, UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
-        description: 'Theo dõi các chỉ số KPI',
       },
       {
         key: 'kpi-management',
         icon: <BarChartOutlined />,
-        label: 'Quản lý KPI',
+        labelKey: 'menu.kpiManagement',
+        descriptionKey: 'menu.kpiManagementDescription',
         tab: 'kpi-management',
         roles: [UserRole.OPERATOR, UserRole.ADMIN],
-        description: 'Xây dựng và quản lý KPI',
       },
       {
         key: 'analytics',
         icon: <BarChartOutlined />,
-        label: 'Phân tích & Thống kê',
+        labelKey: 'menu.analytics',
+        descriptionKey: 'menu.analyticsDescription',
         tab: 'analytics',
         roles: [UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
-        description: 'Biểu đồ và phân tích dữ liệu',
       },
     ],
   },
   {
     key: 'management-menu',
     icon: <SettingOutlined />,
-    label: 'Quản lý',
+    labelKey: 'menu.managementMenu',
+    descriptionKey: 'menu.managementDescription',
     tab: 'management',
     roles: [UserRole.OPERATOR, UserRole.ADMIN],
-    description: 'Quản lý hệ thống',
     children: [
       {
         key: 'users',
         icon: <UserOutlined />,
-        label: 'Quản lý người dùng',
+        labelKey: 'menu.userManagement',
+        descriptionKey: 'menu.userManagementDescription',
         tab: 'users',
         roles: [UserRole.OPERATOR, UserRole.ADMIN],
-        description: 'Phân công vị trí và quản lý người dùng',
       },
       {
         key: 'organizations',
         icon: <TeamOutlined />,
-        label: 'Quản lý đơn vị',
+        labelKey: 'menu.organizationManagement',
+        descriptionKey: 'menu.organizationManagementDescription',
         tab: 'organizations',
         roles: [UserRole.OPERATOR, UserRole.ADMIN],
-        description: 'Quản lý các đơn vị trong ĐHQG',
       },
       {
         key: 'activity-config',
         icon: <AppstoreOutlined />,
-        label: 'Cấu hình hoạt động',
+        labelKey: 'menu.activityConfig',
+        descriptionKey: 'menu.activityConfigDescription',
         tab: 'activity-config',
         roles: [UserRole.OPERATOR, UserRole.ADMIN],
-        description: 'Quản lý loại hoạt động và lĩnh vực hoạt động',
       },
       {
         key: 'system',
         icon: <SettingOutlined />,
-        label: 'Quản trị hệ thống',
+        labelKey: 'menu.systemAdmin',
+        descriptionKey: 'menu.systemAdminDescription',
         tab: 'system',
         roles: [UserRole.ADMIN],
-        description: 'Cấu hình và quản trị hệ thống',
       },
     ],
   },
   {
     key: 'profile',
     icon: <IdcardOutlined />,
-    label: 'Thông tin cá nhân',
+    labelKey: 'menu.profile',
+    descriptionKey: 'menu.profileDescription',
     tab: 'profile',
     roles: [UserRole.GUEST, UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
-    description: 'Quản lý thông tin cá nhân',
   },
 ]
+
+/**
+ * Translation function type
+ */
+export type TranslateFunction = (key: string, options?: Record<string, unknown>) => string
 
 /**
  * Get menu items for a specific role with submenu support
  * @param role - User's role
  * @param organizationId - User's organization ID (optional)
  * @param organizationName - User's organization name (optional) - used to customize menu labels
+ * @param t - Translation function from useTranslation hook
  */
 export const getMenuItemsForRole = (
   role: UserRole | string,
   organizationId?: string | null,
-  organizationName?: string | null
+  organizationName?: string | null,
+  t?: TranslateFunction
 ): MenuProps['items'] => {
   const filterByRoleAndOrg = (items: MenuItem[]): MenuProps['items'] => {
     return items
@@ -198,10 +208,18 @@ export const getMenuItemsForRole = (
         return true
       })
       .map(item => {
-        // Customize label for activities-menu with organization name
-        let label = item.label
-        if (item.key === 'activities-menu' && organizationName) {
-          label = `Hoạt động ${organizationName}`
+        // Get translated label
+        let label: string
+        if (t) {
+          // Customize label for activities-menu with organization name
+          if (item.key === 'activities-menu' && organizationName) {
+            label = t('menu.activitiesMenuWithOrg', { orgName: organizationName })
+          } else {
+            label = t(item.labelKey)
+          }
+        } else {
+          // Fallback for when t is not provided
+          label = item.labelKey
         }
 
         const menuItem: any = {

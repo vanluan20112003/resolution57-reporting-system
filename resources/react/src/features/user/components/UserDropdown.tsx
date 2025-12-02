@@ -6,11 +6,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Dropdown, Avatar, Typography, message } from 'antd'
-import { UserOutlined, LogoutOutlined, LockOutlined, QuestionCircleOutlined } from '@ant-design/icons'
+import { UserOutlined, LogoutOutlined, LockOutlined, QuestionCircleOutlined, GlobalOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { useLogout } from '../../auth/hooks/useLogout'
 import { LoadingOverlay } from '../../../shared/components'
 import ChangePasswordModal from '../../../components/ChangePasswordModal'
+import LanguageSwitcher from '../../../components/LanguageSwitcher'
 
 const { Text } = Typography
 
@@ -31,6 +33,7 @@ interface UserDropdownProps {
 }
 
 function UserDropdown({ user }: UserDropdownProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { logout, loading } = useLogout()
   const [changePasswordVisible, setChangePasswordVisible] = useState(false)
@@ -44,7 +47,7 @@ function UserDropdown({ user }: UserDropdownProps) {
   }
 
   const handleHelp = () => {
-    message.info('Chức năng hỗ trợ đang được phát triển')
+    message.info(t('userDropdown.helpUnderDevelopment'))
   }
 
   // Get user initials for default avatar
@@ -134,20 +137,36 @@ function UserDropdown({ user }: UserDropdownProps) {
     {
       key: 'profile',
       icon: <UserOutlined />,
-      label: 'Thông tin cá nhân',
+      label: t('userDropdown.personalInfo'),
       onClick: handleProfile,
     },
     {
       key: 'help',
       icon: <QuestionCircleOutlined />,
-      label: 'Hỗ trợ',
+      label: t('userDropdown.help'),
       onClick: handleHelp,
     },
     {
       key: 'change-password',
       icon: <LockOutlined />,
-      label: 'Đổi mật khẩu',
+      label: t('userDropdown.changePassword'),
       onClick: handleChangePassword,
+    },
+    {
+      type: 'divider',
+    },
+    {
+      key: 'language',
+      icon: <GlobalOutlined />,
+      label: (
+        <div
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span>{t('userDropdown.language')}</span>
+          <LanguageSwitcher />
+        </div>
+      ),
     },
     {
       type: 'divider',
@@ -155,7 +174,7 @@ function UserDropdown({ user }: UserDropdownProps) {
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: 'Đăng xuất',
+      label: t('userDropdown.logout'),
       onClick: logout,
       danger: true,
     },
@@ -163,7 +182,7 @@ function UserDropdown({ user }: UserDropdownProps) {
 
   return (
     <>
-      <LoadingOverlay loading={loading} message="Đang đăng xuất..." />
+      <LoadingOverlay loading={loading} message={t('userDropdown.loggingOut')} />
       <ChangePasswordModal
         visible={changePasswordVisible}
         onClose={() => setChangePasswordVisible(false)}
