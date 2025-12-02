@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import {
   Card,
   Table,
@@ -19,7 +19,6 @@ import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  SearchOutlined,
   ReloadOutlined,
   BankOutlined,
   EyeOutlined,
@@ -39,6 +38,10 @@ import {
   OrganizationType,
   updateOrganization
 } from "@/services/organizationApi"
+import AdvancedFilter, { FilterField, FilterValues } from "../../shared/components/AdvancedFilter"
+import ColumnToggle, { ToggleableColumn } from "../../shared/components/ColumnToggle"
+import { ImportExcelModal } from "../../shared/components/ImportExcelModal"
+import { FileExcelOutlined } from "@ant-design/icons"
 
 const { Title, Text } = Typography
 const { Option } = Select
@@ -48,16 +51,20 @@ function OrganizationManagement() {
   const [organizationList, setOrganizationList] = useState<Organization[]>([])
   const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
-  const [searchText, setSearchText] = useState("")
-  const [typeFilter, setTypeFilter] = useState<OrganizationType | undefined>()
-  const [statusFilter, setStatusFilter] = useState<
-    OrganizationStatus | undefined
-  >()
-  const [isVnuhcmFilter, setIsVnuhcmFilter] = useState<boolean | undefined>()
+
+  // Advanced filter state
+  const [filterValues, setFilterValues] = useState<FilterValues>({
+    search: "",
+    type: undefined,
+    status: undefined,
+    is_vnuhcm: undefined
+  })
+
   const [selectedOrganization, setSelectedOrganization] =
     useState<Organization | null>(null)
   const [editModalVisible, setEditModalVisible] = useState(false)
   const [viewModalVisible, setViewModalVisible] = useState(false)
+  const [importModalVisible, setImportModalVisible] = useState(false)
   const [form] = Form.useForm()
 
   // Pagination
@@ -66,6 +73,11 @@ function OrganizationManagement() {
     pageSize: 20,
     total: organizationList.length
   })
+
+  // Visible columns state
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([
+    'code', 'name', 'type', 'parent_id', 'is_vnuhcm', 'contact', 'website', 'status', 'actions'
+  ])
 
   // Filter organizationList
   // const filteredOrganizations = organizationList.filter((org) => {
@@ -200,13 +212,27 @@ function OrganizationManagement() {
     form.resetFields()
   }
 
+  // Toggleable columns configuration
+  const toggleableColumns: ToggleableColumn[] = useMemo(() => [
+    { key: 'code', title: 'Mã', fixed: true },
+    { key: 'name', title: 'Tên đơn vị', defaultVisible: true },
+    { key: 'type', title: 'Loại', defaultVisible: true },
+    { key: 'parent_id', title: 'Đơn vị cha', defaultVisible: true },
+    { key: 'is_vnuhcm', title: 'ĐHQG-HCM', defaultVisible: true },
+    { key: 'contact', title: 'Liên hệ', defaultVisible: true },
+    { key: 'website', title: 'Website', defaultVisible: true },
+    { key: 'status', title: 'Trạng thái', defaultVisible: true },
+    { key: 'actions', title: 'Thao tác', fixed: true },
+  ], [])
+
   // Columns
-  const columns: ColumnsType<Organization> = [
+  const allColumns: ColumnsType<Organization> = [
     {
       title: "Mã",
       dataIndex: "code",
       key: "code",
       width: 130,
+      sorter: (a, b) => (a.code || '').localeCompare(b.code || ''),
       render: (code: string) => (
         <Text strong style={{ color: "#1890ff" }}>
           {code}
@@ -219,6 +245,7 @@ function OrganizationManagement() {
       key: "name",
       width: 250,
       ellipsis: true,
+      sorter: (a, b) => (a.name || '').localeCompare(b.name || ''),
       render: (name: string, record: Organization) => (
         <div>
           <Text strong>{name}</Text>
@@ -234,6 +261,7 @@ function OrganizationManagement() {
       dataIndex: "type",
       key: "type",
       width: 150,
+      sorter: (a, b) => (a.type || '').localeCompare(b.type || ''),
       render: (type: string) => (
         <Tag color={getOrganizationTypeColor(type)}>
           {getOrganizationTypeLabel(type)}
@@ -245,6 +273,7 @@ function OrganizationManagement() {
       dataIndex: "parent_id",
       key: "parent_id",
       width: 120,
+      sorter: (a, b) => getParentName(a.parent_id).localeCompare(getParentName(b.parent_id)),
       render: (parentId: string | null) => (
         <Text type={parentId ? "default" : "secondary"}>
           {getParentName(parentId)}
@@ -257,6 +286,7 @@ function OrganizationManagement() {
       key: "is_vnuhcm",
       width: 100,
       align: "center",
+      sorter: (a, b) => (a.is_vnuhcm ? 1 : 0) - (b.is_vnuhcm ? 1 : 0),
       render: (isVnuhcm: boolean) => (
         <Tag color={isVnuhcm ? "green" : "default"}>
           {isVnuhcm ? "Có" : "Không"}
@@ -268,6 +298,7 @@ function OrganizationManagement() {
       key: "contact",
       width: 200,
       ellipsis: true,
+      sorter: (a, b) => (a.contact_email || '').localeCompare(b.contact_email || ''),
       render: (_: any, record: Organization) => (
         <Space direction="vertical" size={0}>
           {record.contact_email && (
@@ -289,6 +320,7 @@ function OrganizationManagement() {
       key: "website",
       width: 150,
       ellipsis: true,
+      sorter: (a, b) => (a.website || '').localeCompare(b.website || ''),
       render: (website: string) =>
         website ? (
           <a href={website} target="_blank" rel="noopener noreferrer">
@@ -304,6 +336,7 @@ function OrganizationManagement() {
       key: "status",
       width: 120,
       fixed: "right",
+      sorter: (a, b) => (a.status || '').localeCompare(b.status || ''),
       render: (status: string) => (
         <Tag
           color={status === OrganizationStatus.ACTIVE ? "success" : "default"}>
@@ -355,14 +388,78 @@ function OrganizationManagement() {
     }
   ]
 
+  // Filter columns based on visibility
+  const columns = useMemo(() =>
+    allColumns.filter(col => visibleColumns.includes(col.key as string)),
+    [allColumns, visibleColumns]
+  )
+
+  // Advanced filter fields configuration
+  const filterFields: FilterField[] = useMemo(() => {
+    return [
+      {
+        key: "search",
+        label: "Tìm kiếm",
+        type: "text",
+        placeholder: "Tìm theo mã, tên đơn vị...",
+        span: 8
+      },
+      {
+        key: "type",
+        label: "Loại đơn vị",
+        type: "select",
+        span: 6,
+        options: [
+          { value: OrganizationType.UNIVERSITY_SYSTEM, label: "Đại học Quốc gia", color: "purple" },
+          { value: OrganizationType.UNIVERSITY, label: "Trường thành viên", color: "blue" },
+          { value: OrganizationType.RESEARCH_INSTITUTE, label: "Viện nghiên cứu", color: "cyan" },
+          { value: OrganizationType.CENTER, label: "Trung tâm", color: "green" },
+          { value: OrganizationType.DEPARTMENT, label: "Phòng ban", color: "orange" },
+          { value: OrganizationType.EXTERNAL, label: "Đơn vị ngoài" }
+        ]
+      },
+      {
+        key: "status",
+        label: "Trạng thái",
+        type: "select",
+        span: 5,
+        options: [
+          { value: OrganizationStatus.ACTIVE, label: "Hoạt động", color: "success" },
+          { value: OrganizationStatus.INACTIVE, label: "Không hoạt động", color: "warning" }
+        ]
+      },
+      {
+        key: "is_vnuhcm",
+        label: "Thuộc ĐHQG-HCM",
+        type: "boolean",
+        span: 5
+      }
+    ]
+  }, [])
+
+  // Handle filter change
+  const handleFilterChange = (newValues: FilterValues) => {
+    setFilterValues(newValues)
+  }
+
+  // Handle filter search
+  const handleFilterSearch = () => {
+    fetchOrganizations(pagination.pageSize!, 1)
+  }
+
+  // Handle filter reset
+  const handleFilterReset = () => {
+    setPagination((prev) => ({ ...prev, current: 1 }))
+  }
+
   const fetchOrganizations = async (per_page: number, page: number) => {
     try {
       setLoading(true)
       const data = await getOrganizationList({
-        is_vnuhcm: isVnuhcmFilter,
-        type: typeFilter,
-        status: statusFilter,
-        search: searchText,
+        is_vnuhcm: filterValues.is_vnuhcm,
+        type: filterValues.type,
+        status: filterValues.status,
+        search: filterValues.search,
         page,
         per_page
       })
@@ -386,126 +483,72 @@ function OrganizationManagement() {
     fetchOrganizations(pagination.pageSize!, 1)
   }, [])
 
-  useEffect(() => {
-    fetchOrganizations(pagination.pageSize!, 1)
-  }, [typeFilter, statusFilter, isVnuhcmFilter])
-
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      fetchOrganizations(pagination.pageSize!, 1)
-    }, 500)
-    return () => clearTimeout(timeoutId)
-  }, [searchText])
-
   return (
     <div style={{ padding: "0" }}>
       <Card>
-        <Space direction="vertical" size="large" style={{ width: "100%" }}>
-          {/* Header */}
-          <div>
-            <Title level={3}>
-              <BankOutlined /> Quản lý Đơn vị
-            </Title>
-            <Text type="secondary">
-              Quản lý thông tin các đơn vị trong hệ thống ĐHQG-HCM
-            </Text>
-          </div>
+        {/* Header */}
+        <div style={{ marginBottom: 16 }}>
+          <Title level={3} style={{ marginBottom: 4 }}>
+            <BankOutlined /> Quản lý Đơn vị
+          </Title>
+          <Text type="secondary">
+            Quản lý thông tin các đơn vị trong hệ thống ĐHQG-HCM
+          </Text>
+        </div>
 
-          {/* Filters and Actions */}
-          <Space
-            wrap
-            style={{ width: "100%", justifyContent: "space-between" }}>
-            <Space wrap>
-              <Input
-                placeholder="Tìm kiếm theo mã, tên đơn vị..."
-                prefix={<SearchOutlined />}
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                style={{ width: 300 }}
-                allowClear
+        {/* Advanced Filter */}
+        <AdvancedFilter
+          fields={filterFields}
+          values={filterValues}
+          onChange={handleFilterChange}
+          onSearch={handleFilterSearch}
+          onReset={handleFilterReset}
+          loading={loading}
+          storageKey="organization_management_filters"
+          showPresets={true}
+          collapsible={true}
+          defaultExpanded={true}
+          extra={
+            <Space>
+              <ColumnToggle
+                columns={toggleableColumns}
+                visibleColumns={visibleColumns}
+                onChange={setVisibleColumns}
+                storageKey="organization_management"
               />
-
-              <Select
-                placeholder="Loại đơn vị"
-                value={typeFilter}
-                onChange={setTypeFilter}
-                style={{ width: 180 }}
-                allowClear>
-                <Option value={OrganizationType.UNIVERSITY_SYSTEM}>
-                  Đại học Quốc gia
-                </Option>
-                <Option value={OrganizationType.UNIVERSITY}>
-                  Trường thành viên
-                </Option>
-                <Option value={OrganizationType.RESEARCH_INSTITUTE}>
-                  Viện nghiên cứu
-                </Option>
-                <Option value={OrganizationType.CENTER}>Trung tâm</Option>
-                <Option value={OrganizationType.DEPARTMENT}>Phòng ban</Option>
-                <Option value={OrganizationType.EXTERNAL}>Đơn vị ngoài</Option>
-              </Select>
-
-              <Select
-                placeholder="Trạng thái"
-                value={statusFilter}
-                onChange={setStatusFilter}
-                style={{ width: 150 }}
-                allowClear>
-                <Option value={OrganizationStatus.ACTIVE}>Hoạt động</Option>
-                <Option value={OrganizationStatus.INACTIVE}>
-                  Không hoạt động
-                </Option>
-              </Select>
-
-              <Select
-                placeholder="Thuộc ĐHQG-HCM"
-                value={isVnuhcmFilter}
-                onChange={setIsVnuhcmFilter}
-                style={{ width: 150 }}
-                allowClear>
-                <Option value={true}>Có</Option>
-                <Option value={false}>Không</Option>
-              </Select>
-
               <Button
-                icon={<ReloadOutlined />}
-                onClick={() => {
-                  setSearchText("")
-                  setTypeFilter(undefined)
-                  setStatusFilter(undefined)
-                  setIsVnuhcmFilter(undefined)
-                  fetchOrganizations(pagination.pageSize!, 1)
-                }}>
-                Làm mới
+                icon={<FileExcelOutlined />}
+                onClick={() => setImportModalVisible(true)}
+              >
+                Import Excel
+              </Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                Thêm đơn vị mới
               </Button>
             </Space>
+          }
+        />
 
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-              Thêm đơn vị mới
-            </Button>
-          </Space>
-
-          {/* Table */}
-          <Table
-            columns={columns}
-            dataSource={organizationList}
-            loading={loading}
-            rowKey="id"
-            pagination={{
-              current: pagination.current,
-              pageSize: pagination.pageSize,
-              total: pagination.total,
-              showSizeChanger: true,
-              showTotal: (total) => `Tổng ${total} đơn vị`,
-              onChange: (page, pageSize) => {
-                fetchOrganizations(pageSize, page)
-              }
-            }}
-            onChange={handleTableChange}
-            scroll={{ x: 1400 }}
-            bordered
-          />
-        </Space>
+        {/* Table */}
+        <Table
+          columns={columns}
+          dataSource={organizationList}
+          loading={loading}
+          rowKey="id"
+          pagination={{
+            current: pagination.current,
+            pageSize: pagination.pageSize,
+            total: pagination.total,
+            showSizeChanger: true,
+            showTotal: (total) => `Tổng ${total} đơn vị`,
+            onChange: (page, pageSize) => {
+              fetchOrganizations(pageSize, page)
+            }
+          }}
+          onChange={handleTableChange}
+          scroll={{ x: 1400 }}
+          bordered
+        />
       </Card>
 
       {/* Add/Edit Modal */}
@@ -787,6 +830,14 @@ function OrganizationManagement() {
           </Space>
         )}
       </Modal>
+
+      {/* Import Excel Modal */}
+      <ImportExcelModal
+        open={importModalVisible}
+        type="organizations"
+        onClose={() => setImportModalVisible(false)}
+        onSuccess={() => fetchOrganizations(pagination.pageSize!, pagination.current!)}
+      />
     </div>
   )
 }

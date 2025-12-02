@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Table,
   Card,
@@ -21,7 +21,6 @@ import {
   EditOutlined,
   DeleteOutlined,
   PlusOutlined,
-  SearchOutlined,
   ReloadOutlined,
   UserOutlined,
   LockOutlined,
@@ -37,6 +36,10 @@ import * as userApi from '../../services/userApi'
 import * as organizationApi from '../../services/organizationApi'
 import type { User } from '../../services/userApi'
 import type { Organization, OrganizationStatus } from '../../services/organizationApi'
+import AdvancedFilter, { FilterField, FilterValues } from '../../shared/components/AdvancedFilter'
+import ColumnToggle, { ToggleableColumn } from '../../shared/components/ColumnToggle'
+import { ImportExcelModal } from '../../shared/components/ImportExcelModal'
+import { FileExcelOutlined } from '@ant-design/icons'
 import './UserManagement.css'
 
 const { Title, Text } = Typography
@@ -72,18 +75,31 @@ function UserManagement() {
     }
     return { current: 1, pageSize: 10, total: 0 }
   })
-  const [searchText, setSearchText] = useState('')
-  const [roleFilter, setRoleFilter] = useState<string | undefined>()
-  const [statusFilter, setStatusFilter] = useState<string | undefined>()
+
+  // Advanced filter state
+  const [filterValues, setFilterValues] = useState<FilterValues>({
+    search: '',
+    role: undefined,
+    status: undefined,
+    organization_id: undefined,
+    is_vnuhcm: undefined,
+  })
+
   const [editModalVisible, setEditModalVisible] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [loadingOrganizations, setLoadingOrganizations] = useState(false)
+  const [importModalVisible, setImportModalVisible] = useState(false)
   const [form] = Form.useForm()
   const { user: currentUser } = useAuth()
 
   // Detect mobile view for responsive column visibility
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth <= 768)
+
+  // Visible columns state
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([
+    'email', 'name', 'role', 'status', 'is_vnuhcm', 'last_login_at', 'created_at', 'actions'
+  ])
 
   // Check if current user can manage users
   const canManage = currentUser?.role === 'OPERATOR' || currentUser?.role === 'ADMIN'
@@ -130,24 +146,84 @@ function UserManagement() {
     }
   }
 
-  // Debounced search effect
-  useEffect(() => {
-    if (!canManage) return
+  // Advanced filter fields configuration
+  const filterFields: FilterField[] = useMemo(() => {
+    const fields: FilterField[] = [
+      {
+        key: 'search',
+        label: 'Tìm kiếm',
+        type: 'text',
+        placeholder: 'Tìm theo tên, email, số điện thoại...',
+        span: 8,
+      },
+      {
+        key: 'role',
+        label: 'Vai trò',
+        type: 'select',
+        span: 4,
+        options: [
+          { value: 'ADMIN', label: 'ADMIN', color: 'red' },
+          { value: 'OPERATOR', label: 'OPERATOR', color: 'purple' },
+          { value: 'MANAGER', label: 'MANAGER', color: 'blue' },
+          { value: 'STAFF', label: 'STAFF', color: 'green' },
+          { value: 'GUEST', label: 'GUEST' },
+        ],
+      },
+      {
+        key: 'status',
+        label: 'Trạng thái',
+        type: 'select',
+        span: 4,
+        options: [
+          { value: 'active', label: 'Hoạt động', color: 'success' },
+          { value: 'inactive', label: 'Không hoạt động', color: 'warning' },
+          { value: 'locked', label: 'Khóa', color: 'error' },
+        ],
+      },
+      {
+        key: 'organization_id',
+        label: 'Đơn vị',
+        type: 'select',
+        span: 6,
+        options: organizations.map((org) => ({
+          value: org.id,
+          label: org.short_name || org.name,
+        })),
+      },
+      {
+        key: 'is_vnuhcm',
+        label: 'VNUHCM',
+        type: 'boolean',
+        span: 4,
+      },
+    ]
+    return fields
+  }, [organizations])
 
-    const timeoutId = setTimeout(() => {
-      fetchUsers(1, pagination.pageSize) // Reset to page 1 when filters change
-    }, 500) // 500ms debounce
+  // Handle filter change
+  const handleFilterChange = (newValues: FilterValues) => {
+    setFilterValues(newValues)
+  }
 
-    return () => clearTimeout(timeoutId)
-  }, [searchText, roleFilter, statusFilter, canManage, pagination.pageSize])
+  // Handle filter search
+  const handleFilterSearch = () => {
+    fetchUsers(1, pagination.pageSize) // Reset to page 1 when searching
+  }
+
+  // Handle filter reset
+  const handleFilterReset = () => {
+    setPagination((prev) => ({ ...prev, current: 1 }))
+  }
 
   const fetchUsers = async (page: number = 1, pageSize: number = 10) => {
     setLoading(true)
     try {
       const response = await userApi.getUsers({
-        search: searchText || undefined,
-        role: roleFilter,
-        status: statusFilter,
+        search: filterValues.search || undefined,
+        role: filterValues.role,
+        status: filterValues.status,
+        organization_id: filterValues.organization_id,
+        is_vnuhcm: filterValues.is_vnuhcm,
         per_page: pageSize,
         page: page,
       })
@@ -322,7 +398,19 @@ function UserManagement() {
     }
   }
 
-  const columns: ColumnsType<User> = [
+  // Toggleable columns configuration
+  const toggleableColumns: ToggleableColumn[] = useMemo(() => [
+    { key: 'email', title: 'Email', fixed: true },
+    { key: 'name', title: 'Họ và tên', defaultVisible: true },
+    { key: 'role', title: 'Vai trò', defaultVisible: true },
+    { key: 'status', title: 'Trạng thái', defaultVisible: true },
+    { key: 'is_vnuhcm', title: 'VNUHCM', defaultVisible: true },
+    { key: 'last_login_at', title: 'Hoạt động cuối', defaultVisible: true },
+    { key: 'created_at', title: 'Ngày tạo', defaultVisible: true },
+    { key: 'actions', title: 'Thao tác', fixed: true },
+  ], [])
+
+  const allColumns: ColumnsType<User> = [
     {
       title: 'Email',
       dataIndex: 'email',
@@ -330,12 +418,18 @@ function UserManagement() {
       fixed: isMobile ? false : 'left',
       width: isMobile ? 180 : 250,
       ellipsis: true,
+      sorter: (a, b) => (a.email || '').localeCompare(b.email || ''),
     },
     {
       title: 'Họ và tên',
       key: 'name',
       width: isMobile ? 150 : 200,
       ellipsis: true,
+      sorter: (a, b) => {
+        const nameA = `${a.first_name} ${a.last_name}`
+        const nameB = `${b.first_name} ${b.last_name}`
+        return nameA.localeCompare(nameB)
+      },
       render: (_, record) => `${record.first_name} ${record.last_name}`,
     },
     {
@@ -343,6 +437,7 @@ function UserManagement() {
       dataIndex: 'role',
       key: 'role',
       width: 100,
+      sorter: (a, b) => (a.role || '').localeCompare(b.role || ''),
       render: (role: string) => (
         <Tag color={roleColors[role] || 'default'}>{role}</Tag>
       ),
@@ -353,6 +448,7 @@ function UserManagement() {
       key: 'status',
       width: 100,
       className: isMobile ? 'ant-table-cell-mobile-hide' : '',
+      sorter: (a, b) => (a.status || '').localeCompare(b.status || ''),
       render: (status: string) => (
         <Tag color={statusColors[status] || 'default'}>
           {status === 'active' ? 'Hoạt động' : status === 'inactive' ? 'Không hoạt động' : 'Khóa'}
@@ -365,6 +461,7 @@ function UserManagement() {
       key: 'is_vnuhcm',
       width: 80,
       className: isMobile ? 'ant-table-cell-mobile-hide' : '',
+      sorter: (a, b) => (a.is_vnuhcm ? 1 : 0) - (b.is_vnuhcm ? 1 : 0),
       render: (isVnuhcm: boolean) => (
         <Tag color={isVnuhcm ? 'blue' : 'default'}>
           {isVnuhcm ? 'Có' : 'Không'}
@@ -372,11 +469,48 @@ function UserManagement() {
       ),
     },
     {
+      title: 'Hoạt động cuối',
+      dataIndex: 'last_login_at',
+      key: 'last_login_at',
+      width: 140,
+      className: isMobile ? 'ant-table-cell-mobile-hide' : '',
+      sorter: (a, b) => new Date(a.last_login_at || 0).getTime() - new Date(b.last_login_at || 0).getTime(),
+      render: (date: string) => {
+        if (!date) {
+          return <Text type="secondary">Chưa đăng nhập</Text>
+        }
+        const lastLogin = new Date(date)
+        const now = new Date()
+        const diffMinutes = Math.floor((now.getTime() - lastLogin.getTime()) / (1000 * 60))
+
+        // Online: within 2 minutes
+        if (diffMinutes < 2) {
+          return <Tag color="green">Đang hoạt động</Tag>
+        }
+        // Recently active: within 1 hour
+        if (diffMinutes < 60) {
+          return <Tag color="blue">{diffMinutes} phút trước</Tag>
+        }
+        // Within 24 hours
+        const diffHours = Math.floor(diffMinutes / 60)
+        if (diffHours < 24) {
+          return <Tag color="default">{diffHours} giờ trước</Tag>
+        }
+        // Show date
+        return (
+          <Tooltip title={lastLogin.toLocaleString('vi-VN')}>
+            <Text type="secondary">{lastLogin.toLocaleDateString('vi-VN')}</Text>
+          </Tooltip>
+        )
+      },
+    },
+    {
       title: 'Ngày tạo',
       dataIndex: 'created_at',
       key: 'created_at',
       width: 100,
       className: isMobile ? 'ant-table-cell-mobile-hide' : '',
+      sorter: (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime(),
       render: (date: string) => new Date(date).toLocaleDateString('vi-VN'),
     },
     {
@@ -434,6 +568,12 @@ function UserManagement() {
     },
   ]
 
+  // Filter columns based on visibility
+  const columns = useMemo(() =>
+    allColumns.filter(col => visibleColumns.includes(col.key as string)),
+    [allColumns, visibleColumns]
+  )
+
   // Check if impersonating
   const isImpersonating = localStorage.getItem('impersonation_admin_id') !== null
 
@@ -454,70 +594,59 @@ function UserManagement() {
   }
 
   return (
-    <Card
-      style={{ position: 'relative' }}
-      title={
+    <div>
+      {/* Header */}
+      <Card style={{ marginBottom: 16 }}>
         <Space>
-          <UserOutlined />
-          <span>Quản lý người dùng</span>
+          <UserOutlined style={{ fontSize: 24 }} />
+          <Title level={3} style={{ margin: 0 }}>Quản lý người dùng</Title>
         </Space>
-      }
-      extra={
-        <Space className="user-management-card-header" wrap>
-          <Input
-            placeholder="Tìm kiếm..."
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            style={{ width: isMobile ? '100%' : 200 }}
-          />
-          <Select
-            placeholder="Vai trò"
-            allowClear
-            style={{ width: isMobile ? '100%' : 120 }}
-            value={roleFilter}
-            onChange={setRoleFilter}
-          >
-            <Option value="ADMIN">ADMIN</Option>
-            <Option value="OPERATOR">OPERATOR</Option>
-            <Option value="MANAGER">MANAGER</Option>
-            <Option value="STAFF">STAFF</Option>
-            <Option value="GUEST">GUEST</Option>
-          </Select>
-          <Select
-            placeholder="Trạng thái"
-            allowClear
-            style={{ width: isMobile ? '100%' : 120 }}
-            value={statusFilter}
-            onChange={setStatusFilter}
-          >
-            <Option value="active">Hoạt động</Option>
-            <Option value="inactive">Không hoạt động</Option>
-            <Option value="locked">Khóa</Option>
-          </Select>
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={() => fetchUsers(pagination.current, pagination.pageSize)}
-            style={{ width: isMobile ? '100%' : 'auto' }}
-          >
-            {isMobile ? 'Làm mới' : 'Làm mới'}
-          </Button>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setSelectedUser(null)
-              form.resetFields()
-              setEditModalVisible(true)
-            }}
-            style={{ width: isMobile ? '100%' : 'auto' }}
-          >
-            Thêm người dùng
-          </Button>
-        </Space>
-      }
-    >
-      <div className="user-management-table">
+      </Card>
+
+      {/* Advanced Filter */}
+      <AdvancedFilter
+        fields={filterFields}
+        values={filterValues}
+        onChange={handleFilterChange}
+        onSearch={handleFilterSearch}
+        onReset={handleFilterReset}
+        loading={loading}
+        storageKey="user_management_filters"
+        showPresets={true}
+        collapsible={true}
+        defaultExpanded={true}
+        extra={
+          <Space>
+            <ColumnToggle
+              columns={toggleableColumns}
+              visibleColumns={visibleColumns}
+              onChange={setVisibleColumns}
+              storageKey="user_management"
+            />
+            <Button
+              icon={<FileExcelOutlined />}
+              onClick={() => setImportModalVisible(true)}
+            >
+              Import Excel
+            </Button>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setSelectedUser(null)
+                form.resetFields()
+                setEditModalVisible(true)
+              }}
+            >
+              Thêm người dùng
+            </Button>
+          </Space>
+        }
+      />
+
+      {/* Table */}
+      <Card style={{ position: 'relative' }}>
+        <div className="user-management-table">
         <Table
           columns={columns}
           dataSource={users}
@@ -785,7 +914,16 @@ function UserManagement() {
           </Row>
         </Form>
       </Modal>
-    </Card>
+
+      {/* Import Excel Modal */}
+      <ImportExcelModal
+        open={importModalVisible}
+        type="users"
+        onClose={() => setImportModalVisible(false)}
+        onSuccess={() => fetchUsers(pagination.current, pagination.pageSize)}
+      />
+      </Card>
+    </div>
   )
 }
 

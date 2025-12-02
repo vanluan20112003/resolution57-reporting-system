@@ -1,0 +1,114 @@
+/* Import Excel Modal Styles */
+
+.import-step-content {
+  min-height: 300px;
+}
+
+.template-download-section {
+  text-align: center;
+  padding: 24px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.import-uploader {
+  padding: 40px 20px;
+}
+
+.import-uploader .ant-upload-drag-icon {
+  margin-bottom: 16px;
+}
+
+/* Results Summary */
+.import-results-summary {
+  text-align: center;
+}
+
+.import-results-summary .ant-result {
+  padding: 16px 0;
+}
+
+.import-stats {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin-top: 16px;
+}
+
+.import-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 24px;
+  border-radius: 8px;
+  background: #f5f5f5;
+  min-width: 100px;
+}
+
+.import-stat .anticon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.import-stat .stat-value {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.import-stat .stat-label {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.import-stat.success {
+  background: #f6ffed;
+}
+
+.import-stat.success .anticon,
+.import-stat.success .stat-value {
+  color: #52c41a;
+}
+
+.import-stat.warning {
+  background: #fffbe6;
+}
+
+.import-stat.warning .anticon,
+.import-stat.warning .stat-value {
+  color: #faad14;
+}
+
+.import-stat.error {
+  background: #fff2f0;
+}
+
+.import-stat.error .anticon,
+.import-stat.error .stat-value {
+  color: #ff4d4f;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+  .import-stats {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .import-stat {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .import-stat .anticon {
+    margin-bottom: 0;
+  }
+
+  .import-stat .stat-value {
+    font-size: 20px;
+  }
+}

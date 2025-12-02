@@ -46,6 +46,7 @@ class Kernel extends HttpKernel
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \Illuminate\Session\Middleware\StartSession::class,
             \App\Http\Middleware\LogApiRequests::class, // API Request Logging
+            \App\Http\Middleware\UpdateLastActivity::class, // Cập nhật thời gian hoạt động
         ],
     ];
 

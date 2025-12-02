@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Table,
   Card,
@@ -22,7 +22,6 @@ import {
   EditOutlined,
   DeleteOutlined,
   PlusOutlined,
-  SearchOutlined,
   ReloadOutlined,
   AppstoreOutlined,
   TagsOutlined,
@@ -39,6 +38,10 @@ import type {
   CreateActivityFieldRequest,
   UpdateActivityFieldRequest,
 } from '../../services/activityConfigApi'
+import AdvancedFilter, { FilterField, FilterValues } from '../../shared/components/AdvancedFilter'
+import { ImportExcelModal } from '../../shared/components/ImportExcelModal'
+import type { ImportType } from '../../shared/components/ImportExcelModal'
+import { FileExcelOutlined } from '@ant-design/icons'
 import './ActivityConfigManagement.css'
 
 const { Title, Text } = Typography
@@ -54,8 +57,10 @@ function ActivityConfigManagement() {
   const [typesLoading, setTypesLoading] = useState(false)
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
   const [typesPagination, setTypesPagination] = useState({ current: 1, pageSize: 15, total: 0 })
-  const [typesSearchText, setTypesSearchText] = useState('')
-  const [typesActiveFilter, setTypesActiveFilter] = useState<boolean | undefined>()
+  const [typesFilterValues, setTypesFilterValues] = useState<FilterValues>({
+    search: '',
+    is_active: undefined,
+  })
   const [typeModalVisible, setTypeModalVisible] = useState(false)
   const [selectedType, setSelectedType] = useState<ActivityType | null>(null)
   const [typeActionLoading, setTypeActionLoading] = useState(false)
@@ -65,23 +70,91 @@ function ActivityConfigManagement() {
   const [fieldsLoading, setFieldsLoading] = useState(false)
   const [activityFields, setActivityFields] = useState<ActivityField[]>([])
   const [fieldsPagination, setFieldsPagination] = useState({ current: 1, pageSize: 15, total: 0 })
-  const [fieldsSearchText, setFieldsSearchText] = useState('')
-  const [fieldsActiveFilter, setFieldsActiveFilter] = useState<boolean | undefined>()
+  const [fieldsFilterValues, setFieldsFilterValues] = useState<FilterValues>({
+    search: '',
+    is_active: undefined,
+  })
   const [fieldModalVisible, setFieldModalVisible] = useState(false)
   const [selectedField, setSelectedField] = useState<ActivityField | null>(null)
   const [fieldActionLoading, setFieldActionLoading] = useState(false)
   const [fieldForm] = Form.useForm()
 
+  // Import modal state
+  const [importModalVisible, setImportModalVisible] = useState(false)
+  const [importType, setImportType] = useState<ImportType>('activity_types')
+
   // Check if current user can manage (OPERATOR or ADMIN only)
   const canManage = currentUser?.role === 'OPERATOR' || currentUser?.role === 'ADMIN'
+
+  // Filter fields configuration for Types
+  const typesFilterFields: FilterField[] = useMemo(() => [
+    {
+      key: 'search',
+      label: 'Tìm kiếm',
+      type: 'text',
+      placeholder: 'Tìm theo tên loại hoạt động...',
+      span: 16,
+    },
+    {
+      key: 'is_active',
+      label: 'Trạng thái',
+      type: 'boolean',
+      span: 8,
+    },
+  ], [])
+
+  // Filter fields configuration for Fields
+  const fieldsFilterFields: FilterField[] = useMemo(() => [
+    {
+      key: 'search',
+      label: 'Tìm kiếm',
+      type: 'text',
+      placeholder: 'Tìm theo tên lĩnh vực...',
+      span: 16,
+    },
+    {
+      key: 'is_active',
+      label: 'Trạng thái',
+      type: 'boolean',
+      span: 8,
+    },
+  ], [])
+
+  // Filter handlers for Types
+  const handleTypesFilterChange = (newValues: FilterValues) => {
+    setTypesFilterValues(newValues)
+  }
+
+  const handleTypesFilterSearch = () => {
+    setTypesPagination((prev) => ({ ...prev, current: 1 }))
+    fetchActivityTypes()
+  }
+
+  const handleTypesFilterReset = () => {
+    setTypesPagination((prev) => ({ ...prev, current: 1 }))
+  }
+
+  // Filter handlers for Fields
+  const handleFieldsFilterChange = (newValues: FilterValues) => {
+    setFieldsFilterValues(newValues)
+  }
+
+  const handleFieldsFilterSearch = () => {
+    setFieldsPagination((prev) => ({ ...prev, current: 1 }))
+    fetchActivityFields()
+  }
+
+  const handleFieldsFilterReset = () => {
+    setFieldsPagination((prev) => ({ ...prev, current: 1 }))
+  }
 
   // Fetch Activity Types
   const fetchActivityTypes = async () => {
     setTypesLoading(true)
     try {
       const response = await activityConfigApi.getActivityTypes({
-        search: typesSearchText || undefined,
-        is_active: typesActiveFilter,
+        search: typesFilterValues.search || undefined,
+        is_active: typesFilterValues.is_active,
         page: typesPagination.current,
         per_page: typesPagination.pageSize,
       })
@@ -103,8 +176,8 @@ function ActivityConfigManagement() {
     setFieldsLoading(true)
     try {
       const response = await activityConfigApi.getActivityFields({
-        search: fieldsSearchText || undefined,
-        is_active: fieldsActiveFilter,
+        search: fieldsFilterValues.search || undefined,
+        is_active: fieldsFilterValues.is_active,
         page: fieldsPagination.current,
         per_page: fieldsPagination.pageSize,
       })
@@ -125,13 +198,13 @@ function ActivityConfigManagement() {
     if (canManage && activeTab === 'types') {
       fetchActivityTypes()
     }
-  }, [activeTab, typesSearchText, typesActiveFilter, typesPagination.current, canManage])
+  }, [activeTab, typesFilterValues, typesPagination.current, canManage])
 
   useEffect(() => {
     if (canManage && activeTab === 'fields') {
       fetchActivityFields()
     }
-  }, [activeTab, fieldsSearchText, fieldsActiveFilter, fieldsPagination.current, canManage])
+  }, [activeTab, fieldsFilterValues, fieldsPagination.current, canManage])
 
   // ============== Activity Types Handlers ==============
 
@@ -470,163 +543,146 @@ function ActivityConfigManagement() {
     )
   }
 
-  const tabItems = [
-    {
-      key: 'types',
-      label: (
-        <span>
-          <AppstoreOutlined />
-          Loại hoạt động
-        </span>
-      ),
-      children: (
-        <>
-          {/* Types Filters and Actions */}
-          <Space wrap style={{ marginBottom: 16, width: '100%' }}>
-            <Input
-              placeholder="Tìm kiếm theo tên..."
-              prefix={<SearchOutlined />}
-              value={typesSearchText}
-              onChange={e => setTypesSearchText(e.target.value)}
-              style={{ width: 300 }}
-              allowClear
-            />
-
-            <Select
-              placeholder="Trạng thái"
-              value={typesActiveFilter}
-              onChange={setTypesActiveFilter}
-              style={{ width: 150 }}
-              allowClear
-            >
-              <Option value={true}>Hoạt động</Option>
-              <Option value={false}>Tạm dừng</Option>
-            </Select>
-
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={() => {
-                setTypesSearchText('')
-                setTypesActiveFilter(undefined)
-                setTypesPagination(prev => ({ ...prev, current: 1 }))
-                fetchActivityTypes()
-              }}
-            >
-              Làm mới
-            </Button>
-
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleAddType}>
-              Thêm loại hoạt động
-            </Button>
-          </Space>
-
-          {/* Types Table */}
-          <Table
-            columns={typeColumns}
-            dataSource={activityTypes}
-            loading={typesLoading}
-            rowKey="id"
-            pagination={{
-              ...typesPagination,
-              showSizeChanger: true,
-              showTotal: (total) => `Tổng ${total} loại hoạt động`,
-            }}
-            onChange={handleTypesTableChange}
-            scroll={{ x: 1000 }}
-          />
-        </>
-      ),
-    },
-    {
-      key: 'fields',
-      label: (
-        <span>
-          <TagsOutlined />
-          Lĩnh vực hoạt động
-        </span>
-      ),
-      children: (
-        <>
-          {/* Fields Filters and Actions */}
-          <Space wrap style={{ marginBottom: 16, width: '100%' }}>
-            <Input
-              placeholder="Tìm kiếm theo tên..."
-              prefix={<SearchOutlined />}
-              value={fieldsSearchText}
-              onChange={e => setFieldsSearchText(e.target.value)}
-              style={{ width: 300 }}
-              allowClear
-            />
-
-            <Select
-              placeholder="Trạng thái"
-              value={fieldsActiveFilter}
-              onChange={setFieldsActiveFilter}
-              style={{ width: 150 }}
-              allowClear
-            >
-              <Option value={true}>Hoạt động</Option>
-              <Option value={false}>Tạm dừng</Option>
-            </Select>
-
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={() => {
-                setFieldsSearchText('')
-                setFieldsActiveFilter(undefined)
-                setFieldsPagination(prev => ({ ...prev, current: 1 }))
-                fetchActivityFields()
-              }}
-            >
-              Làm mới
-            </Button>
-
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleAddField}>
-              Thêm lĩnh vực
-            </Button>
-          </Space>
-
-          {/* Fields Table */}
-          <Table
-            columns={fieldColumns}
-            dataSource={activityFields}
-            loading={fieldsLoading}
-            rowKey="id"
-            pagination={{
-              ...fieldsPagination,
-              showSizeChanger: true,
-              showTotal: (total) => `Tổng ${total} lĩnh vực`,
-            }}
-            onChange={handleFieldsTableChange}
-            scroll={{ x: 1000 }}
-          />
-        </>
-      ),
-    },
-  ]
-
   return (
     <div style={{ padding: '0' }}>
-      <Card>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          {/* Header */}
-          <div>
-            <Title level={3}>
-              <SettingOutlined /> Cấu hình hoạt động
-            </Title>
-            <Text type="secondary">
-              Quản lý loại hoạt động và lĩnh vực hoạt động trong hệ thống
-            </Text>
-          </div>
-
-          {/* Tabs */}
-          <Tabs
-            activeKey={activeTab}
-            onChange={(key) => setActiveTab(key as 'types' | 'fields')}
-            items={tabItems}
-          />
-        </Space>
+      {/* Header */}
+      <Card style={{ marginBottom: 16 }}>
+        <div>
+          <Title level={3}>
+            <SettingOutlined /> Cấu hình hoạt động
+          </Title>
+          <Text type="secondary">
+            Quản lý loại hoạt động và lĩnh vực hoạt động trong hệ thống
+          </Text>
+        </div>
       </Card>
+
+      {/* Tabs */}
+      <Card style={{ marginBottom: 16 }}>
+        <Tabs
+          activeKey={activeTab}
+          onChange={(key) => setActiveTab(key as 'types' | 'fields')}
+          items={[
+            {
+              key: 'types',
+              label: (
+                <span>
+                  <AppstoreOutlined />
+                  Loại hoạt động
+                </span>
+              ),
+            },
+            {
+              key: 'fields',
+              label: (
+                <span>
+                  <TagsOutlined />
+                  Lĩnh vực hoạt động
+                </span>
+              ),
+            },
+          ]}
+        />
+      </Card>
+
+      {/* Advanced Filter - based on active tab */}
+      {activeTab === 'types' ? (
+        <>
+          <AdvancedFilter
+            fields={typesFilterFields}
+            values={typesFilterValues}
+            onChange={handleTypesFilterChange}
+            onSearch={handleTypesFilterSearch}
+            onReset={handleTypesFilterReset}
+            loading={typesLoading}
+            storageKey="activity_config_types_filters"
+            showPresets={true}
+            collapsible={true}
+            defaultExpanded={true}
+            extra={
+              <Space>
+                <Button
+                  icon={<FileExcelOutlined />}
+                  onClick={() => {
+                    setImportType('activity_types')
+                    setImportModalVisible(true)
+                  }}
+                >
+                  Import Excel
+                </Button>
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddType}>
+                  Thêm loại hoạt động
+                </Button>
+              </Space>
+            }
+          />
+
+          {/* Types Table */}
+          <Card>
+            <Table
+              columns={typeColumns}
+              dataSource={activityTypes}
+              loading={typesLoading}
+              rowKey="id"
+              pagination={{
+                ...typesPagination,
+                showSizeChanger: true,
+                showTotal: (total) => `Tổng ${total} loại hoạt động`,
+              }}
+              onChange={handleTypesTableChange}
+              scroll={{ x: 1000 }}
+            />
+          </Card>
+        </>
+      ) : (
+        <>
+          <AdvancedFilter
+            fields={fieldsFilterFields}
+            values={fieldsFilterValues}
+            onChange={handleFieldsFilterChange}
+            onSearch={handleFieldsFilterSearch}
+            onReset={handleFieldsFilterReset}
+            loading={fieldsLoading}
+            storageKey="activity_config_fields_filters"
+            showPresets={true}
+            collapsible={true}
+            defaultExpanded={true}
+            extra={
+              <Space>
+                <Button
+                  icon={<FileExcelOutlined />}
+                  onClick={() => {
+                    setImportType('activity_fields')
+                    setImportModalVisible(true)
+                  }}
+                >
+                  Import Excel
+                </Button>
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddField}>
+                  Thêm lĩnh vực
+                </Button>
+              </Space>
+            }
+          />
+
+          {/* Fields Table */}
+          <Card>
+            <Table
+              columns={fieldColumns}
+              dataSource={activityFields}
+              loading={fieldsLoading}
+              rowKey="id"
+              pagination={{
+                ...fieldsPagination,
+                showSizeChanger: true,
+                showTotal: (total) => `Tổng ${total} lĩnh vực`,
+              }}
+              onChange={handleFieldsTableChange}
+              scroll={{ x: 1000 }}
+            />
+          </Card>
+        </>
+      )}
 
       {/* Activity Type Modal */}
       <Modal
@@ -727,6 +783,20 @@ function ActivityConfigManagement() {
           </Row>
         </Form>
       </Modal>
+
+      {/* Import Excel Modal */}
+      <ImportExcelModal
+        open={importModalVisible}
+        type={importType}
+        onClose={() => setImportModalVisible(false)}
+        onSuccess={() => {
+          if (importType === 'activity_types') {
+            fetchActivityTypes()
+          } else {
+            fetchActivityFields()
+          }
+        }}
+      />
     </div>
   )
 }

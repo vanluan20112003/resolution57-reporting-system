@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Table,
   Card,
@@ -22,7 +22,6 @@ import {
   EditOutlined,
   DeleteOutlined,
   PlusOutlined,
-  SearchOutlined,
   ReloadOutlined,
   TrophyOutlined,
   BankOutlined,
@@ -32,6 +31,10 @@ import type { ColumnsType } from 'antd/es/table'
 import { useAuth } from '../../shared/hooks'
 import * as kpiApi from '../../services/kpiApi'
 import type { Kpi, CreateKpiRequest, UpdateKpiRequest } from '../../services/kpiApi'
+import AdvancedFilter, { FilterField, FilterValues } from '../../shared/components/AdvancedFilter'
+import ColumnToggle, { ToggleableColumn } from '../../shared/components/ColumnToggle'
+import { ImportExcelModal } from '../../shared/components/ImportExcelModal'
+import { FileExcelOutlined } from '@ant-design/icons'
 import './KpiManagement.css'
 
 const { Title, Text } = Typography
@@ -44,34 +47,89 @@ function KpiManagement() {
   const [actionLoading, setActionLoading] = useState(false)
   const [kpis, setKpis] = useState<Kpi[]>([])
   const [pagination, setPagination] = useState({ current: 1, pageSize: 15, total: 0 })
-  const [searchText, setSearchText] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState<string | undefined>()
-  const [activeFilter, setActiveFilter] = useState<boolean | undefined>()
   const [activeTab, setActiveTab] = useState<'CENTRAL' | 'VNU'>('CENTRAL')
   const [editModalVisible, setEditModalVisible] = useState(false)
+  const [importModalVisible, setImportModalVisible] = useState(false)
   const [selectedKpi, setSelectedKpi] = useState<Kpi | null>(null)
   const [categories, setCategories] = useState<string[]>([])
   const [form] = Form.useForm()
   const { user: currentUser } = useAuth()
 
+  // Visible columns state
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([
+    'index', 'code', 'title', 'category', 'order_number', 'is_active', 'creator', 'actions'
+  ])
+
+  // Advanced filter state
+  const [filterValues, setFilterValues] = useState<FilterValues>({
+    search: '',
+    category: undefined,
+    is_active: undefined,
+  })
+
   // Check if current user can manage KPIs (OPERATOR or ADMIN only)
   const canManage = currentUser?.role === 'OPERATOR' || currentUser?.role === 'ADMIN'
+
+  // Advanced filter fields configuration
+  const filterFields: FilterField[] = useMemo(() => {
+    return [
+      {
+        key: 'search',
+        label: 'Tìm kiếm',
+        type: 'text',
+        placeholder: 'Tìm theo mã hoặc tiêu đề...',
+        span: 10,
+      },
+      {
+        key: 'category',
+        label: 'Danh mục',
+        type: 'select',
+        span: 8,
+        options: categories.map((cat) => ({
+          value: cat,
+          label: cat,
+        })),
+      },
+      {
+        key: 'is_active',
+        label: 'Trạng thái',
+        type: 'boolean',
+        span: 6,
+      },
+    ]
+  }, [categories])
+
+  // Handle filter change
+  const handleFilterChange = (newValues: FilterValues) => {
+    setFilterValues(newValues)
+  }
+
+  // Handle filter search
+  const handleFilterSearch = () => {
+    setPagination((prev) => ({ ...prev, current: 1 }))
+    fetchKpis()
+  }
+
+  // Handle filter reset
+  const handleFilterReset = () => {
+    setPagination((prev) => ({ ...prev, current: 1 }))
+  }
 
   useEffect(() => {
     if (canManage) {
       fetchKpis()
       fetchCategories()
     }
-  }, [activeTab, searchText, categoryFilter, activeFilter, pagination.current, canManage])
+  }, [activeTab, pagination.current, canManage])
 
   const fetchKpis = async () => {
     setLoading(true)
     try {
       const response = await kpiApi.getKpis({
         source: activeTab,
-        search: searchText || undefined,
-        category: categoryFilter,
-        is_active: activeFilter,
+        search: filterValues.search || undefined,
+        category: filterValues.category,
+        is_active: filterValues.is_active,
         page: pagination.current,
         per_page: pagination.pageSize,
       })
@@ -108,9 +166,11 @@ function KpiManagement() {
   const handleTabChange = (key: string) => {
     setActiveTab(key as 'CENTRAL' | 'VNU')
     setPagination({ ...pagination, current: 1 })
-    setSearchText('')
-    setCategoryFilter(undefined)
-    setActiveFilter(undefined)
+    setFilterValues({
+      search: '',
+      category: undefined,
+      is_active: undefined,
+    })
   }
 
   const handleAdd = () => {
@@ -174,7 +234,19 @@ function KpiManagement() {
     form.resetFields()
   }
 
-  const columns: ColumnsType<Kpi> = [
+  // Toggleable columns configuration
+  const toggleableColumns: ToggleableColumn[] = useMemo(() => [
+    { key: 'index', title: 'STT', fixed: true },
+    { key: 'code', title: 'Mã KPI', defaultVisible: true },
+    { key: 'title', title: 'Tiêu đề', fixed: true },
+    { key: 'category', title: 'Danh mục', defaultVisible: true },
+    { key: 'order_number', title: 'Thứ tự', defaultVisible: true },
+    { key: 'is_active', title: 'Trạng thái', defaultVisible: true },
+    { key: 'creator', title: 'Người tạo', defaultVisible: true },
+    { key: 'actions', title: 'Thao tác', fixed: true },
+  ], [])
+
+  const allColumns: ColumnsType<Kpi> = [
     {
       title: 'STT',
       key: 'index',
@@ -188,6 +260,7 @@ function KpiManagement() {
       dataIndex: 'code',
       key: 'code',
       width: 120,
+      sorter: (a, b) => (a.code || '').localeCompare(b.code || ''),
       render: (code: string) => (
         <Text strong style={{ color: '#1890ff' }}>
           {code || '-'}
@@ -199,6 +272,7 @@ function KpiManagement() {
       dataIndex: 'title',
       key: 'title',
       ellipsis: true,
+      sorter: (a, b) => (a.title || '').localeCompare(b.title || ''),
       render: (title: string) => <Text>{title}</Text>,
     },
     {
@@ -206,6 +280,7 @@ function KpiManagement() {
       dataIndex: 'category',
       key: 'category',
       width: 150,
+      sorter: (a, b) => (a.category || '').localeCompare(b.category || ''),
       render: (category: string) =>
         category ? <Tag color="blue">{category}</Tag> : <Text type="secondary">-</Text>,
     },
@@ -224,6 +299,7 @@ function KpiManagement() {
       key: 'is_active',
       width: 100,
       align: 'center',
+      sorter: (a, b) => (a.is_active ? 1 : 0) - (b.is_active ? 1 : 0),
       filters: [
         { text: 'Hoạt động', value: true },
         { text: 'Không hoạt động', value: false },
@@ -239,6 +315,7 @@ function KpiManagement() {
       dataIndex: ['creator', 'email'],
       key: 'creator',
       width: 150,
+      sorter: (a, b) => (a.creator?.email || '').localeCompare(b.creator?.email || ''),
       render: (email: string) => <Text type="secondary">{email || '-'}</Text>,
     },
     {
@@ -274,6 +351,12 @@ function KpiManagement() {
     },
   ]
 
+  // Filter columns based on visibility
+  const columns = useMemo(() =>
+    allColumns.filter(col => visibleColumns.includes(col.key as string)),
+    [allColumns, visibleColumns]
+  )
+
   if (!canManage) {
     return (
       <Card>
@@ -293,18 +376,51 @@ function KpiManagement() {
   return (
     <div style={{ padding: '0' }}>
       <Card>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          {/* Header */}
-          <div>
-            <Title level={3}>
-              <TrophyOutlined /> Quản lý KPI
-            </Title>
-            <Text type="secondary">
-              Quản lý các chỉ tiêu KPI của Nghị quyết 57
-            </Text>
-          </div>
+        {/* Header */}
+        <div style={{ marginBottom: 16 }}>
+          <Title level={3} style={{ marginBottom: 4 }}>
+            <TrophyOutlined /> Quản lý KPI
+          </Title>
+          <Text type="secondary">
+            Quản lý các chỉ tiêu KPI của Nghị quyết 57
+          </Text>
+        </div>
 
-          {/* Tabs for CENTRAL and VNU */}
+        {/* Advanced Filter */}
+        <AdvancedFilter
+          fields={filterFields}
+          values={filterValues}
+          onChange={handleFilterChange}
+          onSearch={handleFilterSearch}
+          onReset={handleFilterReset}
+          loading={loading}
+          storageKey={`kpi_management_${activeTab}_filters`}
+          showPresets={true}
+          collapsible={true}
+          defaultExpanded={true}
+          extra={
+            <Space>
+              <ColumnToggle
+                columns={toggleableColumns}
+                visibleColumns={visibleColumns}
+                onChange={setVisibleColumns}
+                storageKey={`kpi_management_${activeTab}`}
+              />
+              <Button
+                icon={<FileExcelOutlined />}
+                onClick={() => setImportModalVisible(true)}
+              >
+                Import Excel
+              </Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                Thêm KPI mới
+              </Button>
+            </Space>
+          }
+        />
+
+        {/* Tabs for CENTRAL and VNU */}
+        <div style={{ marginBottom: 16 }}>
           <Tabs activeKey={activeTab} onChange={handleTabChange}>
             <TabPane
               tab={
@@ -314,76 +430,7 @@ function KpiManagement() {
                 </span>
               }
               key="CENTRAL"
-            >
-              {/* Filters and Actions */}
-              <Space wrap style={{ marginBottom: 16, width: '100%' }}>
-                <Input
-                  placeholder="Tìm kiếm theo mã hoặc tiêu đề..."
-                  prefix={<SearchOutlined />}
-                  value={searchText}
-                  onChange={e => setSearchText(e.target.value)}
-                  style={{ width: 300 }}
-                  allowClear
-                />
-
-                <Select
-                  placeholder="Danh mục"
-                  value={categoryFilter}
-                  onChange={setCategoryFilter}
-                  style={{ width: 180 }}
-                  allowClear
-                >
-                  {categories.map(cat => (
-                    <Option key={cat} value={cat}>
-                      {cat}
-                    </Option>
-                  ))}
-                </Select>
-
-                <Select
-                  placeholder="Trạng thái"
-                  value={activeFilter}
-                  onChange={setActiveFilter}
-                  style={{ width: 150 }}
-                  allowClear
-                >
-                  <Option value={true}>Hoạt động</Option>
-                  <Option value={false}>Không hoạt động</Option>
-                </Select>
-
-                <Button
-                  icon={<ReloadOutlined />}
-                  onClick={() => {
-                    setSearchText('')
-                    setCategoryFilter(undefined)
-                    setActiveFilter(undefined)
-                    fetchKpis()
-                  }}
-                >
-                  Làm mới
-                </Button>
-
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                  Thêm KPI mới
-                </Button>
-              </Space>
-
-              {/* Table */}
-              <Table
-                columns={columns}
-                dataSource={kpis}
-                loading={loading}
-                rowKey="id"
-                pagination={{
-                  ...pagination,
-                  showSizeChanger: true,
-                  showTotal: (total) => `Tổng ${total} KPI`,
-                }}
-                onChange={handleTableChange}
-                scroll={{ x: 1200 }}
-              />
-            </TabPane>
-
+            />
             <TabPane
               tab={
                 <span>
@@ -392,77 +439,24 @@ function KpiManagement() {
                 </span>
               }
               key="VNU"
-            >
-              {/* Filters and Actions */}
-              <Space wrap style={{ marginBottom: 16, width: '100%' }}>
-                <Input
-                  placeholder="Tìm kiếm theo mã hoặc tiêu đề..."
-                  prefix={<SearchOutlined />}
-                  value={searchText}
-                  onChange={e => setSearchText(e.target.value)}
-                  style={{ width: 300 }}
-                  allowClear
-                />
-
-                <Select
-                  placeholder="Danh mục"
-                  value={categoryFilter}
-                  onChange={setCategoryFilter}
-                  style={{ width: 180 }}
-                  allowClear
-                >
-                  {categories.map(cat => (
-                    <Option key={cat} value={cat}>
-                      {cat}
-                    </Option>
-                  ))}
-                </Select>
-
-                <Select
-                  placeholder="Trạng thái"
-                  value={activeFilter}
-                  onChange={setActiveFilter}
-                  style={{ width: 150 }}
-                  allowClear
-                >
-                  <Option value={true}>Hoạt động</Option>
-                  <Option value={false}>Không hoạt động</Option>
-                </Select>
-
-                <Button
-                  icon={<ReloadOutlined />}
-                  onClick={() => {
-                    setSearchText('')
-                    setCategoryFilter(undefined)
-                    setActiveFilter(undefined)
-                    fetchKpis()
-                  }}
-                >
-                  Làm mới
-                </Button>
-
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                  Thêm KPI mới
-                </Button>
-              </Space>
-
-              {/* Table */}
-              <Table
-                columns={columns}
-                dataSource={kpis}
-                loading={loading}
-                rowKey="id"
-                pagination={{
-                  ...pagination,
-                  showSizeChanger: true,
-                  showTotal: (total) => `Tổng ${total} KPI`,
-                }}
-                onChange={handleTableChange}
-                scroll={{ x: 1200 }}
-              />
-            </TabPane>
+            />
           </Tabs>
-        </Space>
+        </div>
+
+        {/* Table */}
+        <Table
+          columns={columns}
+          dataSource={kpis}
+          loading={loading}
+          rowKey="id"
+          pagination={{
+            ...pagination,
+            showSizeChanger: true,
+            showTotal: (total) => `Tổng ${total} KPI`,
+          }}
+          onChange={handleTableChange}
+          scroll={{ x: 1200 }}
+        />
       </Card>
 
       {/* Add/Edit Modal */}
@@ -540,6 +534,14 @@ function KpiManagement() {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* Import Excel Modal */}
+      <ImportExcelModal
+        open={importModalVisible}
+        type="kpis"
+        onClose={() => setImportModalVisible(false)}
+        onSuccess={fetchKpis}
+      />
     </div>
   )
 }

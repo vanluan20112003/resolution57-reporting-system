@@ -1,0 +1,94 @@
+/* Column Toggle Component Styles */
+
+.column-toggle-popover .ant-popover-inner {
+  padding: 12px;
+  min-width: 220px;
+  max-width: 300px;
+}
+
+.column-toggle-content {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.column-toggle-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.column-toggle-title {
+  font-weight: 500;
+  font-size: 13px;
+  color: #262626;
+}
+
+.column-toggle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.column-toggle-item {
+  padding: 4px 8px;
+  margin: 0 -8px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
+}
+
+.column-toggle-item .ant-checkbox-wrapper {
+  font-size: 13px;
+  width: 100%;
+}
+
+.column-toggle-item:hover {
+  background-color: #f5f5f5;
+}
+
+.column-toggle-fixed-badge {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11px;
+  color: #8c8c8c;
+  background-color: #f0f0f0;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.column-toggle-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.column-toggle-footer .ant-btn {
+  font-size: 12px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .column-toggle-popover .ant-popover-inner {
+    min-width: 200px;
+  }
+
+  .column-toggle-list {
+    max-height: 200px;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .column-toggle-title {
+    color: #d9d9d9;
+  }
+
+  .column-toggle-item:hover {
+    background-color: #303030;
+  }
+
+  .column-toggle-fixed-badge {
+    background-color: #303030;
+    color: #8c8c8c;
+  }
+}
