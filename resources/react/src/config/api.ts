@@ -58,6 +58,12 @@ export const API_CONFIG = {
     DELETE: (id: string) => `${getApiBaseUrl()}/organizations/${id}`
   },
 
+  NOTIFICATIONS: {
+    LIST: `${getApiBaseUrl()}/notifications`,
+    READ: (id: string) => `${getApiBaseUrl()}/notifications/${id}/read`,
+    READ_ALL: `${getApiBaseUrl()}/notifications/readAll`
+  },
+
   // My Organization (for STAFF/MANAGER to manage their own org)
   MY_ORGANIZATION: {
     GET: `${getApiBaseUrl()}/my-organization`,

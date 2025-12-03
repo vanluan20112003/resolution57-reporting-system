@@ -22,10 +22,14 @@ class Notification extends Model
         'title',
         'message',
         'notification_type',
-        'related_entity_type',
-        'related_entity_id',
         'is_read',
         'read_at',
+        "category",
+        "priority",
+        "actor_id",
+        "action_url",
+        "icon",
+        "color",
     ];
 
     protected $casts = [
@@ -38,6 +42,11 @@ class Notification extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function actor() {
+        return $this->belongsTo(User::class);
+    }
+
 
     public function scopeUnread($query)
     {

@@ -13,6 +13,7 @@ use App\Http\Controllers\API\ActivityTypeController;
 use App\Http\Controllers\API\ActivityFieldController;
 use App\Http\Controllers\API\ActivityController;
 use App\Http\Controllers\API\ImportController;
+use App\Http\Controllers\API\NotificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -204,6 +205,13 @@ Route::prefix('v1')->group(function () {
         Route::post("/",[OrganizationController::class,'store'])->middleware('permission:organizations.create');
         Route::put("/{id}",[OrganizationController::class,'update'])->middleware('permission:organizations.update');
         Route::delete("/{id}",[OrganizationController::class,'destroy'])->middleware('permission:organizations.update');
+    });
+
+    // Notification Management Routes 
+    Route::middleware('auth:sanctum')->prefix("notifications")->group(function(){
+        Route::get("/", [NotificationController::class, 'show']);
+        Route::put("/{id}/read", [NotificationController::class, 'read']);
+        Route::put("/readAll", [NotificationController::class, 'readAll']);
     });
 
     // My Organization Routes (STAFF, MANAGER can view/edit their own organization)
