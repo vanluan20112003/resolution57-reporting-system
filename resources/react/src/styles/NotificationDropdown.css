@@ -170,9 +170,8 @@
   }
 }
 
-.ant-badge-count {
-  animation: pulse 2s infinite;
-}
+/* Remove continuous pulse animation to prevent flickering on page load */
+/* Badge will only pulse when explicitly triggered by new notifications */
 
 /* Archive button */
 .notification-item .archive-btn {

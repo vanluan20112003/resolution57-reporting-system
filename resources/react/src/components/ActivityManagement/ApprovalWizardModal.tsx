@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Modal,
   Steps,
@@ -13,6 +13,10 @@ import {
   Input,
   Alert,
   Popconfirm,
+  Table,
+  Empty,
+  Spin,
+  Tooltip,
 } from 'antd'
 import {
   FileSearchOutlined,
@@ -27,9 +31,19 @@ import {
   UserOutlined,
   GlobalOutlined,
   BankOutlined,
+  FileOutlined,
+  FilePdfOutlined,
+  FileWordOutlined,
+  FileExcelOutlined,
+  FilePptOutlined,
+  FileImageOutlined,
+  FileZipOutlined,
+  LinkOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons'
+import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
-import type { Activity } from '../../services/activityApi'
+import type { Activity, ActivityFile, FileType } from '../../services/activityApi'
 import * as activityApi from '../../services/activityApi'
 
 const { Title, Text, Paragraph } = Typography
@@ -43,6 +57,44 @@ interface ApprovalWizardModalProps {
   onRejected: () => void
 }
 
+// Get file icon based on extension
+const getFileIcon = (extension?: string) => {
+  const ext = (extension || '').toLowerCase()
+  switch (ext) {
+    case 'pdf':
+      return <FilePdfOutlined style={{ color: '#ff4d4f', fontSize: 18 }} />
+    case 'doc':
+    case 'docx':
+      return <FileWordOutlined style={{ color: '#1890ff', fontSize: 18 }} />
+    case 'xls':
+    case 'xlsx':
+      return <FileExcelOutlined style={{ color: '#52c41a', fontSize: 18 }} />
+    case 'ppt':
+    case 'pptx':
+      return <FilePptOutlined style={{ color: '#fa8c16', fontSize: 18 }} />
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'gif':
+    case 'webp':
+      return <FileImageOutlined style={{ color: '#722ed1', fontSize: 18 }} />
+    case 'zip':
+    case 'rar':
+    case '7z':
+      return <FileZipOutlined style={{ color: '#faad14', fontSize: 18 }} />
+    default:
+      return <FileOutlined style={{ fontSize: 18 }} />
+  }
+}
+
+// Format file size
+const formatFileSize = (bytes?: number) => {
+  if (!bytes) return '-'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 function ApprovalWizardModal({
   visible,
   activity,
@@ -53,6 +105,34 @@ function ApprovalWizardModal({
   const [currentStep, setCurrentStep] = useState(0)
   const [loading, setLoading] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
+
+  // Files state
+  const [files, setFiles] = useState<ActivityFile[]>([])
+  const [fileTypes, setFileTypes] = useState<FileType[]>([])
+  const [filesLoading, setFilesLoading] = useState(false)
+
+  // Fetch files when modal opens
+  useEffect(() => {
+    if (visible && activity) {
+      fetchActivityFiles(activity.id)
+    }
+  }, [visible, activity])
+
+  // Fetch activity files
+  const fetchActivityFiles = async (activityId: string) => {
+    setFilesLoading(true)
+    try {
+      const response = await activityApi.getActivityFiles(activityId)
+      setFiles(response.data.files)
+      if (response.data.file_types) {
+        setFileTypes(response.data.file_types)
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch files:', error)
+    } finally {
+      setFilesLoading(false)
+    }
+  }
 
   // Reset state when modal opens
   const handleAfterOpen = () => {
@@ -135,6 +215,89 @@ function ApprovalWizardModal({
       setLoading(false)
     }
   }
+
+  // Files table columns
+  const fileColumns: ColumnsType<ActivityFile> = [
+    {
+      title: 'Tập tin',
+      key: 'file',
+      render: (_, record) => (
+        <Space>
+          {record.source_type === 'link' ? (
+            <GlobalOutlined style={{ fontSize: 18, color: '#1890ff' }} />
+          ) : (
+            getFileIcon(record.file_extension)
+          )}
+          <div>
+            <Text strong>{record.file_name}</Text>
+            {record.file_size && (
+              <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+                {formatFileSize(record.file_size)}
+              </Text>
+            )}
+          </div>
+        </Space>
+      ),
+    },
+    {
+      title: 'Loại tài liệu',
+      key: 'file_type',
+      width: 150,
+      render: (_, record) => (
+        record.file_type ? (
+          <Tag color="blue">{record.file_type.name}</Tag>
+        ) : (
+          <Text type="secondary">-</Text>
+        )
+      ),
+    },
+    {
+      title: 'Nguồn',
+      key: 'source_type',
+      width: 100,
+      render: (_, record) => (
+        <Tag color={record.source_type === 'link' ? 'blue' : 'green'}>
+          {record.source_type === 'link' ? 'Liên kết' : 'Tập tin'}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Mô tả',
+      dataIndex: 'description',
+      key: 'description',
+      ellipsis: true,
+      render: (desc: string) => desc || <Text type="secondary">-</Text>,
+    },
+    {
+      title: '',
+      key: 'actions',
+      width: 80,
+      render: (_, record) => (
+        <Space>
+          {record.source_type === 'link' && record.file_url && (
+            <Tooltip title="Mở liên kết">
+              <Button
+                type="link"
+                size="small"
+                icon={<LinkOutlined />}
+                onClick={() => window.open(record.file_url, '_blank')}
+              />
+            </Tooltip>
+          )}
+          {record.source_type === 'upload' && record.download_url && (
+            <Tooltip title="Tải xuống">
+              <Button
+                type="link"
+                size="small"
+                icon={<DownloadOutlined />}
+                onClick={() => window.open(record.download_url, '_blank')}
+              />
+            </Tooltip>
+          )}
+        </Space>
+      ),
+    },
+  ]
 
   // Step 1: Review activity details
   const renderStep1 = () => (
@@ -309,15 +472,68 @@ function ApprovalWizardModal({
     </div>
   )
 
-  // Step 2: Decision
+  // Step 2: Review files/documents
   const renderStep2 = () => (
+    <div style={{ padding: '16px 0' }}>
+      <Alert
+        type="info"
+        showIcon
+        icon={<FileOutlined />}
+        message="Bước 2: Xem xét tài liệu đính kèm"
+        description="Xem các tài liệu, văn bản liên quan đã được đính kèm cho hoạt động này."
+        style={{ marginBottom: 24 }}
+      />
+
+      {filesLoading ? (
+        <div style={{ textAlign: 'center', padding: '40px 0' }}>
+          <Spin size="large" />
+          <div style={{ marginTop: 16 }}>
+            <Text type="secondary">Đang tải tài liệu...</Text>
+          </div>
+        </div>
+      ) : files.length === 0 ? (
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={
+            <div>
+              <Text type="secondary">Chưa có tài liệu nào được đính kèm</Text>
+              <br />
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Hoạt động này chưa có tài liệu liên quan. Bạn vẫn có thể phê duyệt nếu thông tin đã đầy đủ.
+              </Text>
+            </div>
+          }
+          style={{ padding: '40px 0' }}
+        />
+      ) : (
+        <>
+          <div style={{ marginBottom: 16 }}>
+            <Text strong>
+              <FileOutlined style={{ marginRight: 8 }} />
+              Tổng số: {files.length} tài liệu
+            </Text>
+          </div>
+          <Table
+            columns={fileColumns}
+            dataSource={files}
+            rowKey="id"
+            size="small"
+            pagination={false}
+          />
+        </>
+      )}
+    </div>
+  )
+
+  // Step 3: Decision
+  const renderStep3 = () => (
     <div style={{ padding: '16px 0' }}>
       <Alert
         type="warning"
         showIcon
         icon={<CheckCircleOutlined />}
-        message="Bước 2: Quyết định phê duyệt"
-        description="Bạn đã xem xét thông tin hoạt động. Vui lòng chọn phê duyệt hoặc từ chối."
+        message="Bước 3: Quyết định phê duyệt"
+        description="Bạn đã xem xét thông tin và tài liệu của hoạt động. Vui lòng chọn phê duyệt hoặc từ chối."
         style={{ marginBottom: 24 }}
       />
 
@@ -329,6 +545,12 @@ function ApprovalWizardModal({
           <Text type="secondary">
             Mã: {activity.code} | Đơn vị: {activity.lead_organization?.name || '-'}
           </Text>
+          <div style={{ marginTop: 8 }}>
+            <Tag color={files.length > 0 ? 'green' : 'orange'}>
+              <FileOutlined style={{ marginRight: 4 }} />
+              {files.length} tài liệu đính kèm
+            </Tag>
+          </div>
 
           <Divider />
 
@@ -431,14 +653,65 @@ function ApprovalWizardModal({
 
   const steps = [
     {
-      title: 'Xem xét',
+      title: 'Xem thông tin',
       icon: <FileSearchOutlined />,
+    },
+    {
+      title: 'Xem tài liệu',
+      icon: <FileOutlined />,
     },
     {
       title: 'Quyết định',
       icon: <CheckCircleOutlined />,
     },
   ]
+
+  // Render footer based on current step
+  const renderFooter = () => {
+    if (currentStep === 0) {
+      return (
+        <Space>
+          <Button onClick={onClose}>Đóng</Button>
+          <Button
+            type="primary"
+            icon={<ArrowRightOutlined />}
+            onClick={() => setCurrentStep(1)}
+          >
+            Tiếp theo - Xem tài liệu
+          </Button>
+        </Space>
+      )
+    } else if (currentStep === 1) {
+      return (
+        <Space>
+          <Button
+            icon={<ArrowLeftOutlined />}
+            onClick={() => setCurrentStep(0)}
+          >
+            Quay lại
+          </Button>
+          <Button
+            type="primary"
+            icon={<ArrowRightOutlined />}
+            onClick={() => setCurrentStep(2)}
+          >
+            Tiếp theo - Quyết định
+          </Button>
+        </Space>
+      )
+    } else {
+      return (
+        <Space>
+          <Button
+            icon={<ArrowLeftOutlined />}
+            onClick={() => setCurrentStep(1)}
+          >
+            Quay lại xem tài liệu
+          </Button>
+        </Space>
+      )
+    }
+  }
 
   return (
     <Modal
@@ -454,30 +727,8 @@ function ApprovalWizardModal({
       afterOpenChange={(open) => {
         if (open) handleAfterOpen()
       }}
-      width={800}
-      footer={
-        currentStep === 0 ? (
-          <Space>
-            <Button onClick={onClose}>Đóng</Button>
-            <Button
-              type="primary"
-              icon={<ArrowRightOutlined />}
-              onClick={() => setCurrentStep(1)}
-            >
-              Tiếp theo - Quyết định
-            </Button>
-          </Space>
-        ) : (
-          <Space>
-            <Button
-              icon={<ArrowLeftOutlined />}
-              onClick={() => setCurrentStep(0)}
-            >
-              Quay lại xem xét
-            </Button>
-          </Space>
-        )
-      }
+      width={900}
+      footer={renderFooter()}
       styles={{ body: { maxHeight: 'calc(100vh - 250px)', overflowY: 'auto' } }}
     >
       {/* Steps indicator */}
@@ -488,7 +739,9 @@ function ApprovalWizardModal({
       />
 
       {/* Step content */}
-      {currentStep === 0 ? renderStep1() : renderStep2()}
+      {currentStep === 0 && renderStep1()}
+      {currentStep === 1 && renderStep2()}
+      {currentStep === 2 && renderStep3()}
     </Modal>
   )
 }

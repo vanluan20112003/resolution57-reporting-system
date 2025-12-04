@@ -29,6 +29,10 @@ export const ROUTES = {
   KPI_DASHBOARD: '/kpi/dashboard',
   KPI_SETTINGS: '/kpi/settings',
 
+  // Activity routes
+  ACTIVITIES: '/activities',
+  ACTIVITY_DETAIL: '/activities/:id',
+
   // Analysis routes
   ANALYSIS: '/analysis',
   ANALYSIS_TRENDS: '/analysis/trends',

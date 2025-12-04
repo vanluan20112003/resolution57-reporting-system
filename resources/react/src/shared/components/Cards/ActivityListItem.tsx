@@ -1,15 +1,24 @@
-import { List, Space, Tag, Typography, Button, Progress, Row, Col } from 'antd'
+import { List, Space, Tag, Typography, Button, Row, Col, Badge, Tooltip } from 'antd'
 import {
   CalendarOutlined,
-  DollarOutlined,
   EnvironmentOutlined,
   TeamOutlined,
   EyeOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import { statusConfig, formatBudget } from '../../config/activityColumns'
+import { statusConfig } from '../../config/activityColumns'
 
 const { Text, Title } = Typography
+
+// Helper function to check if activity needs completion action
+const needsCompletionAction = (activity: Activity): boolean => {
+  if (activity.status !== 'COMPLETED') return false
+  if (!activity.result_summary || activity.result_summary.trim() === '') {
+    return true
+  }
+  return false
+}
 
 interface Activity {
   id: string
@@ -27,6 +36,20 @@ interface Activity {
   location: string
   completion_percentage: number
   result_summary?: string
+  // Relations (from API with eager loading)
+  activity_type?: {
+    id: string
+    name: string
+  }
+  activity_field?: {
+    id: string
+    name: string
+  }
+  lead_organization?: {
+    id: string
+    name: string
+    short_name?: string
+  }
 }
 
 interface ActivityListItemProps {
@@ -61,13 +84,32 @@ export function ActivityListItem({
             <Tag color="blue" style={{ fontSize: '14px', padding: '4px 12px' }}>
               {activity.code}
             </Tag>
-            <Tag
-              color={statusConfig[activity.status]?.color || 'default'}
-              icon={statusConfig[activity.status]?.icon}
-              style={{ fontSize: '14px', padding: '4px 12px' }}
-            >
-              {statusConfig[activity.status]?.label || activity.status}
-            </Tag>
+            {needsCompletionAction(activity) ? (
+              <Badge dot offset={[-4, 0]}>
+                <Tag
+                  color={statusConfig[activity.status]?.color || 'default'}
+                  icon={statusConfig[activity.status]?.icon}
+                  style={{ fontSize: '14px', padding: '4px 12px' }}
+                >
+                  {statusConfig[activity.status]?.label || activity.status}
+                </Tag>
+              </Badge>
+            ) : (
+              <Tag
+                color={statusConfig[activity.status]?.color || 'default'}
+                icon={statusConfig[activity.status]?.icon}
+                style={{ fontSize: '14px', padding: '4px 12px' }}
+              >
+                {statusConfig[activity.status]?.label || activity.status}
+              </Tag>
+            )}
+            {needsCompletionAction(activity) && (
+              <Tooltip title="Cần cập nhật kết quả hoạt động">
+                <Tag color="red" icon={<ExclamationCircleOutlined />} style={{ fontSize: '14px', padding: '4px 12px' }}>
+                  Cần cập nhật
+                </Tag>
+              </Tooltip>
+            )}
             {activity.completion_percentage > 0 && (
               <Tag color="cyan" style={{ fontSize: '14px', padding: '4px 12px' }}>
                 {activity.completion_percentage}% hoàn thành
@@ -79,99 +121,61 @@ export function ActivityListItem({
           </Title>
         </div>
 
-        {/* Description */}
-        <Text style={{ fontSize: '15px', lineHeight: '1.6' }}>
-          {activity.description}
-        </Text>
+        {/* Description - truncated, show full in detail view */}
+        {activity.description && (
+          <Text
+            style={{ fontSize: '15px', lineHeight: '1.6' }}
+            ellipsis={{ rows: 2, tooltip: false }}
+          >
+            {activity.description.length > 150
+              ? `${activity.description.substring(0, 150)}...`
+              : activity.description}
+          </Text>
+        )}
 
-        {/* Full Information Grid */}
-        <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12} md={8}>
-            <Space direction="vertical" size={4} style={{ width: '100%' }}>
-              <Text type="secondary" style={{ fontSize: '12px' }}>Loại hoạt động</Text>
-              <Tag>{getActivityTypeName(activity.activity_type_id)}</Tag>
+        {/* Summary Information - only show key info, details in detail view */}
+        <Row gutter={[16, 8]}>
+          <Col xs={24} sm={12} md={6}>
+            <Space size={4}>
+              <TeamOutlined style={{ color: '#1890ff' }} />
+              <Text style={{ fontSize: '13px' }}>
+                {activity.lead_organization
+                  ? (activity.lead_organization.short_name && activity.lead_organization.short_name !== activity.lead_organization.name
+                      ? `${activity.lead_organization.short_name} - ${activity.lead_organization.name}`
+                      : activity.lead_organization.name)
+                  : getOrganizationName(activity.lead_organization_id)}
+              </Text>
             </Space>
           </Col>
-          <Col xs={24} sm={12} md={8}>
-            <Space direction="vertical" size={4} style={{ width: '100%' }}>
-              <Text type="secondary" style={{ fontSize: '12px' }}>Lĩnh vực</Text>
-              {activity.activity_field_id && (
-                <Tag color="purple">
-                  {getActivityFieldName(activity.activity_field_id)}
+          <Col xs={24} sm={12} md={6}>
+            <Space size={4}>
+              <CalendarOutlined style={{ color: '#52c41a' }} />
+              <Text style={{ fontSize: '13px' }}>
+                {dayjs(activity.start_date).format('DD/MM/YYYY')} - {dayjs(activity.end_date).format('DD/MM/YYYY')}
+              </Text>
+            </Space>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Space size={4} wrap>
+              <Tag color="blue" style={{ margin: 0 }}>
+                {activity.activity_type?.name || getActivityTypeName(activity.activity_type_id)}
+              </Tag>
+              {(activity.activity_field || activity.activity_field_id) && (
+                <Tag color="purple" style={{ margin: 0 }}>
+                  {activity.activity_field?.name || getActivityFieldName(activity.activity_field_id)}
                 </Tag>
               )}
             </Space>
           </Col>
-          <Col xs={24} sm={12} md={8}>
-            <Space direction="vertical" size={4} style={{ width: '100%' }}>
-              <Text type="secondary" style={{ fontSize: '12px' }}>Đơn vị chủ trì</Text>
-              <Space size={4}>
-                <TeamOutlined style={{ color: '#1890ff' }} />
-                <Text>{getOrganizationName(activity.lead_organization_id)}</Text>
-              </Space>
-            </Space>
-          </Col>
-          <Col xs={24} sm={12} md={8}>
-            <Space direction="vertical" size={4} style={{ width: '100%' }}>
-              <Text type="secondary" style={{ fontSize: '12px' }}>Thời gian kế hoạch</Text>
-              <Space size={4}>
-                <CalendarOutlined style={{ color: '#52c41a' }} />
-                <Text>
-                  {dayjs(activity.start_date).format('DD/MM/YYYY')} - {dayjs(activity.end_date).format('DD/MM/YYYY')}
-                </Text>
-              </Space>
-            </Space>
-          </Col>
-          <Col xs={24} sm={12} md={8}>
-            <Space direction="vertical" size={4} style={{ width: '100%' }}>
-              <Text type="secondary" style={{ fontSize: '12px' }}>Kinh phí</Text>
-              <Space size={4}>
-                <DollarOutlined style={{ color: '#faad14' }} />
-                <Text strong>{formatBudget(activity.budget)}</Text>
-              </Space>
-            </Space>
-          </Col>
-          <Col xs={24} sm={12} md={8}>
-            <Space direction="vertical" size={4} style={{ width: '100%' }}>
-              <Text type="secondary" style={{ fontSize: '12px' }}>Nguồn kinh phí</Text>
-              <Tag color="geekblue">{activity.budget_source}</Tag>
-            </Space>
-          </Col>
-          <Col xs={24}>
-            <Space direction="vertical" size={4} style={{ width: '100%' }}>
-              <Text type="secondary" style={{ fontSize: '12px' }}>Địa điểm</Text>
+          {activity.location && (
+            <Col xs={24} sm={12} md={6}>
               <Space size={4}>
                 <EnvironmentOutlined style={{ color: '#eb2f96' }} />
-                <Text>{activity.location}</Text>
-              </Space>
-            </Space>
-          </Col>
-          {activity.result_summary && (
-            <Col xs={24}>
-              <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                <Text type="secondary" style={{ fontSize: '12px' }}>Tóm tắt kết quả</Text>
-                <Text style={{ fontSize: '14px', lineHeight: '1.6' }}>{activity.result_summary}</Text>
+                <Text ellipsis style={{ fontSize: '13px', maxWidth: 200 }}>{activity.location}</Text>
               </Space>
             </Col>
           )}
         </Row>
-
-        {/* Progress Bar for In Progress items */}
-        {activity.status === 'IN_PROGRESS' && (
-          <div>
-            <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>
-              Tiến độ thực hiện
-            </Text>
-            <Progress
-              percent={activity.completion_percentage}
-              status="active"
-              strokeColor={{
-                '0%': '#108ee9',
-                '100%': '#87d068',
-              }}
-            />
-          </div>
-        )}
 
         {/* Action Button */}
         <Button type="primary" icon={<EyeOutlined />} onClick={() => onViewDetail(activity)}>

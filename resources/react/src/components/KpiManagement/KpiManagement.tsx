@@ -400,6 +400,9 @@ function KpiManagement() {
           defaultExpanded={true}
           extra={
             <Space>
+              <Button icon={<ReloadOutlined />} onClick={fetchKpis} loading={loading}>
+                Làm mới
+              </Button>
               <ColumnToggle
                 columns={toggleableColumns}
                 visibleColumns={visibleColumns}

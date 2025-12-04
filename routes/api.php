@@ -12,6 +12,7 @@ use App\Http\Controllers\API\ProfileController;
 use App\Http\Controllers\API\ActivityTypeController;
 use App\Http\Controllers\API\ActivityFieldController;
 use App\Http\Controllers\API\ActivityController;
+use App\Http\Controllers\API\FileTypeController;
 use App\Http\Controllers\API\ImportController;
 use App\Http\Controllers\API\NotificationController;
 
@@ -86,6 +87,17 @@ Route::prefix('v1')->group(function () {
         // Get badge counts for notifications
         Route::get('/badge-counts', [ActivityController::class, 'getBadgeCounts']);
 
+        // Attendance Template (MUST be before routes with {id} parameter)
+        Route::get('/participants/template', [ActivityController::class, 'downloadAttendanceTemplate']);
+        Route::get('/participants/template-info', [ActivityController::class, 'getAttendanceTemplateInfo']);
+
+        // Export participants list to Excel
+        Route::get('/{id}/participants/export', [ActivityController::class, 'exportParticipants']);
+
+        // Get all approved activities from all organizations (public view)
+        // MUST be before routes with {id} parameter
+        Route::get('/all', [ActivityController::class, 'allApproved']);
+
         // List activities (filtered by user's organization for STAFF/MANAGER)
         Route::get('/', [ActivityController::class, 'index']);
 
@@ -118,6 +130,41 @@ Route::prefix('v1')->group(function () {
 
         // Unlock activity (OPERATOR, ADMIN only - checked in controller)
         Route::post('/{id}/unlock', [ActivityController::class, 'unlock']);
+
+        // Postpone activity (MANAGER, OPERATOR, ADMIN only - checked in controller)
+        Route::post('/{id}/postpone', [ActivityController::class, 'postpone']);
+
+        // Cancel activity (MANAGER, OPERATOR, ADMIN only - checked in controller)
+        Route::post('/{id}/cancel', [ActivityController::class, 'cancel']);
+
+        // Uncancel activity (ADMIN only - checked in controller)
+        Route::post('/{id}/uncancel', [ActivityController::class, 'uncancel']);
+
+        // Activity Files Management
+        Route::get('/{id}/files', [ActivityController::class, 'getFiles']);
+        Route::post('/{id}/files/upload', [ActivityController::class, 'uploadFile']);
+        Route::post('/{id}/files/link', [ActivityController::class, 'addLink']);
+        Route::post('/{id}/files/batch', [ActivityController::class, 'batchAddFiles']);
+        Route::put('/{id}/files/{fileId}', [ActivityController::class, 'updateFile']);
+        Route::delete('/{id}/files/{fileId}', [ActivityController::class, 'deleteFile']);
+
+        // Activity Participants Management
+        Route::get('/{id}/participants', [ActivityController::class, 'getParticipants']);
+        Route::post('/{id}/participants/upload', [ActivityController::class, 'uploadAttendanceList']);
+        Route::delete('/{id}/participants', [ActivityController::class, 'deleteAttendanceList']);
+        Route::post('/{id}/participants/send-invitations', [ActivityController::class, 'sendInvitations']);
+        Route::post('/{id}/participants/resend-invitation', [ActivityController::class, 'resendInvitation']);
+        Route::post('/{id}/participants/respond', [ActivityController::class, 'respondToInvitation']);
+
+        // Add participants from organization groups
+        Route::get('/{id}/participants/organization-groups', [ActivityController::class, 'getOrganizationUserGroups']);
+        Route::post('/{id}/participants/add-from-group', [ActivityController::class, 'addParticipantsFromGroup']);
+
+        // Update attendance for participants (mark who attended)
+        Route::post('/{id}/participants/attendance', [ActivityController::class, 'updateParticipantsAttendance']);
+
+        // Process attendance with new participants and file upload
+        Route::post('/{id}/participants/process-attendance', [ActivityController::class, 'processAttendance']);
     });
 
     // Authentication Routes
@@ -230,6 +277,23 @@ Route::prefix('v1')->group(function () {
 
         // Upload organization cover image
         Route::post('/cover', [OrganizationController::class, 'uploadCoverImage']);
+
+        // Get organization members (STAFF, MANAGER, OPERATOR, ADMIN)
+        Route::get('/members', [OrganizationController::class, 'getMyOrganizationMembers']);
+
+        // Update member role (MANAGER can promote GUEST to STAFF or demote)
+        Route::put('/members/{memberId}/role', [OrganizationController::class, 'updateMemberRole']);
+
+        // Add single member by email
+        Route::post('/members', [OrganizationController::class, 'addMember']);
+
+        // Remove member from organization
+        Route::delete('/members/{memberId}', [OrganizationController::class, 'removeMember']);
+
+        // Import members from Excel
+        Route::get('/members/import/template-info', [OrganizationController::class, 'getMemberImportTemplateInfo']);
+        Route::get('/members/import/template', [OrganizationController::class, 'downloadMemberImportTemplate']);
+        Route::post('/members/import', [OrganizationController::class, 'importMembers']);
     });
 
     // Activity Type Management Routes (OPERATOR and ADMIN only)
@@ -248,6 +312,15 @@ Route::prefix('v1')->group(function () {
         Route::post('/', [ActivityFieldController::class, 'store']);
         Route::put('/{id}', [ActivityFieldController::class, 'update']);
         Route::delete('/{id}', [ActivityFieldController::class, 'destroy']);
+    });
+
+    // File Type Management Routes (OPERATOR and ADMIN only)
+    Route::middleware(['auth:sanctum', 'role:OPERATOR,ADMIN'])->prefix('file-types')->group(function () {
+        Route::get('/', [FileTypeController::class, 'index']);
+        Route::get('/{id}', [FileTypeController::class, 'show']);
+        Route::post('/', [FileTypeController::class, 'store']);
+        Route::put('/{id}', [FileTypeController::class, 'update']);
+        Route::delete('/{id}', [FileTypeController::class, 'destroy']);
     });
 
     // Import Excel Routes (OPERATOR and ADMIN only)

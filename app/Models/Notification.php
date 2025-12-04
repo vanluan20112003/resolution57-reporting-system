@@ -30,12 +30,14 @@ class Notification extends Model
         "action_url",
         "icon",
         "color",
+        "data",
     ];
 
     protected $casts = [
         'is_read' => 'boolean',
         'read_at' => 'datetime',
         'created_at' => 'datetime',
+        'data' => 'array',
     ];
 
     public function user(): BelongsTo

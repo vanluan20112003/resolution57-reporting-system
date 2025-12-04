@@ -1,1 +1,6 @@
 export { default as ActivityManagement } from './ActivityManagement'
+export { default as ActivityWizardModal } from './ActivityWizardModal'
+export { default as ActivityDetailModal } from './ActivityDetailModal'
+export { default as ActivityFilesStep } from './ActivityFilesStep'
+export { default as ActivityCompletionModal } from './ActivityCompletionModal'
+export type { PendingFile } from './ActivityFilesStep'

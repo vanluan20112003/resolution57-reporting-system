@@ -1,0 +1,22 @@
+/* FileTypeManagement styles */
+
+.file-type-management {
+  padding: 0;
+}
+
+.file-type-management .ant-card {
+  border-radius: 8px;
+}
+
+.file-type-management .ant-table-wrapper {
+  overflow-x: auto;
+}
+
+/* Code column styling */
+.file-type-code {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  background: #f5f5f5;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+}

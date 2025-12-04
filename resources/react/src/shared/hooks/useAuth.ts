@@ -70,6 +70,7 @@ export function useAuth(): UseAuthResult {
             organization_id: profileData.organization_id,
             organization_name: profileData.organization?.short_name || profileData.organization?.name || null,
             organization_full_name: profileData.organization?.name || null,
+            organization_avatar_url: profileData.organization?.avatar_url || null,
             _lastSync: now,
           }
 

@@ -38,6 +38,8 @@ class ProfileController extends Controller
                     'name' => $organization->name,
                     'short_name' => $organization->short_name,
                     'code' => $organization->code,
+                    'avatar' => $organization->avatar,
+                    'avatar_url' => $organization->avatar ? url('storage/' . $organization->avatar) : null,
                 ] : null;
             }
 

@@ -26,6 +26,7 @@ export interface UserData {
   organization_id?: string | null
   organization_name?: string | null
   organization_full_name?: string | null
+  organization_avatar_url?: string | null
 }
 
 interface UserDropdownProps {

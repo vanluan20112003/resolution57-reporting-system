@@ -617,6 +617,9 @@ function UserManagement() {
         defaultExpanded={true}
         extra={
           <Space>
+            <Button icon={<ReloadOutlined />} onClick={fetchUsers} loading={loading}>
+              Làm mới
+            </Button>
             <ColumnToggle
               columns={toggleableColumns}
               visibleColumns={visibleColumns}

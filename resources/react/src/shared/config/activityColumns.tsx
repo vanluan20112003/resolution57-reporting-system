@@ -1,3 +1,4 @@
+import React from 'react'
 import { Tag, Typography, Space, Button } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
@@ -17,14 +18,24 @@ import { ActivityStatus } from '../../data/mockData'
 
 const { Text } = Typography
 
-// Status configuration
-export const statusConfig = {
-  [ActivityStatus.DRAFT]: { color: 'default', icon: <FileTextOutlined />, label: 'Mở mới' },
+// Status configuration - supports both mock data enum and API string values
+export const statusConfig: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
+  // Using enum values (for mock data)
+  [ActivityStatus.DRAFT]: { color: 'default', icon: <FileTextOutlined />, label: 'Nháp' },
   [ActivityStatus.PENDING_APPROVAL]: { color: 'warning', icon: <ClockCircleOutlined />, label: 'Chờ phê duyệt' },
-  [ActivityStatus.IN_PROGRESS]: { color: 'processing', icon: <ClockCircleOutlined />, label: 'Đang thực hiện' },
-  [ActivityStatus.ON_HOLD]: { color: 'warning', icon: <ExclamationCircleOutlined />, label: 'Hoãn' },
-  [ActivityStatus.CANCELLED]: { color: 'error', icon: <ExclamationCircleOutlined />, label: 'Huỷ' },
+  [ActivityStatus.IN_PROGRESS]: { color: 'red', icon: <ClockCircleOutlined />, label: 'Đang diễn ra' },
+  [ActivityStatus.ON_HOLD]: { color: 'orange', icon: <ExclamationCircleOutlined />, label: 'Tạm hoãn' },
+  [ActivityStatus.CANCELLED]: { color: 'error', icon: <ExclamationCircleOutlined />, label: 'Đã hủy' },
   [ActivityStatus.COMPLETED]: { color: 'success', icon: <CheckCircleOutlined />, label: 'Hoàn thành' },
+  // API string values (uppercase) - for API responses
+  'DRAFT': { color: 'default', icon: <FileTextOutlined />, label: 'Nháp' },
+  'PENDING_APPROVAL': { color: 'warning', icon: <ClockCircleOutlined />, label: 'Chờ phê duyệt' },
+  'APPROVED': { color: 'success', icon: <CheckCircleOutlined />, label: 'Đã phê duyệt' },
+  'REJECTED': { color: 'error', icon: <ExclamationCircleOutlined />, label: 'Từ chối' },
+  'IN_PROGRESS': { color: 'red', icon: <ClockCircleOutlined />, label: 'Đang diễn ra' },
+  'POSTPONED': { color: 'orange', icon: <ExclamationCircleOutlined />, label: 'Tạm hoãn' },
+  'CANCELLED': { color: 'error', icon: <ExclamationCircleOutlined />, label: 'Đã hủy' },
+  'COMPLETED': { color: 'success', icon: <CheckCircleOutlined />, label: 'Hoàn thành' },
 }
 
 // Format budget helper
@@ -51,6 +62,26 @@ interface Activity {
   completion_percentage: number
   result_summary?: string
   created_at: string
+  // Relations (from API with eager loading)
+  activity_type?: {
+    id: string
+    name: string
+  }
+  activity_field?: {
+    id: string
+    name: string
+  }
+  lead_organization?: {
+    id: string
+    name: string
+    short_name?: string
+  }
+  creator?: {
+    id: string
+    email: string
+    first_name: string
+    last_name: string
+  }
 }
 
 interface ActivityColumnsOptions {
@@ -91,30 +122,46 @@ export const getActivityColumns = ({
     dataIndex: 'activity_type_id',
     key: 'activity_type_id',
     width: 180,
-    render: (typeId: string) => (
-      <Tag color="blue">{getActivityTypeName(typeId)}</Tag>
-    ),
+    render: (_typeId: string, record: Activity) => {
+      // Prefer nested relation data, fallback to lookup by ID
+      const name = record.activity_type?.name || getActivityTypeName(record.activity_type_id)
+      return <Tag color="blue">{name}</Tag>
+    },
   },
   {
     title: 'Lĩnh vực',
     dataIndex: 'activity_field_id',
     key: 'activity_field_id',
     width: 180,
-    render: (fieldId: string) => (
-      fieldId ? <Tag color="cyan">{getActivityFieldName(fieldId)}</Tag> : <Text type="secondary">-</Text>
-    ),
+    render: (_fieldId: string, record: Activity) => {
+      // Prefer nested relation data, fallback to lookup by ID
+      const name = record.activity_field?.name || (record.activity_field_id ? getActivityFieldName(record.activity_field_id) : null)
+      return name ? <Tag color="cyan">{name}</Tag> : <Text type="secondary">-</Text>
+    },
   },
   {
     title: 'Đơn vị chủ trì',
     dataIndex: 'lead_organization_id',
     key: 'lead_organization_id',
     width: 200,
-    render: (orgId: string) => (
-      <Space>
-        <TeamOutlined style={{ color: '#1890ff' }} />
-        <Text>{getOrganizationName(orgId)}</Text>
-      </Space>
-    ),
+    render: (_orgId: string, record: Activity) => {
+      // Prefer nested relation data, fallback to lookup by ID
+      let name = 'N/A'
+      if (record.lead_organization) {
+        const org = record.lead_organization
+        name = org.short_name && org.short_name !== org.name
+          ? `${org.short_name} - ${org.name}`
+          : org.name
+      } else if (record.lead_organization_id) {
+        name = getOrganizationName(record.lead_organization_id)
+      }
+      return (
+        <Space>
+          <TeamOutlined style={{ color: '#1890ff' }} />
+          <Text>{name}</Text>
+        </Space>
+      )
+    },
   },
   {
     title: 'Thời gian kế hoạch',
@@ -199,12 +246,18 @@ export const getActivityColumns = ({
     title: 'Người tạo',
     key: 'creator',
     width: 200,
-    render: () => (
-      <Space>
-        <UserOutlined />
-        <Text>Lê Văn C (khoacntt@vnuhcm.edu.vn)</Text>
-      </Space>
-    ),
+    render: (_: any, record: Activity) => {
+      if (record.creator) {
+        const fullName = `${record.creator.last_name || ''} ${record.creator.first_name || ''}`.trim()
+        return (
+          <Space>
+            <UserOutlined />
+            <Text>{fullName || record.creator.email}</Text>
+          </Space>
+        )
+      }
+      return <Text type="secondary">-</Text>
+    },
   },
   {
     title: 'Ngày tạo',

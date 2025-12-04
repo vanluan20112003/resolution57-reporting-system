@@ -22,6 +22,7 @@ import {
   Tooltip,
   Alert,
   Tabs,
+  Badge,
 } from 'antd'
 import {
   EditOutlined,
@@ -39,6 +40,9 @@ import {
   UnlockOutlined,
   SendOutlined,
   FileSearchOutlined,
+  PauseCircleOutlined,
+  StopOutlined,
+  UndoOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
@@ -53,6 +57,8 @@ import type {
   KpiItem,
 } from '../../services/activityApi'
 import ApprovalWizardModal from './ApprovalWizardModal'
+import ActivityWizardModal from './ActivityWizardModal'
+import ActivityDetailModal from './ActivityDetailModal'
 import AdvancedFilter, { FilterField, FilterValues } from '../../shared/components/AdvancedFilter'
 import ColumnToggle, { ToggleableColumn } from '../../shared/components/ColumnToggle'
 import './ActivityManagement.css'
@@ -84,11 +90,17 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   })
 
   const [editModalVisible, setEditModalVisible] = useState(false)
-  const [viewModalVisible, setViewModalVisible] = useState(false)
+  const [detailModalVisible, setDetailModalVisible] = useState(false)
+  const [detailModalMode, setDetailModalMode] = useState<'view' | 'edit'>('view')
   const [approvalModalVisible, setApprovalModalVisible] = useState(false)
+  const [wizardModalVisible, setWizardModalVisible] = useState(false)
   const [submitConfirmVisible, setSubmitConfirmVisible] = useState(false)
   const [newlyCreatedActivityId, setNewlyCreatedActivityId] = useState<string | null>(null)
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
+  // Cancel modal state
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelActivityId, setCancelActivityId] = useState<string | null>(null)
   const [formData, setFormData] = useState<ActivityFormData | null>(null)
   const [selectedKpiIds, setSelectedKpiIds] = useState<string[]>([])
   const [form] = Form.useForm()
@@ -130,7 +142,13 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
         per_page: pagination.pageSize,
       })
 
-      setActivities(response.data)
+      // Sort activities: prioritize items needing action (DRAFT or COMPLETED without result_summary)
+      const sortedActivities = [...response.data].sort((a, b) => {
+        const aNeedsAction = (a.status === 'DRAFT' || (a.status === 'COMPLETED' && (!a.result_summary || a.result_summary.trim() === ''))) ? 0 : 1
+        const bNeedsAction = (b.status === 'DRAFT' || (b.status === 'COMPLETED' && (!b.result_summary || b.result_summary.trim() === ''))) ? 0 : 1
+        return aNeedsAction - bNeedsAction
+      })
+      setActivities(sortedActivities)
       setPagination(prev => ({
         ...prev,
         total: response.pagination.total,
@@ -250,32 +268,15 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       return
     }
     setSelectedActivity(null)
-    setSelectedKpiIds([])
-    form.resetFields()
-    setEditModalVisible(true)
+    setWizardModalVisible(true)
   }
 
   const handleEdit = async (activity: Activity) => {
     try {
       const response = await activityApi.getActivityById(activity.id)
       setSelectedActivity(response.data)
-      const kpiIds = response.data.kpis?.map(k => k.id) || []
-      setSelectedKpiIds(kpiIds)
-      form.setFieldsValue({
-        title: response.data.title,
-        description: response.data.description,
-        activity_type_id: response.data.activity_type_id,
-        activity_field_id: response.data.activity_field_id,
-        start_date: response.data.start_date ? dayjs(response.data.start_date) : undefined,
-        end_date: response.data.end_date ? dayjs(response.data.end_date) : undefined,
-        budget: response.data.budget,
-        budget_source: response.data.budget_source,
-        location: response.data.location,
-        external_url: response.data.external_url,
-        completion_percentage: response.data.completion_percentage,
-        result_summary: response.data.result_summary,
-      })
-      setEditModalVisible(true)
+      setDetailModalMode('edit')
+      setDetailModalVisible(true)
     } catch (error: any) {
       message.error(error.message || 'Không thể tải thông tin hoạt động')
     }
@@ -285,7 +286,8 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     try {
       const response = await activityApi.getActivityById(activity.id)
       setSelectedActivity(response.data)
-      setViewModalVisible(true)
+      setDetailModalMode('view')
+      setDetailModalVisible(true)
     } catch (error: any) {
       message.error(error.message || 'Không thể tải thông tin hoạt động')
     }
@@ -331,6 +333,21 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     window.dispatchEvent(new CustomEvent('activity-status-changed'))
   }
 
+  // Handle wizard modal success
+  const handleWizardSuccess = (activity: Activity, submitted: boolean) => {
+    fetchActivities()
+    if (submitted) {
+      message.success('Đã gửi yêu cầu phê duyệt thành công')
+    }
+    window.dispatchEvent(new CustomEvent('activity-status-changed'))
+  }
+
+  // Handle wizard modal close
+  const handleWizardClose = () => {
+    setWizardModalVisible(false)
+    setSelectedActivity(null)
+  }
+
   const handleLock = async (id: string) => {
     setActionLoading(true)
     try {
@@ -355,6 +372,88 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     } finally {
       setActionLoading(false)
     }
+  }
+
+  // Handle postpone activity
+  const handlePostpone = async (id: string) => {
+    setActionLoading(true)
+    try {
+      await activityApi.postponeActivity(id)
+      message.success('Đã tạm hoãn hoạt động. Vui lòng cập nhật ngày bắt đầu/kết thúc mới.')
+      fetchActivities()
+      window.dispatchEvent(new CustomEvent('activity-status-changed'))
+    } catch (error: any) {
+      message.error(error.message || 'Không thể tạm hoãn hoạt động')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Open cancel modal
+  const openCancelModal = (id: string) => {
+    setCancelActivityId(id)
+    setCancelReason('')
+    setShowCancelModal(true)
+  }
+
+  // Handle cancel activity
+  const handleCancelActivity = async () => {
+    if (!cancelActivityId || !cancelReason.trim()) {
+      message.warning('Vui lòng nhập lý do hủy hoạt động')
+      return
+    }
+
+    setActionLoading(true)
+    try {
+      await activityApi.cancelActivity(cancelActivityId, { reason: cancelReason })
+      message.success('Đã hủy hoạt động thành công')
+      setShowCancelModal(false)
+      setCancelActivityId(null)
+      setCancelReason('')
+      fetchActivities()
+      window.dispatchEvent(new CustomEvent('activity-status-changed'))
+    } catch (error: any) {
+      message.error(error.message || 'Không thể hủy hoạt động')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Handle uncancel activity (ADMIN only)
+  const handleUncancel = async (id: string) => {
+    setActionLoading(true)
+    try {
+      await activityApi.uncancelActivity(id)
+      message.success('Đã khôi phục hoạt động thành công')
+      fetchActivities()
+      window.dispatchEvent(new CustomEvent('activity-status-changed'))
+    } catch (error: any) {
+      message.error(error.message || 'Không thể khôi phục hoạt động')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Check if activity can be postponed/cancelled
+  // STAFF can only postpone/cancel their own activities
+  // MANAGER, OPERATOR, ADMIN can postpone/cancel any activity in their scope
+  const canPostponeOrCancel = (activity: Activity): boolean => {
+    if (activity.is_locked) return false
+    const allowedStatuses: ActivityStatus[] = ['APPROVED', 'IN_PROGRESS', 'COMPLETED']
+    if (!allowedStatuses.includes(activity.status)) return false
+
+    // STAFF can only postpone/cancel their own activities
+    if (currentUser?.role === 'STAFF') {
+      return activity.created_by === currentUser?.id
+    }
+
+    // MANAGER, OPERATOR, ADMIN can postpone/cancel
+    return canApprove
+  }
+
+  // Check if activity can be uncancelled (ADMIN only)
+  const canUncancelActivity = (activity: Activity): boolean => {
+    return activity.status === 'CANCELLED' && isAdmin
   }
 
   const handleSubmitForApproval = async (id: string) => {
@@ -420,7 +519,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   // Check if activity can be locked (already approved)
   const canLockActivity = (activity: Activity): boolean => {
     if (activity.is_locked) return false
-    const lockableStatuses: ActivityStatus[] = ['IN_PROGRESS', 'ON_HOLD', 'COMPLETED', 'CANCELLED']
+    const lockableStatuses: ActivityStatus[] = ['APPROVED', 'IN_PROGRESS', 'POSTPONED', 'COMPLETED', 'CANCELLED']
     return lockableStatuses.includes(activity.status) && canApprove
   }
 
@@ -517,13 +616,33 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     return <Text type="success">Thời lượng: {durationText}</Text>
   }
 
-  // Get status tag color
-  const getStatusTag = (status: ActivityStatus) => {
-    return (
+  // Check if activity needs action (DRAFT or COMPLETED without result_summary)
+  const needsAction = (activity: Activity): boolean => {
+    if (activity.status === 'DRAFT') return true
+    if (activity.status === 'COMPLETED') {
+      return !activity.result_summary || activity.result_summary.trim() === ''
+    }
+    return false
+  }
+
+  // Get status tag color with badge for items needing action
+  const getStatusTag = (status: ActivityStatus, activity?: Activity) => {
+    const tag = (
       <Tag color={activityApi.getStatusColor(status)}>
         {activityApi.getStatusLabel(status)}
       </Tag>
     )
+
+    // Show badge dot for activities needing action
+    if (activity && needsAction(activity)) {
+      return (
+        <Badge dot offset={[2, 0]} color="#ff4d4f">
+          {tag}
+        </Badge>
+      )
+    }
+
+    return tag
   }
 
   // Toggleable columns configuration
@@ -597,8 +716,15 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       key: 'status',
       width: 130,
       align: 'center',
-      sorter: (a, b) => (a.status || '').localeCompare(b.status || ''),
-      render: (status: ActivityStatus) => getStatusTag(status),
+      sorter: (a, b) => {
+        // Priority sorting: activities needing action first
+        const aNeedsAction = needsAction(a) ? 0 : 1
+        const bNeedsAction = needsAction(b) ? 0 : 1
+        if (aNeedsAction !== bNeedsAction) return aNeedsAction - bNeedsAction
+        return (a.status || '').localeCompare(b.status || '')
+      },
+      defaultSortOrder: 'ascend',
+      render: (status: ActivityStatus, record: Activity) => getStatusTag(status, record),
     },
     {
       title: 'Tiến độ',
@@ -637,7 +763,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     {
       title: 'Thao tác',
       key: 'actions',
-      width: 220,
+      width: 280,
       fixed: 'right',
       align: 'center',
       render: (_: any, record: Activity) => (
@@ -690,6 +816,56 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                 onClick={() => handleOpenApprovalWizard(record)}
                 style={{ color: '#1890ff' }}
               />
+            </Tooltip>
+          )}
+          {/* Postpone button - for APPROVED/IN_PROGRESS/COMPLETED activities */}
+          {canPostponeOrCancel(record) && (
+            <Tooltip title="Tạm hoãn">
+              <Popconfirm
+                title="Tạm hoãn hoạt động này?"
+                description="Hoạt động sẽ chuyển sang trạng thái Tạm hoãn để chỉnh sửa ngày."
+                onConfirm={() => handlePostpone(record.id)}
+                okText="Tạm hoãn"
+                cancelText="Hủy"
+              >
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<PauseCircleOutlined />}
+                  style={{ color: '#fa8c16' }}
+                />
+              </Popconfirm>
+            </Tooltip>
+          )}
+          {/* Cancel button - for APPROVED/IN_PROGRESS/COMPLETED activities */}
+          {canPostponeOrCancel(record) && (
+            <Tooltip title="Hủy hoạt động">
+              <Button
+                type="link"
+                size="small"
+                icon={<StopOutlined />}
+                onClick={() => openCancelModal(record.id)}
+                style={{ color: '#ff4d4f' }}
+              />
+            </Tooltip>
+          )}
+          {/* Uncancel button - for CANCELLED activities, ADMIN only */}
+          {canUncancelActivity(record) && (
+            <Tooltip title="Khôi phục hoạt động">
+              <Popconfirm
+                title="Khôi phục hoạt động này?"
+                description="Hoạt động sẽ chuyển về trạng thái Đã phê duyệt."
+                onConfirm={() => handleUncancel(record.id)}
+                okText="Khôi phục"
+                cancelText="Hủy"
+              >
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<UndoOutlined />}
+                  style={{ color: '#52c41a' }}
+                />
+              </Popconfirm>
             </Tooltip>
           )}
           {/* Lock button - for approved activities */}
@@ -858,6 +1034,9 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
             defaultExpanded={true}
             extra={
               <Space>
+                <Button icon={<ReloadOutlined />} onClick={fetchActivities} loading={loading}>
+                  Làm mới
+                </Button>
                 <ColumnToggle
                   columns={toggleableColumns}
                   visibleColumns={visibleColumns}
@@ -1177,278 +1356,21 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
         </Form>
       </Modal>
 
-      {/* View Modal */}
-      <Modal
-        title={
-          <Space>
-            <span>Chi tiết hoạt động</span>
-            {selectedActivity?.is_locked && (
-              <Tag color="warning" icon={<LockOutlined />}>Đã khóa</Tag>
-            )}
-          </Space>
-        }
-        open={viewModalVisible}
-        onCancel={() => {
-          setViewModalVisible(false)
+      {/* Activity Detail Modal - Tabs for View/Edit */}
+      <ActivityDetailModal
+        visible={detailModalVisible}
+        activity={selectedActivity}
+        formData={formData}
+        mode={detailModalMode}
+        onClose={() => {
+          setDetailModalVisible(false)
           setSelectedActivity(null)
         }}
-        footer={[
-          <Button key="close" onClick={() => setViewModalVisible(false)}>
-            Đóng
-          </Button>,
-          // Submit for approval button for DRAFT activities
-          selectedActivity && selectedActivity.status === 'DRAFT' && !selectedActivity.is_locked && (
-            <Popconfirm
-              key="submit"
-              title="Gửi yêu cầu phê duyệt?"
-              description="Hoạt động sẽ chuyển sang trạng thái Chờ phê duyệt."
-              onConfirm={() => {
-                handleSubmitForApproval(selectedActivity.id)
-                setViewModalVisible(false)
-              }}
-              okText="Gửi"
-              cancelText="Hủy"
-            >
-              <Button icon={<SendOutlined />} type="primary">
-                Gửi yêu cầu phê duyệt
-              </Button>
-            </Popconfirm>
-          ),
-          // Approval Wizard button for PENDING_APPROVAL
-          selectedActivity && selectedActivity.status === 'PENDING_APPROVAL' && canApprove && (
-            <Button
-              key="approval"
-              icon={<FileSearchOutlined />}
-              type="primary"
-              onClick={() => {
-                setViewModalVisible(false)
-                setApprovalModalVisible(true)
-              }}
-            >
-              Xem xét & Phê duyệt
-            </Button>
-          ),
-          // Lock button for approved activities
-          selectedActivity && canLockActivity(selectedActivity) && (
-            <Popconfirm
-              key="lock"
-              title="Khóa hoạt động này?"
-              description="Sau khi khóa, hoạt động không thể chỉnh sửa được nữa."
-              onConfirm={() => {
-                handleLock(selectedActivity.id)
-                setViewModalVisible(false)
-              }}
-              okText="Khóa"
-              cancelText="Hủy"
-            >
-              <Button icon={<LockOutlined />} style={{ color: '#faad14', borderColor: '#faad14' }}>
-                Khóa hoạt động
-              </Button>
-            </Popconfirm>
-          ),
-          // Unlock button for OPERATOR/ADMIN
-          selectedActivity?.is_locked && isAdmin && (
-            <Popconfirm
-              key="unlock"
-              title="Mở khóa hoạt động này?"
-              description="Hoạt động sẽ có thể được chỉnh sửa lại."
-              onConfirm={() => {
-                handleUnlock(selectedActivity.id)
-                setViewModalVisible(false)
-              }}
-              okText="Mở khóa"
-              cancelText="Hủy"
-            >
-              <Button icon={<UnlockOutlined />} type="primary">
-                Mở khóa
-              </Button>
-            </Popconfirm>
-          ),
-          // Edit button only for editable activities
-          selectedActivity && canEditActivity(selectedActivity) && (
-            <Button
-              key="edit"
-              type="primary"
-              icon={<EditOutlined />}
-              onClick={() => {
-                setViewModalVisible(false)
-                handleEdit(selectedActivity)
-              }}
-            >
-              Chỉnh sửa
-            </Button>
-          ),
-        ]}
-        width={800}
-      >
-        {selectedActivity && (
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-            {/* Header */}
-            <div>
-              <Text type="secondary">Mã hoạt động</Text>
-              <Title level={4} style={{ margin: '4px 0 8px' }}>
-                {selectedActivity.code}
-              </Title>
-              <Space>
-                {getStatusTag(selectedActivity.status)}
-                <Progress
-                  percent={selectedActivity.completion_percentage || 0}
-                  size="small"
-                  style={{ width: 150 }}
-                />
-              </Space>
-            </div>
-
-            <Divider />
-
-            {/* Title and Description */}
-            <div>
-              <Title level={5}>{selectedActivity.title}</Title>
-              <Paragraph type="secondary">
-                {selectedActivity.description || 'Không có mô tả'}
-              </Paragraph>
-            </div>
-
-            {/* Details Grid */}
-            <Row gutter={[16, 16]}>
-              <Col span={12}>
-                <Text type="secondary">Loại hoạt động</Text>
-                <div>
-                  <Tag color="blue">{selectedActivity.activity_type?.name || '-'}</Tag>
-                </div>
-              </Col>
-              <Col span={12}>
-                <Text type="secondary">Lĩnh vực</Text>
-                <div>
-                  <Tag>{selectedActivity.activity_field?.name || '-'}</Tag>
-                </div>
-              </Col>
-              <Col span={12}>
-                <Text type="secondary">Đơn vị chủ trì</Text>
-                <div>
-                  <Text strong>{selectedActivity.lead_organization?.name || '-'}</Text>
-                </div>
-              </Col>
-              <Col span={12}>
-                <Text type="secondary">Người tạo</Text>
-                <div>
-                  <Text>
-                    {selectedActivity.creator
-                      ? `${selectedActivity.creator.first_name} ${selectedActivity.creator.last_name}`
-                      : '-'}
-                  </Text>
-                </div>
-              </Col>
-              <Col span={12}>
-                <Text type="secondary">Thời gian</Text>
-                <div>
-                  <Text>
-                    {selectedActivity.start_date
-                      ? `${dayjs(selectedActivity.start_date).format('DD/MM/YYYY HH:mm')} - ${
-                          selectedActivity.end_date
-                            ? dayjs(selectedActivity.end_date).format('DD/MM/YYYY HH:mm')
-                            : '...'
-                        }`
-                      : '-'}
-                  </Text>
-                  {selectedActivity.start_date && selectedActivity.end_date && (
-                    <div style={{ marginTop: 4 }}>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        (Thời lượng: {(() => {
-                          const start = dayjs(selectedActivity.start_date)
-                          const end = dayjs(selectedActivity.end_date)
-                          const diffDays = end.diff(start, 'day')
-                          const diffHours = end.diff(start, 'hour') % 24
-                          let text = ''
-                          if (diffDays > 0) text += `${diffDays} ngày `
-                          if (diffHours > 0) text += `${diffHours} giờ`
-                          return text || 'Cùng thời điểm'
-                        })()})
-                      </Text>
-                    </div>
-                  )}
-                </div>
-              </Col>
-              <Col span={12}>
-                <Text type="secondary">Địa điểm</Text>
-                <div>
-                  <Text>{selectedActivity.location || '-'}</Text>
-                </div>
-              </Col>
-              <Col span={12}>
-                <Text type="secondary">Kinh phí</Text>
-                <div>
-                  <Text>
-                    {selectedActivity.budget
-                      ? `${selectedActivity.budget.toLocaleString('vi-VN')} VNĐ`
-                      : '-'}
-                  </Text>
-                </div>
-              </Col>
-              <Col span={12}>
-                <Text type="secondary">Nguồn kinh phí</Text>
-                <div>
-                  <Text>{selectedActivity.budget_source || '-'}</Text>
-                </div>
-              </Col>
-            </Row>
-
-            {/* KPIs */}
-            {selectedActivity.kpis && selectedActivity.kpis.length > 0 && (
-              <>
-                <Divider />
-                <div>
-                  <Text type="secondary">Chỉ tiêu KPI liên quan</Text>
-                  <div style={{ marginTop: 8 }}>
-                    {selectedActivity.kpis.map((kpi) => (
-                      <Tag key={kpi.id} color={kpi.source === 'CENTRAL' ? 'blue' : 'purple'}>
-                        {kpi.code ? `[${kpi.code}] ` : ''}
-                        {kpi.title}
-                      </Tag>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Result Summary */}
-            {selectedActivity.result_summary && (
-              <>
-                <Divider />
-                <div>
-                  <Text type="secondary">Tóm tắt kết quả</Text>
-                  <Paragraph>{selectedActivity.result_summary}</Paragraph>
-                </div>
-              </>
-            )}
-
-            {/* Approval Info */}
-            {selectedActivity.approved_by && (
-              <>
-                <Divider />
-                <div>
-                  <Text type="secondary">Thông tin phê duyệt</Text>
-                  <div>
-                    <Text>
-                      Người phê duyệt:{' '}
-                      {selectedActivity.approver
-                        ? `${selectedActivity.approver.first_name} ${selectedActivity.approver.last_name}`
-                        : '-'}
-                    </Text>
-                    <br />
-                    <Text>
-                      Thời gian:{' '}
-                      {selectedActivity.approved_at
-                        ? dayjs(selectedActivity.approved_at).format('DD/MM/YYYY HH:mm')
-                        : '-'}
-                    </Text>
-                  </div>
-                </div>
-              </>
-            )}
-          </Space>
-        )}
-      </Modal>
+        onSuccess={(activity) => {
+          fetchActivities()
+          window.dispatchEvent(new CustomEvent('activity-status-changed'))
+        }}
+      />
 
       {/* Approval Wizard Modal */}
       <ApprovalWizardModal
@@ -1492,6 +1414,61 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
           Nếu chọn "Để sau", hoạt động sẽ được lưu ở trạng thái <Tag>Nháp</Tag> và bạn có thể gửi yêu cầu phê duyệt sau.
         </Text>
       </Modal>
+
+      {/* Cancel Activity Modal */}
+      <Modal
+        title={
+          <Space>
+            <StopOutlined style={{ color: '#ff4d4f' }} />
+            <span>Hủy hoạt động</span>
+          </Space>
+        }
+        open={showCancelModal}
+        onOk={handleCancelActivity}
+        onCancel={() => {
+          setShowCancelModal(false)
+          setCancelActivityId(null)
+          setCancelReason('')
+        }}
+        okText="Xác nhận hủy"
+        cancelText="Đóng"
+        okButtonProps={{ danger: true }}
+        confirmLoading={actionLoading}
+        centered
+      >
+        <Alert
+          type="warning"
+          showIcon
+          message="Lưu ý: Hoạt động bị hủy sẽ không thể chỉnh sửa được nữa."
+          description="Chỉ ADMIN mới có quyền khôi phục hoạt động đã hủy."
+          style={{ marginBottom: 16 }}
+        />
+        <Form layout="vertical">
+          <Form.Item
+            label="Lý do hủy hoạt động"
+            required
+            help="Vui lòng nhập lý do để ghi nhận và thông báo cho các bên liên quan"
+          >
+            <Input.TextArea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Nhập lý do hủy hoạt động..."
+              rows={3}
+              maxLength={1000}
+              showCount
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Activity Wizard Modal - 3 Steps for Creating New Activity */}
+      <ActivityWizardModal
+        visible={wizardModalVisible}
+        activity={null}
+        formData={formData}
+        onClose={handleWizardClose}
+        onSuccess={handleWizardSuccess}
+      />
     </div>
   )
 }

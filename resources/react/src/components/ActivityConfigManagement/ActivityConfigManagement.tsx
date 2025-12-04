@@ -22,10 +22,11 @@ import {
   EditOutlined,
   DeleteOutlined,
   PlusOutlined,
-  ReloadOutlined,
   AppstoreOutlined,
   TagsOutlined,
   SettingOutlined,
+  FileOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { useAuth } from '../../shared/hooks'
@@ -38,6 +39,12 @@ import type {
   CreateActivityFieldRequest,
   UpdateActivityFieldRequest,
 } from '../../services/activityConfigApi'
+import * as fileTypeApi from '../../services/fileTypeApi'
+import type {
+  FileType,
+  CreateFileTypeRequest,
+  UpdateFileTypeRequest,
+} from '../../services/fileTypeApi'
 import AdvancedFilter, { FilterField, FilterValues } from '../../shared/components/AdvancedFilter'
 import { ImportExcelModal } from '../../shared/components/ImportExcelModal'
 import type { ImportType } from '../../shared/components/ImportExcelModal'
@@ -50,7 +57,7 @@ const { TextArea } = Input
 
 function ActivityConfigManagement() {
   // Common state
-  const [activeTab, setActiveTab] = useState<'types' | 'fields'>('types')
+  const [activeTab, setActiveTab] = useState<'types' | 'fields' | 'fileTypes'>('types')
   const { user: currentUser } = useAuth()
 
   // Activity Types state
@@ -78,6 +85,18 @@ function ActivityConfigManagement() {
   const [selectedField, setSelectedField] = useState<ActivityField | null>(null)
   const [fieldActionLoading, setFieldActionLoading] = useState(false)
   const [fieldForm] = Form.useForm()
+
+  // File Types state
+  const [fileTypesLoading, setFileTypesLoading] = useState(false)
+  const [fileTypes, setFileTypes] = useState<FileType[]>([])
+  const [fileTypesPagination, setFileTypesPagination] = useState({ current: 1, pageSize: 15, total: 0 })
+  const [fileTypesFilterValues, setFileTypesFilterValues] = useState<FilterValues>({
+    search: '',
+  })
+  const [fileTypeModalVisible, setFileTypeModalVisible] = useState(false)
+  const [selectedFileType, setSelectedFileType] = useState<FileType | null>(null)
+  const [fileTypeActionLoading, setFileTypeActionLoading] = useState(false)
+  const [fileTypeForm] = Form.useForm()
 
   // Import modal state
   const [importModalVisible, setImportModalVisible] = useState(false)
@@ -120,6 +139,17 @@ function ActivityConfigManagement() {
     },
   ], [])
 
+  // Filter fields configuration for File Types
+  const fileTypesFilterFields: FilterField[] = useMemo(() => [
+    {
+      key: 'search',
+      label: 'Tìm kiếm',
+      type: 'text',
+      placeholder: 'Tìm theo mã hoặc tên loại tập tin...',
+      span: 24,
+    },
+  ], [])
+
   // Filter handlers for Types
   const handleTypesFilterChange = (newValues: FilterValues) => {
     setTypesFilterValues(newValues)
@@ -146,6 +176,20 @@ function ActivityConfigManagement() {
 
   const handleFieldsFilterReset = () => {
     setFieldsPagination((prev) => ({ ...prev, current: 1 }))
+  }
+
+  // Filter handlers for File Types
+  const handleFileTypesFilterChange = (newValues: FilterValues) => {
+    setFileTypesFilterValues(newValues)
+  }
+
+  const handleFileTypesFilterSearch = () => {
+    setFileTypesPagination((prev) => ({ ...prev, current: 1 }))
+    fetchFileTypes()
+  }
+
+  const handleFileTypesFilterReset = () => {
+    setFileTypesPagination((prev) => ({ ...prev, current: 1 }))
   }
 
   // Fetch Activity Types
@@ -205,6 +249,34 @@ function ActivityConfigManagement() {
       fetchActivityFields()
     }
   }, [activeTab, fieldsFilterValues, fieldsPagination.current, canManage])
+
+  // Fetch File Types
+  const fetchFileTypes = async () => {
+    setFileTypesLoading(true)
+    try {
+      const response = await fileTypeApi.getFileTypes({
+        search: fileTypesFilterValues.search || undefined,
+        page: fileTypesPagination.current,
+        per_page: fileTypesPagination.pageSize,
+      })
+
+      setFileTypes(response.data)
+      setFileTypesPagination(prev => ({
+        ...prev,
+        total: response.pagination.total,
+      }))
+    } catch (error: any) {
+      message.error(error.message || 'Không thể tải danh sách loại tập tin')
+    } finally {
+      setFileTypesLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (canManage && activeTab === 'fileTypes') {
+      fetchFileTypes()
+    }
+  }, [activeTab, fileTypesFilterValues, fileTypesPagination.current, canManage])
 
   // ============== Activity Types Handlers ==============
 
@@ -340,6 +412,73 @@ function ActivityConfigManagement() {
     setFieldModalVisible(false)
     setSelectedField(null)
     fieldForm.resetFields()
+  }
+
+  // ============== File Types Handlers ==============
+
+  const handleFileTypesTableChange = (newPagination: any) => {
+    setFileTypesPagination({
+      ...fileTypesPagination,
+      current: newPagination.current,
+      pageSize: newPagination.pageSize,
+    })
+  }
+
+  const handleAddFileType = () => {
+    setSelectedFileType(null)
+    fileTypeForm.resetFields()
+    setFileTypeModalVisible(true)
+  }
+
+  const handleEditFileType = (fileType: FileType) => {
+    setSelectedFileType(fileType)
+    fileTypeForm.setFieldsValue(fileType)
+    setFileTypeModalVisible(true)
+  }
+
+  const handleDeleteFileType = async (id: string) => {
+    setFileTypeActionLoading(true)
+    try {
+      await fileTypeApi.deleteFileType(id)
+      message.success('Đã xóa loại tập tin thành công')
+      fetchFileTypes()
+    } catch (error: any) {
+      message.error(error.message || 'Không thể xóa loại tập tin')
+    } finally {
+      setFileTypeActionLoading(false)
+    }
+  }
+
+  const handleFileTypeModalOk = async () => {
+    try {
+      const values = await fileTypeForm.validateFields()
+      setFileTypeActionLoading(true)
+
+      if (selectedFileType) {
+        await fileTypeApi.updateFileType(selectedFileType.id, values as UpdateFileTypeRequest)
+        message.success('Đã cập nhật loại tập tin thành công')
+      } else {
+        await fileTypeApi.createFileType(values as CreateFileTypeRequest)
+        message.success('Đã tạo loại tập tin thành công')
+      }
+
+      setFileTypeModalVisible(false)
+      fileTypeForm.resetFields()
+      fetchFileTypes()
+    } catch (error: any) {
+      if (error.errorFields) {
+        return
+      }
+      message.error(error.message || 'Có lỗi xảy ra')
+    } finally {
+      setFileTypeActionLoading(false)
+    }
+  }
+
+  const handleFileTypeModalCancel = () => {
+    setFileTypeModalVisible(false)
+    setSelectedFileType(null)
+    fileTypeForm.resetFields()
   }
 
   // ============== Activity Types Columns ==============
@@ -526,6 +665,77 @@ function ActivityConfigManagement() {
     },
   ]
 
+  // ============== File Types Columns ==============
+
+  const fileTypeColumns: ColumnsType<FileType> = [
+    {
+      title: 'STT',
+      key: 'index',
+      width: 60,
+      align: 'center',
+      render: (_: any, __: any, index: number) =>
+        (fileTypesPagination.current - 1) * fileTypesPagination.pageSize + index + 1,
+    },
+    {
+      title: 'Mã',
+      dataIndex: 'code',
+      key: 'code',
+      width: 150,
+      render: (code: string) => <Text strong style={{ fontFamily: 'monospace' }}>{code}</Text>,
+    },
+    {
+      title: 'Tên loại tập tin',
+      dataIndex: 'name',
+      key: 'name',
+      render: (name: string) => <Text strong>{name}</Text>,
+    },
+    {
+      title: 'Số lượng sử dụng',
+      dataIndex: 'activity_files_count',
+      key: 'activity_files_count',
+      width: 150,
+      align: 'center',
+      render: (count: number) => (
+        <Tag color={count > 0 ? 'blue' : 'default'}>{count || 0}</Tag>
+      ),
+    },
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      width: 150,
+      fixed: 'right',
+      align: 'center',
+      render: (_: any, record: FileType) => (
+        <Space>
+          <Button
+            type="link"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => handleEditFileType(record)}
+          >
+            Sửa
+          </Button>
+          <Popconfirm
+            title="Xác nhận xóa"
+            description={
+              record.activity_files_count && record.activity_files_count > 0
+                ? `Loại tập tin này đang được sử dụng bởi ${record.activity_files_count} tập tin. Bạn có chắc muốn xóa?`
+                : 'Bạn có chắc chắn muốn xóa loại tập tin này?'
+            }
+            onConfirm={() => handleDeleteFileType(record.id)}
+            okText="Xóa"
+            cancelText="Hủy"
+            okButtonProps={{ danger: true }}
+          >
+            <Button type="link" size="small" icon={<DeleteOutlined />} danger>
+              Xóa
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ]
+
   // Access denied view
   if (!canManage) {
     return (
@@ -552,7 +762,7 @@ function ActivityConfigManagement() {
             <SettingOutlined /> Cấu hình hoạt động
           </Title>
           <Text type="secondary">
-            Quản lý loại hoạt động và lĩnh vực hoạt động trong hệ thống
+            Quản lý loại hoạt động, lĩnh vực hoạt động và loại tập tin trong hệ thống
           </Text>
         </div>
       </Card>
@@ -561,7 +771,7 @@ function ActivityConfigManagement() {
       <Card style={{ marginBottom: 16 }}>
         <Tabs
           activeKey={activeTab}
-          onChange={(key) => setActiveTab(key as 'types' | 'fields')}
+          onChange={(key) => setActiveTab(key as 'types' | 'fields' | 'fileTypes')}
           items={[
             {
               key: 'types',
@@ -581,12 +791,21 @@ function ActivityConfigManagement() {
                 </span>
               ),
             },
+            {
+              key: 'fileTypes',
+              label: (
+                <span>
+                  <FileOutlined />
+                  Loại tập tin
+                </span>
+              ),
+            },
           ]}
         />
       </Card>
 
       {/* Advanced Filter - based on active tab */}
-      {activeTab === 'types' ? (
+      {activeTab === 'types' && (
         <>
           <AdvancedFilter
             fields={typesFilterFields}
@@ -601,6 +820,9 @@ function ActivityConfigManagement() {
             defaultExpanded={true}
             extra={
               <Space>
+                <Button icon={<ReloadOutlined />} onClick={fetchActivityTypes} loading={typesLoading}>
+                  Làm mới
+                </Button>
                 <Button
                   icon={<FileExcelOutlined />}
                   onClick={() => {
@@ -634,7 +856,9 @@ function ActivityConfigManagement() {
             />
           </Card>
         </>
-      ) : (
+      )}
+
+      {activeTab === 'fields' && (
         <>
           <AdvancedFilter
             fields={fieldsFilterFields}
@@ -649,6 +873,9 @@ function ActivityConfigManagement() {
             defaultExpanded={true}
             extra={
               <Space>
+                <Button icon={<ReloadOutlined />} onClick={fetchActivityFields} loading={fieldsLoading}>
+                  Làm mới
+                </Button>
                 <Button
                   icon={<FileExcelOutlined />}
                   onClick={() => {
@@ -679,6 +906,50 @@ function ActivityConfigManagement() {
               }}
               onChange={handleFieldsTableChange}
               scroll={{ x: 1000 }}
+            />
+          </Card>
+        </>
+      )}
+
+      {activeTab === 'fileTypes' && (
+        <>
+          <AdvancedFilter
+            fields={fileTypesFilterFields}
+            values={fileTypesFilterValues}
+            onChange={handleFileTypesFilterChange}
+            onSearch={handleFileTypesFilterSearch}
+            onReset={handleFileTypesFilterReset}
+            loading={fileTypesLoading}
+            storageKey="activity_config_file_types_filters"
+            showPresets={false}
+            collapsible={true}
+            defaultExpanded={true}
+            extra={
+              <Space>
+                <Button icon={<ReloadOutlined />} onClick={fetchFileTypes} loading={fileTypesLoading}>
+                  Làm mới
+                </Button>
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddFileType}>
+                  Thêm loại tập tin
+                </Button>
+              </Space>
+            }
+          />
+
+          {/* File Types Table */}
+          <Card>
+            <Table
+              columns={fileTypeColumns}
+              dataSource={fileTypes}
+              loading={fileTypesLoading}
+              rowKey="id"
+              pagination={{
+                ...fileTypesPagination,
+                showSizeChanger: true,
+                showTotal: (total) => `Tổng ${total} loại tập tin`,
+              }}
+              onChange={handleFileTypesTableChange}
+              scroll={{ x: 800 }}
             />
           </Card>
         </>
@@ -778,6 +1049,50 @@ function ActivityConfigManagement() {
             <Col span={12}>
               <Form.Item name="is_active" label="Trạng thái" valuePropName="checked">
                 <Switch checkedChildren="Hoạt động" unCheckedChildren="Tạm dừng" />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
+      </Modal>
+
+      {/* File Type Modal */}
+      <Modal
+        title={selectedFileType ? 'Chỉnh sửa loại tập tin' : 'Thêm loại tập tin mới'}
+        open={fileTypeModalVisible}
+        onOk={handleFileTypeModalOk}
+        onCancel={handleFileTypeModalCancel}
+        confirmLoading={fileTypeActionLoading}
+        width={500}
+        okText={selectedFileType ? 'Cập nhật' : 'Tạo mới'}
+        cancelText="Hủy"
+      >
+        <Form form={fileTypeForm} layout="vertical">
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item
+                name="code"
+                label="Mã loại tập tin"
+                rules={[
+                  { required: true, message: 'Vui lòng nhập mã loại tập tin' },
+                  { max: 50, message: 'Mã không được vượt quá 50 ký tự' },
+                ]}
+              >
+                <Input
+                  placeholder="VD: PDF, DOC..."
+                  style={{ textTransform: 'uppercase' }}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={16}>
+              <Form.Item
+                name="name"
+                label="Tên loại tập tin"
+                rules={[
+                  { required: true, message: 'Vui lòng nhập tên loại tập tin' },
+                  { max: 100, message: 'Tên không được vượt quá 100 ký tự' },
+                ]}
+              >
+                <Input placeholder="VD: Tài liệu PDF, Bảng tính Excel..." />
               </Form.Item>
             </Col>
           </Row>

@@ -12,6 +12,9 @@ export type NotificationType =
   | "activity_overdue"
   | "activity_completed"
   | "activity_locked"
+  | "activity_invitation"
+  | "activity_postponed"
+  | "activity_cancelled"
   | "system_announcement"
   | "user_role_changed"
 
@@ -34,6 +37,8 @@ export interface NotificationData {
   activity_code?: string
   organization_id?: string
   organization_name?: string
+  organization_avatar?: string
+  organization_short_name?: string
   old_status?: string
   new_status?: string
   reason?: string
@@ -42,6 +47,10 @@ export interface NotificationData {
   days_overdue?: number
   old_role?: string
   new_role?: string
+  invitation_status?: 'pending' | 'accepted' | 'declined'
+  start_date?: string
+  end_date?: string
+  location?: string
   [key: string]: any
 }
 
@@ -130,4 +139,30 @@ export const readAllNotifications = async (): Promise<any> => {
 
   const data = await response.json()
   return data
+}
+
+// Respond to activity invitation
+export const respondToInvitation = async (
+  activityId: string,
+  response: 'accepted' | 'declined',
+  notes?: string
+): Promise<any> => {
+  const res = await fetch(API_CONFIG.ACTIVITIES.RESPOND_INVITATION(activityId), {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ response, notes })
+  })
+
+  if (!res.ok) {
+    const errorData = await res.json()
+    // Include already_responded and current_status for conflict handling
+    const error: any = new Error(errorData.message || "Failed to respond to invitation")
+    if (errorData.already_responded) {
+      error.already_responded = true
+      error.current_status = errorData.current_status
+    }
+    throw error
+  }
+
+  return await res.json()
 }

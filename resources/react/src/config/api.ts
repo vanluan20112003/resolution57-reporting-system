@@ -47,7 +47,27 @@ export const API_CONFIG = {
     LIST: `${getApiBaseUrl()}/activities`,
     CREATE: `${getApiBaseUrl()}/activities`,
     UPDATE: (id: string) => `${getApiBaseUrl()}/activities/${id}`,
-    DELETE: (id: string) => `${getApiBaseUrl()}/activities/${id}`
+    DELETE: (id: string) => `${getApiBaseUrl()}/activities/${id}`,
+    // Activity Files
+    FILES: (id: string) => `${getApiBaseUrl()}/activities/${id}/files`,
+    UPLOAD_FILE: (id: string) => `${getApiBaseUrl()}/activities/${id}/files/upload`,
+    ADD_LINK: (id: string) => `${getApiBaseUrl()}/activities/${id}/files/link`,
+    BATCH_ADD_FILES: (id: string) => `${getApiBaseUrl()}/activities/${id}/files/batch`,
+    UPDATE_FILE: (activityId: string, fileId: string) => `${getApiBaseUrl()}/activities/${activityId}/files/${fileId}`,
+    DELETE_FILE: (activityId: string, fileId: string) => `${getApiBaseUrl()}/activities/${activityId}/files/${fileId}`,
+    // Activity Participants
+    PARTICIPANTS: (id: string) => `${getApiBaseUrl()}/activities/${id}/participants`,
+    UPLOAD_ATTENDANCE: (id: string) => `${getApiBaseUrl()}/activities/${id}/participants/upload`,
+    DELETE_ATTENDANCE: (id: string) => `${getApiBaseUrl()}/activities/${id}/participants`,
+    SEND_INVITATIONS: (id: string) => `${getApiBaseUrl()}/activities/${id}/participants/send-invitations`,
+    RESEND_INVITATION: (id: string) => `${getApiBaseUrl()}/activities/${id}/participants/resend-invitation`,
+    RESPOND_INVITATION: (id: string) => `${getApiBaseUrl()}/activities/${id}/participants/respond`,
+    ATTENDANCE_TEMPLATE: `${getApiBaseUrl()}/activities/participants/template`,
+    ATTENDANCE_TEMPLATE_INFO: `${getApiBaseUrl()}/activities/participants/template-info`,
+    EXPORT_PARTICIPANTS: (id: string) => `${getApiBaseUrl()}/activities/${id}/participants/export`,
+    // Add participants from organization groups
+    ORGANIZATION_GROUPS: (id: string) => `${getApiBaseUrl()}/activities/${id}/participants/organization-groups`,
+    ADD_FROM_GROUP: (id: string) => `${getApiBaseUrl()}/activities/${id}/participants/add-from-group`
   },
 
   ORGANIZATIONS: {
@@ -70,7 +90,14 @@ export const API_CONFIG = {
     UPDATE: `${getApiBaseUrl()}/my-organization`,
     UPLOAD_AVATAR: `${getApiBaseUrl()}/my-organization/avatar`,
     DELETE_AVATAR: `${getApiBaseUrl()}/my-organization/avatar`,
-    UPLOAD_COVER: `${getApiBaseUrl()}/my-organization/cover`
+    UPLOAD_COVER: `${getApiBaseUrl()}/my-organization/cover`,
+    MEMBERS: `${getApiBaseUrl()}/my-organization/members`,
+    UPDATE_MEMBER_ROLE: (memberId: string) => `${getApiBaseUrl()}/my-organization/members/${memberId}/role`,
+    ADD_MEMBER: `${getApiBaseUrl()}/my-organization/members`,
+    REMOVE_MEMBER: (memberId: string) => `${getApiBaseUrl()}/my-organization/members/${memberId}`,
+    IMPORT_MEMBERS_TEMPLATE_INFO: `${getApiBaseUrl()}/my-organization/members/import/template-info`,
+    IMPORT_MEMBERS_TEMPLATE: `${getApiBaseUrl()}/my-organization/members/import/template`,
+    IMPORT_MEMBERS: `${getApiBaseUrl()}/my-organization/members/import`
   },
 
   // Import Excel
@@ -78,6 +105,15 @@ export const API_CONFIG = {
     TEMPLATE_INFO: `${getApiBaseUrl()}/import/template-info`,
     TEMPLATE: `${getApiBaseUrl()}/import/template`,
     IMPORT: `${getApiBaseUrl()}/import`
+  },
+
+  // File Types Management
+  FILE_TYPES: {
+    LIST: `${getApiBaseUrl()}/file-types`,
+    GET: (id: string) => `${getApiBaseUrl()}/file-types/${id}`,
+    CREATE: `${getApiBaseUrl()}/file-types`,
+    UPDATE: (id: string) => `${getApiBaseUrl()}/file-types/${id}`,
+    DELETE: (id: string) => `${getApiBaseUrl()}/file-types/${id}`
   },
 
   STATUS: `${getApiBaseUrl()}/status`,

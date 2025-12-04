@@ -1,12 +1,22 @@
-import { Card, Tag, Typography, Space, Button, List } from 'antd'
+import { Card, Tag, Typography, Space, Button, List, Badge } from 'antd'
 import {
   CalendarOutlined,
   EnvironmentOutlined,
   TeamOutlined,
   EyeOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { statusConfig, formatBudget } from '../../config/activityColumns'
+
+// Helper function to check if activity needs completion action
+const needsCompletionAction = (activity: Activity): boolean => {
+  if (activity.status !== 'COMPLETED') return false
+  if (!activity.result_summary || activity.result_summary.trim() === '') {
+    return true
+  }
+  return false
+}
 
 const { Text } = Typography
 
@@ -29,6 +39,20 @@ interface Activity {
   completion_percentage: number
   result_summary?: string
   created_at: string
+  // Relations (from API with eager loading)
+  activity_type?: {
+    id: string
+    name: string
+  }
+  activity_field?: {
+    id: string
+    name: string
+  }
+  lead_organization?: {
+    id: string
+    name: string
+    short_name?: string
+  }
 }
 
 interface ActivityCardProps {
@@ -64,9 +88,20 @@ function ActivityCard({
           </Space>
         }
         extra={
-          <Tag color={config.color} icon={config.icon} style={{ margin: 0 }}>
-            {config.label}
-          </Tag>
+          <Space size={4}>
+            {needsCompletionAction(activity) && (
+              <Badge
+                dot
+                offset={[-2, 2]}
+                title="Cần cập nhật kết quả"
+              >
+                <ExclamationCircleOutlined style={{ color: '#ff4d4f', fontSize: '14px' }} />
+              </Badge>
+            )}
+            <Tag color={config.color} icon={config.icon} style={{ margin: 0 }}>
+              {config.label}
+            </Tag>
+          </Space>
         }
         actions={[
           <Button
@@ -85,14 +120,24 @@ function ActivityCard({
           {/* Organization */}
           <Space size="small">
             <TeamOutlined style={{ color: '#1890ff', fontSize: '13px' }} />
-            <Text strong style={{ fontSize: '13px' }}>{getOrganizationName(activity.lead_organization_id)}</Text>
+            <Text strong style={{ fontSize: '13px' }}>
+              {activity.lead_organization
+                ? (activity.lead_organization.short_name && activity.lead_organization.short_name !== activity.lead_organization.name
+                    ? `${activity.lead_organization.short_name} - ${activity.lead_organization.name}`
+                    : activity.lead_organization.name)
+                : getOrganizationName(activity.lead_organization_id)}
+            </Text>
           </Space>
 
           {/* Type & Field */}
           <Space wrap size={4}>
-            <Tag color="blue" style={{ fontSize: '11px', margin: 0 }}>{getActivityTypeName(activity.activity_type_id)}</Tag>
-            {activity.activity_field_id && (
-              <Tag color="cyan" style={{ fontSize: '11px', margin: 0 }}>{getActivityFieldName(activity.activity_field_id)}</Tag>
+            <Tag color="blue" style={{ fontSize: '11px', margin: 0 }}>
+              {activity.activity_type?.name || getActivityTypeName(activity.activity_type_id)}
+            </Tag>
+            {(activity.activity_field || activity.activity_field_id) && (
+              <Tag color="cyan" style={{ fontSize: '11px', margin: 0 }}>
+                {activity.activity_field?.name || getActivityFieldName(activity.activity_field_id)}
+              </Tag>
             )}
           </Space>
 

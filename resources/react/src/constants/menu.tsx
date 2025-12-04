@@ -85,7 +85,7 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
         labelKey: 'menu.organizationProfile',
         descriptionKey: 'menu.organizationProfileDescription',
         tab: 'organization-profile',
-        roles: [UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
+        roles: [UserRole.GUEST, UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
         requiresOrganization: true,
       },
     ],
@@ -195,12 +195,14 @@ export type TranslateFunction = (key: string, options?: Record<string, unknown>)
  * @param organizationId - User's organization ID (optional)
  * @param organizationName - User's organization name (optional) - used to customize menu labels
  * @param t - Translation function from useTranslation hook
+ * @param organizationAvatarUrl - Organization's avatar URL (optional) - used for submenu icon
  */
 export const getMenuItemsForRole = (
   role: UserRole | string,
   organizationId?: string | null,
   organizationName?: string | null,
-  t?: TranslateFunction
+  t?: TranslateFunction,
+  organizationAvatarUrl?: string | null
 ): MenuProps['items'] => {
   const filterByRoleAndOrg = (items: MenuItem[]): MenuProps['items'] => {
     return items
@@ -217,11 +219,33 @@ export const getMenuItemsForRole = (
       })
       .map(item => {
         // Get translated label
-        let label: string
+        let label: string | React.ReactNode
         if (t) {
-          // Customize label for activities-menu with organization name
+          // Customize label for activities-menu with organization name and avatar
           if (item.key === 'activities-menu' && organizationName) {
-            label = t('menu.activitiesMenuWithOrg', { orgName: organizationName })
+            const orgLabel = t('menu.activitiesMenuWithOrg', { orgName: organizationName })
+            // Create label with organization avatar
+            if (organizationAvatarUrl) {
+              label = (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <img
+                    src={organizationAvatarUrl}
+                    alt={organizationName}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 6,
+                      objectFit: 'cover',
+                      border: '1px solid #e8e8e8',
+                      flexShrink: 0
+                    }}
+                  />
+                  <span style={{ lineHeight: 1.3 }}>{orgLabel}</span>
+                </span>
+              )
+            } else {
+              label = orgLabel
+            }
           } else {
             label = t(item.labelKey)
           }
@@ -232,7 +256,7 @@ export const getMenuItemsForRole = (
 
         const menuItem: any = {
           key: item.key,
-          icon: item.icon,
+          icon: item.key === 'activities-menu' && organizationAvatarUrl ? null : item.icon,
           label: label,
         }
 

@@ -26,8 +26,16 @@ import {
   UserOutlined,
   DeleteOutlined,
   EyeOutlined,
-  InboxOutlined
+  InboxOutlined,
+  CalendarOutlined,
+  StopOutlined,
+  CheckOutlined,
+  LoadingOutlined,
+  LockOutlined,
+  UnlockOutlined,
+  RollbackOutlined
 } from "@ant-design/icons"
+import { message } from "antd"
 import { useNavigate } from "react-router-dom"
 import dayjs from "dayjs"
 import relativeTime from "dayjs/plugin/relativeTime"
@@ -36,7 +44,8 @@ import "../styles/NotificationDropdown.css"
 import {
   getNotificationList,
   readAllNotifications,
-  readNotification
+  readNotification,
+  respondToInvitation
 } from "@/services/notificationApi"
 
 dayjs.extend(relativeTime)
@@ -51,13 +60,20 @@ export type NotificationType =
   | "activity_submitted"
   | "activity_pending_approval"
   | "activity_approved"
+  | "activity_approved_confirm"
   | "activity_rejected_draft"
   | "activity_rejected_deleted"
   | "department_activity_approved"
   | "activity_deadline_reminder"
   | "activity_overdue"
   | "activity_completed"
+  | "activity_completed_with_result"
   | "activity_locked"
+  | "activity_unlocked"
+  | "activity_invitation"
+  | "activity_postponed"
+  | "activity_cancelled"
+  | "activity_withdrawn"
   | "system_announcement"
   | "user_role_changed"
 
@@ -80,6 +96,8 @@ export interface NotificationData {
   activity_code?: string
   organization_id?: string
   organization_name?: string
+  organization_avatar?: string
+  organization_short_name?: string
   old_status?: string
   new_status?: string
   reason?: string
@@ -88,6 +106,10 @@ export interface NotificationData {
   days_overdue?: number
   old_role?: string
   new_role?: string
+  invitation_status?: 'pending' | 'accepted' | 'declined'
+  start_date?: string
+  end_date?: string
+  location?: string
   [key: string]: any
 }
 
@@ -371,6 +393,7 @@ const getNotificationIcon = (
       <ClockCircleOutlined style={{ color: colorValue }} />
     ),
     activity_approved: <CheckCircleOutlined style={{ color: colorValue }} />,
+    activity_approved_confirm: <CheckOutlined style={{ color: colorValue }} />,
     activity_rejected_draft: (
       <CloseCircleOutlined style={{ color: colorValue }} />
     ),
@@ -385,7 +408,13 @@ const getNotificationIcon = (
       <ExclamationCircleOutlined style={{ color: colorValue }} />
     ),
     activity_completed: <CheckCircleOutlined style={{ color: colorValue }} />,
-    activity_locked: <EyeOutlined style={{ color: colorValue }} />,
+    activity_completed_with_result: <CheckCircleOutlined style={{ color: colorValue }} />,
+    activity_locked: <LockOutlined style={{ color: colorValue }} />,
+    activity_unlocked: <UnlockOutlined style={{ color: colorValue }} />,
+    activity_invitation: <CalendarOutlined style={{ color: colorValue }} />,
+    activity_postponed: <ClockCircleOutlined style={{ color: colorValue }} />,
+    activity_cancelled: <StopOutlined style={{ color: colorValue }} />,
+    activity_withdrawn: <RollbackOutlined style={{ color: colorValue }} />,
     system_announcement: <SettingOutlined style={{ color: colorValue }} />,
     user_role_changed: <UserOutlined style={{ color: colorValue }} />
   }
@@ -441,6 +470,8 @@ export default function NotificationDropdown() {
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>("all")
   const [loading, setLoading] = useState(false)
+  const [initialLoaded, setInitialLoaded] = useState(false)
+  const [respondingIds, setRespondingIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetNotifiacationList()
@@ -448,9 +479,13 @@ export default function NotificationDropdown() {
 
   const fetNotifiacationList = async () => {
     setLoading(true)
-    const { data } = await getNotificationList()
-    setNotifications(data)
-    setLoading(false)
+    try {
+      const { data } = await getNotificationList()
+      setNotifications(data)
+    } finally {
+      setLoading(false)
+      setInitialLoaded(true)
+    }
   }
 
   // Count unread notifications
@@ -520,6 +555,87 @@ export default function NotificationDropdown() {
         n.id === id ? { ...n, archived_at: new Date().toISOString() } : n
       )
     )
+  }
+
+  // Handle invitation response (accept/decline)
+  const handleInvitationResponse = async (
+    notification: Notification,
+    response: 'accepted' | 'declined',
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation()
+
+    const activityId = notification.data?.activity_id
+    if (!activityId) {
+      message.error('Không tìm thấy thông tin hoạt động')
+      return
+    }
+
+    setRespondingIds(prev => new Set(prev).add(notification.id))
+
+    try {
+      await respondToInvitation(activityId, response)
+
+      // Update ALL notifications for this activity to reflect the response
+      setNotifications(prev =>
+        prev.map(n =>
+          // Update current notification AND all other invitation notifications for the same activity
+          (n.id === notification.id ||
+           (n.notification_type === 'activity_invitation' && n.data?.activity_id === activityId))
+            ? {
+                ...n,
+                data: { ...n.data, invitation_status: response },
+                is_read: true,
+                read_at: new Date().toISOString()
+              }
+            : n
+        )
+      )
+
+      message.success(
+        response === 'accepted'
+          ? 'Đã xác nhận tham gia hoạt động'
+          : 'Đã từ chối tham gia hoạt động'
+      )
+    } catch (error: any) {
+      // Handle already responded case (409 Conflict)
+      if (error.already_responded) {
+        // Update ALL notifications for this activity to reflect the current status from server
+        setNotifications(prev =>
+          prev.map(n =>
+            (n.id === notification.id ||
+             (n.notification_type === 'activity_invitation' && n.data?.activity_id === activityId))
+              ? {
+                  ...n,
+                  data: { ...n.data, invitation_status: error.current_status },
+                  is_read: true,
+                  read_at: new Date().toISOString()
+                }
+              : n
+          )
+        )
+        message.warning(error.message || 'Bạn đã phản hồi lời mời này rồi')
+      } else {
+        message.error(error.message || 'Không thể phản hồi lời mời')
+      }
+    } finally {
+      setRespondingIds(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(notification.id)
+        return newSet
+      })
+    }
+  }
+
+  // Navigate to activity detail
+  const handleViewActivityDetail = (notification: Notification, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const activityId = notification.data?.activity_id
+    if (activityId) {
+      markAsRead(notification.id)
+      navigate(`/activities/${activityId}`)
+      setOpen(false)
+    }
   }
 
   // Handle notification click
@@ -640,6 +756,50 @@ export default function NotificationDropdown() {
             dataSource={filteredNotifications}
             renderItem={(notification) => {
               const priorityConfig = getPriorityTag(notification.priority)
+              const isInvitation = notification.notification_type === 'activity_invitation'
+              const invitationStatus = notification.data?.invitation_status
+              const isRespondingToThis = respondingIds.has(notification.id)
+              const hasOrgAvatar = notification.data?.organization_avatar
+              const isDepartmentRelated = [
+                'department_activity_approved',
+                'activity_invitation',
+                'activity_postponed',
+                'activity_cancelled',
+                'activity_approved',
+                'activity_locked',
+                'activity_unlocked',
+                'activity_completed_with_result',
+                'activity_rejected_deleted',
+                'activity_rejected_draft'
+              ].includes(notification.notification_type)
+
+              // Render avatar: organization avatar for department-related, otherwise actor or icon
+              const renderAvatar = () => {
+                if (isDepartmentRelated && hasOrgAvatar) {
+                  return (
+                    <Avatar
+                      src={notification.data?.organization_avatar}
+                      size={40}
+                      style={{ border: '1px solid #f0f0f0' }}
+                    >
+                      {notification.data?.organization_short_name?.[0] || 'O'}
+                    </Avatar>
+                  )
+                }
+                if (notification.actor?.avatar) {
+                  return <Avatar src={notification.actor.avatar} size={40} />
+                }
+                return (
+                  <Avatar
+                    icon={getNotificationIcon(
+                      notification.notification_type,
+                      notification.color
+                    )}
+                    size={40}
+                    style={{ backgroundColor: "#f5f5f5" }}
+                  />
+                )
+              }
 
               return (
                 <List.Item
@@ -648,25 +808,12 @@ export default function NotificationDropdown() {
                   } priority-${notification.priority}`}
                   onClick={() => handleNotificationClick(notification)}
                   style={{
-                    cursor: notification.action_url ? "pointer" : "default",
+                    cursor: notification.action_url || notification.data?.activity_id ? "pointer" : "default",
                     padding: "12px 16px",
                     borderBottom: "1px solid #f0f0f0"
                   }}>
                   <List.Item.Meta
-                    avatar={
-                      notification.actor?.avatar ? (
-                        <Avatar src={notification.actor.avatar} size={40} />
-                      ) : (
-                        <Avatar
-                          icon={getNotificationIcon(
-                            notification.notification_type,
-                            notification.color
-                          )}
-                          size={40}
-                          style={{ backgroundColor: "#f5f5f5" }}
-                        />
-                      )
-                    }
+                    avatar={renderAvatar()}
                     title={
                       <div
                         style={{
@@ -690,6 +837,18 @@ export default function NotificationDropdown() {
                                 padding: "0 4px"
                               }}>
                               {priorityConfig.label}
+                            </Tag>
+                          )}
+                          {/* Show invitation status badge */}
+                          {isInvitation && invitationStatus && invitationStatus !== 'pending' && (
+                            <Tag
+                              color={invitationStatus === 'accepted' ? 'green' : 'red'}
+                              style={{
+                                marginLeft: "8px",
+                                fontSize: "11px",
+                                padding: "0 4px"
+                              }}>
+                              {invitationStatus === 'accepted' ? 'Đã xác nhận' : 'Đã từ chối'}
                             </Tag>
                           )}
                         </div>
@@ -721,6 +880,21 @@ export default function NotificationDropdown() {
                         <Text style={{ fontSize: "13px", color: "#595959" }}>
                           {notification.message}
                         </Text>
+
+                        {/* Show activity info for invitations */}
+                        {isInvitation && notification.data?.start_date && (
+                          <div style={{ marginTop: "6px", fontSize: "12px", color: "#8c8c8c" }}>
+                            <CalendarOutlined style={{ marginRight: 4 }} />
+                            {dayjs(notification.data.start_date).format('DD/MM/YYYY HH:mm')}
+                            {notification.data.end_date && (
+                              <> - {dayjs(notification.data.end_date).format('DD/MM/YYYY HH:mm')}</>
+                            )}
+                            {notification.data.location && (
+                              <span style={{ marginLeft: 8 }}>📍 {notification.data.location}</span>
+                            )}
+                          </div>
+                        )}
+
                         <div
                           style={{
                             marginTop: "6px",
@@ -750,6 +924,46 @@ export default function NotificationDropdown() {
                             </Tag>
                           )}
                         </div>
+
+                        {/* Action buttons for activity notifications */}
+                        {notification.data?.activity_id && (
+                          <div style={{ marginTop: "10px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                            {/* View detail button */}
+                            <Button
+                              type="default"
+                              size="small"
+                              icon={<EyeOutlined />}
+                              onClick={(e) => handleViewActivityDetail(notification, e)}
+                            >
+                              Xem chi tiết
+                            </Button>
+
+                            {/* Accept/Decline buttons for pending invitations */}
+                            {isInvitation && (!invitationStatus || invitationStatus === 'pending') && (
+                              <>
+                                <Button
+                                  type="primary"
+                                  size="small"
+                                  icon={isRespondingToThis ? <LoadingOutlined /> : <CheckOutlined />}
+                                  onClick={(e) => handleInvitationResponse(notification, 'accepted', e)}
+                                  disabled={isRespondingToThis}
+                                  style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+                                >
+                                  Xác nhận
+                                </Button>
+                                <Button
+                                  danger
+                                  size="small"
+                                  icon={isRespondingToThis ? <LoadingOutlined /> : <CloseCircleOutlined />}
+                                  onClick={(e) => handleInvitationResponse(notification, 'declined', e)}
+                                  disabled={isRespondingToThis}
+                                >
+                                  Từ chối
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                     }
                   />
@@ -782,7 +996,15 @@ export default function NotificationDropdown() {
       onOpenChange={setOpen}
       placement="bottomRight"
       overlayStyle={{ width: "480px", maxWidth: "90vw" }}>
-      <Badge count={unreadCount} offset={[-4, 4]} size="small">
+      <Badge
+        count={initialLoaded ? unreadCount : 0}
+        offset={[-4, 4]}
+        size="small"
+        style={{ transition: 'none' }}
+        styles={{
+          indicator: { transition: 'none', animation: 'none' }
+        }}
+      >
         <Button
           type="text"
           icon={<BellOutlined style={{ fontSize: "18px" }} />}

@@ -58,6 +58,13 @@ function App() {
           </ProtectedRoute>
         } />
 
+        {/* Activity Detail - renders inside Dashboard with sidebar */}
+        <Route path="/activities/:id" element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        } />
+
         {/* Home - redirect based on auth status */}
         <Route path="/" element={
           token ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />

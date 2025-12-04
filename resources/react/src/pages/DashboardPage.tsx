@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, useParams } from 'react-router-dom'
 import { Layout, Space, Typography, Button, Badge } from 'antd'
 import { Menu } from 'antd'
 import { MenuOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons'
@@ -41,6 +41,7 @@ function DashboardPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
+  const { id: activityId } = useParams<{ id: string }>() // For /activities/:id route
 
   // Get initial collapsed state from localStorage
   const getInitialCollapsed = () => {
@@ -50,7 +51,7 @@ function DashboardPage() {
 
   const [collapsed, setCollapsed] = useState<boolean>(getInitialCollapsed())
   const { user, isLoading } = useAuth()
-  const [badgeCounts, setBadgeCounts] = useState<BadgeCounts>({ pending_approval: 0, draft: 0 })
+  const [badgeCounts, setBadgeCounts] = useState<BadgeCounts>({ pending_approval: 0, draft: 0, needs_action: 0 })
 
   // Fetch badge counts
   const fetchBadgeCounts = useCallback(async () => {
@@ -112,7 +113,7 @@ function DashboardPage() {
   // Build menu items based on user role and organization
   const menuItems: MenuProps['items'] = useMemo(() => {
     if (!user) return []
-    const items = getMenuItemsForRole(user.role, user.organization_id, user.organization_name, t)
+    const items = getMenuItemsForRole(user.role, user.organization_id, user.organization_name, t, user.organization_avatar_url)
 
     // Add badges to menu items
     const addBadgesToItems = (menuList: MenuProps['items']): MenuProps['items'] => {
@@ -123,14 +124,17 @@ function DashboardPage() {
 
         let newItem = { ...item }
 
-        // Add badge for "Quản lý hoạt động" - draft count for STAFF
-        if (item.key === 'activity-management' && badgeCounts.draft > 0) {
-          newItem.label = (
-            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-              <span>{item.label}</span>
-              <Badge count={badgeCounts.draft} size="small" style={{ backgroundColor: '#ff4d4f' }} />
-            </span>
-          )
+        // Add badge for "Quản lý hoạt động" - draft + needs_action count
+        if (item.key === 'activity-management') {
+          const activityBadgeCount = badgeCounts.draft + badgeCounts.needs_action
+          if (activityBadgeCount > 0) {
+            newItem.label = (
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <span>{item.label}</span>
+                <Badge count={activityBadgeCount} size="small" style={{ backgroundColor: '#ff4d4f' }} />
+              </span>
+            )
+          }
         }
 
         // Add badge for "Chờ phê duyệt" - pending approval count for MANAGER+
@@ -147,12 +151,12 @@ function DashboardPage() {
 
         // Add total badge for activities-menu parent
         if (item.key === 'activities-menu') {
-          const totalBadge = badgeCounts.draft + badgeCounts.pending_approval
+          const totalBadge = badgeCounts.draft + badgeCounts.pending_approval + badgeCounts.needs_action
           if (totalBadge > 0) {
             newItem.label = (
               <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                <span>{item.label}</span>
-                <Badge count={totalBadge} size="small" style={{ backgroundColor: '#ff4d4f' }} />
+                {item.label}
+                <Badge count={totalBadge} size="small" style={{ backgroundColor: '#ff4d4f', marginLeft: 8 }} />
               </span>
             )
           }
@@ -232,6 +236,11 @@ function DashboardPage() {
 
   // Render content based on selected menu
   const renderContent = () => {
+    // If accessing /activities/:id route, show activity detail
+    if (activityId) {
+      return <AllActivitiesList initialActivityId={activityId} />
+    }
+
     const menuItem = getMenuItemByKey(selectedMenu)
 
     switch(selectedMenu) {
