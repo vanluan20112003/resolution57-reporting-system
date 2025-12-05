@@ -546,13 +546,14 @@ class ActivityController extends Controller
             Notification::create([
                 "user_id" => $user->id,
                 "title" => "Tạo hoạt động thành công",
-                "message" => "Bạn đã tạo hoạt động {$code} thành công",
+                "message" => "Bạn đã tạo hoạt động {$activity->title} thành công",
                 "category" => "activity",
                 "notification_type" => "activity_created",
                 "icon" => "PlusCircleOutlined",
                 "color" => "primary",
                 "action_url" => "/dashboard?tab=activity-management",
                 "actor_id" => $user->id,
+                "related_organization_id" => $organizationId,
                 "is_read" => false,
                 "priority" => "normal"
             ]);
