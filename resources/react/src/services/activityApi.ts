@@ -193,6 +193,7 @@ export interface ActivityFilters {
   status?: ActivityStatus
   activity_type_id?: string
   activity_field_id?: string
+  organization_id?: string
   search?: string
   per_page?: number
   page?: number
@@ -262,6 +263,7 @@ export const getActivities = async (filters?: ActivityFilters): Promise<Activity
   if (filters?.status) params.append('status', filters.status)
   if (filters?.activity_type_id) params.append('activity_type_id', filters.activity_type_id)
   if (filters?.activity_field_id) params.append('activity_field_id', filters.activity_field_id)
+  if (filters?.organization_id) params.append('organization_id', filters.organization_id)
   if (filters?.search) params.append('search', filters.search)
   if (filters?.per_page) params.append('per_page', String(filters.per_page))
   if (filters?.page) params.append('page', String(filters.page))

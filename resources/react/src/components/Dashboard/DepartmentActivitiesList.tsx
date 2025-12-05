@@ -59,13 +59,16 @@ function DepartmentActivitiesList() {
   const { user } = useAuth()
   const hasOrganization = user?.organization_id
 
-  // Fetch activities
+  // Fetch activities - always filter by user's organization
   const fetchActivities = useCallback(async () => {
+    if (!user?.organization_id) return // Don't fetch if no organization
+
     setLoading(true)
     try {
       const response = await activityApi.getActivities({
         status: statusFilter,
         activity_type_id: typeFilter,
+        organization_id: user.organization_id, // Always filter by user's organization
         search: searchText || undefined,
         page: pagination.current,
         per_page: pagination.pageSize,
@@ -81,7 +84,7 @@ function DepartmentActivitiesList() {
     } finally {
       setLoading(false)
     }
-  }, [statusFilter, typeFilter, searchText, pagination.current, pagination.pageSize])
+  }, [user?.organization_id, statusFilter, typeFilter, searchText, pagination.current, pagination.pageSize])
 
   // Fetch form data (dropdowns)
   const fetchFormData = async () => {

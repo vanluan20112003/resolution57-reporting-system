@@ -275,7 +275,11 @@ class ActivityController extends Controller
             // Security: Filter by organization for STAFF/MANAGER
             $userOrgId = $this->getUserOrganizationId($request);
             if ($userOrgId) {
+                // STAFF/MANAGER: Always filter by their organization
                 $query->where('lead_organization_id', $userOrgId);
+            } elseif ($request->has('organization_id') && $request->organization_id) {
+                // ADMIN/OPERATOR: Can optionally filter by specific organization
+                $query->where('lead_organization_id', $request->organization_id);
             }
 
             // Filter by status
