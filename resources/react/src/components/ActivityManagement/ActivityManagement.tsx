@@ -123,8 +123,10 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   const canApprove = ['MANAGER', 'OPERATOR', 'ADMIN'].includes(currentUser?.role || '')
   const isAdmin = ['OPERATOR', 'ADMIN'].includes(currentUser?.role || '')
 
-  // Fetch activities
+  // Fetch activities - always filter by user's organization
   const fetchActivities = useCallback(async () => {
+    if (!currentUser?.organization_id) return // Don't fetch if no organization
+
     setLoading(true)
     try {
       // For approval view, default to PENDING_APPROVAL status
@@ -134,6 +136,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
         status: effectiveStatus,
         activity_type_id: filterValues.activity_type_id,
         activity_field_id: filterValues.activity_field_id,
+        organization_id: currentUser.organization_id, // Always filter by user's organization
         search: filterValues.search || undefined,
         start_date: filterValues.date_range?.[0]?.format('YYYY-MM-DD'),
         end_date: filterValues.date_range?.[1]?.format('YYYY-MM-DD'),
@@ -158,7 +161,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     } finally {
       setLoading(false)
     }
-  }, [filterValues, pagination.current, pagination.pageSize, showApprovalView])
+  }, [currentUser?.organization_id, filterValues, pagination.current, pagination.pageSize, showApprovalView])
 
   // Fetch form data (dropdowns)
   const fetchFormData = async () => {
