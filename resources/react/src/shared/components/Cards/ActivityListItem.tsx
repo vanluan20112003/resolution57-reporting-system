@@ -5,6 +5,7 @@ import {
   TeamOutlined,
   EyeOutlined,
   ExclamationCircleOutlined,
+  UserOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { statusConfig } from '../../config/activityColumns'
@@ -29,6 +30,7 @@ interface Activity {
   activity_field_id: string
   status: string
   lead_organization_id: string
+  leader_names?: string[]
   start_date: string
   end_date: string
   budget: number
@@ -176,6 +178,16 @@ export function ActivityListItem({
             </Col>
           )}
         </Row>
+
+        {/* Leader Names */}
+        {activity.leader_names && activity.leader_names.length > 0 && (
+          <Space size={4}>
+            <UserOutlined style={{ color: '#722ed1' }} />
+            <Text style={{ fontSize: '13px' }}>
+              <Text strong>Người chủ trì:</Text> {activity.leader_names.join(', ')}
+            </Text>
+          </Space>
+        )}
 
         {/* Action Button */}
         <Button type="primary" icon={<EyeOutlined />} onClick={() => onViewDetail(activity)}>

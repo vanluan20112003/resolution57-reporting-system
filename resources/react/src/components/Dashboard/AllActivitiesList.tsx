@@ -9,6 +9,7 @@ import {
   CheckOutlined,
   CloseOutlined,
   MailOutlined,
+  UserOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import 'dayjs/locale/vi'
@@ -337,6 +338,19 @@ function AllActivitiesList({ initialActivityId }: AllActivitiesListProps) {
           </Descriptions.Item>
           <Descriptions.Item label="Lĩnh vực">
             {selectedActivity.activity_field?.name || (selectedActivity.activity_field_id ? getActivityFieldName(selectedActivity.activity_field_id) : 'N/A')}
+          </Descriptions.Item>
+          <Descriptions.Item label="Người chủ trì" span={2}>
+            {selectedActivity.leader_names && selectedActivity.leader_names.length > 0 ? (
+              <Space wrap size={[4, 4]}>
+                {selectedActivity.leader_names.map((name, index) => (
+                  <Tag key={index} icon={<UserOutlined />} color="blue">
+                    {name}
+                  </Tag>
+                ))}
+              </Space>
+            ) : (
+              <Text type="secondary">Chưa có thông tin</Text>
+            )}
           </Descriptions.Item>
           <Descriptions.Item label="Mô tả" span={2}>
             {selectedActivity.description ? (

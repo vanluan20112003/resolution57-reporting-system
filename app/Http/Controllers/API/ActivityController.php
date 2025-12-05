@@ -461,6 +461,7 @@ class ActivityController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
+            'code' => 'nullable|string|max:50|unique:activities,code',
             'title' => 'required|string|max:500',
             'description' => 'nullable|string',
             'activity_type_id' => 'required|uuid|exists:activity_types,id',
@@ -471,9 +472,13 @@ class ActivityController extends Controller
             'budget_source' => 'nullable|string|max:255',
             'location' => 'nullable|string|max:500',
             'external_url' => 'nullable|url|max:1000',
+            'leader_names' => 'nullable|array',
+            'leader_names.*' => 'string|max:255',
             'kpi_ids' => 'nullable|array',
             'kpi_ids.*' => 'uuid|exists:kpis,id',
         ], [
+            'code.max' => 'Mã hoạt động không được vượt quá 50 ký tự',
+            'code.unique' => 'Mã hoạt động đã tồn tại',
             'title.required' => 'Tên hoạt động là bắt buộc',
             'title.max' => 'Tên hoạt động không được vượt quá 500 ký tự',
             'activity_type_id.required' => 'Loại hoạt động là bắt buộc',
@@ -511,8 +516,8 @@ class ActivityController extends Controller
                 ], 400);
             }
 
-            // Generate activity code
-            $code = $this->generateActivityCode();
+            // Use provided code or generate one
+            $code = $request->code ?: $this->generateActivityCode();
 
             $activity = Activity::create([
                 'code' => $code,
@@ -522,6 +527,7 @@ class ActivityController extends Controller
                 'activity_field_id' => $request->activity_field_id,
                 'status' => self::STATUS_DRAFT,
                 'lead_organization_id' => $organizationId,
+                'leader_names' => $request->leader_names,
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'budget' => $request->budget,
@@ -766,6 +772,8 @@ class ActivityController extends Controller
                 'budget_source' => 'nullable|string|max:255',
                 'location' => 'nullable|string|max:500',
                 'external_url' => 'nullable|url|max:1000',
+                'leader_names' => 'nullable|array',
+                'leader_names.*' => 'string|max:255',
                 'completion_percentage' => 'nullable|integer|min:0|max:100',
                 'result_summary' => 'nullable|string',
                 'kpi_ids' => 'nullable|array',
@@ -804,6 +812,7 @@ class ActivityController extends Controller
                 'budget_source',
                 'location',
                 'external_url',
+                'leader_names',
                 'completion_percentage',
                 'result_summary',
             ]));

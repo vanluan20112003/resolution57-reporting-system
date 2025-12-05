@@ -782,6 +782,17 @@ function ActivityDetailModal({
           <Descriptions.Item label="Lĩnh vực">
             {getActivityFieldName(activity.activity_field_id)}
           </Descriptions.Item>
+          <Descriptions.Item label="Người chủ trì" span={2}>
+            {activity.leader_names && activity.leader_names.length > 0 ? (
+              <Space wrap size={[4, 4]}>
+                {activity.leader_names.map((name, index) => (
+                  <Tag key={index} icon={<UserOutlined />} color="blue">
+                    {name}
+                  </Tag>
+                ))}
+              </Space>
+            ) : '-'}
+          </Descriptions.Item>
           <Descriptions.Item label="Thời gian bắt đầu">
             {formatDate(activity.start_date)}
           </Descriptions.Item>

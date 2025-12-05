@@ -23,6 +23,7 @@ export interface Activity {
   activity_field_id?: string
   status: ActivityStatus
   lead_organization_id: string
+  leader_names?: string[]
   start_date?: string
   end_date?: string
   actual_start_date?: string
@@ -153,10 +154,12 @@ export interface ActivityFormDataResponse {
 }
 
 export interface CreateActivityRequest {
+  code?: string
   title: string
   description?: string
   activity_type_id: string
   activity_field_id?: string
+  leader_names?: string[]
   start_date?: string
   end_date?: string
   budget?: number
@@ -171,6 +174,7 @@ export interface UpdateActivityRequest {
   description?: string
   activity_type_id?: string
   activity_field_id?: string
+  leader_names?: string[]
   status?: ActivityStatus
   start_date?: string
   end_date?: string

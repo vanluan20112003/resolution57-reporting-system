@@ -5,6 +5,7 @@ import {
   TeamOutlined,
   EyeOutlined,
   ExclamationCircleOutlined,
+  UserOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { statusConfig, formatBudget } from '../../config/activityColumns'
@@ -29,6 +30,7 @@ interface Activity {
   activity_field_id: string
   status: string
   lead_organization_id: string
+  leader_names?: string[]
   start_date: string
   end_date: string
   actual_start_date: string | null
@@ -140,6 +142,16 @@ function ActivityCard({
               </Tag>
             )}
           </Space>
+
+          {/* Leader Names */}
+          {activity.leader_names && activity.leader_names.length > 0 && (
+            <Space size="small">
+              <UserOutlined style={{ color: '#722ed1', fontSize: '12px' }} />
+              <Text style={{ fontSize: '12px' }}>
+                {activity.leader_names.join(', ')}
+              </Text>
+            </Space>
+          )}
 
           {/* Date */}
           <Space size="small">

@@ -25,6 +25,7 @@ class Activity extends Model
         'activity_field_id',
         'status',
         'lead_organization_id',
+        'leader_names',
         'start_date',
         'end_date',
         'actual_start_date',
@@ -54,6 +55,7 @@ class Activity extends Model
         'is_locked' => 'boolean',
         'locked_at' => 'datetime',
         'completion_percentage' => 'integer',
+        'leader_names' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

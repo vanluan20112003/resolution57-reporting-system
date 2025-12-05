@@ -89,6 +89,7 @@ function ActivityWizardModal({
   const [loading, setLoading] = useState(false)
   const [form] = Form.useForm()
   const [selectedKpiIds, setSelectedKpiIds] = useState<string[]>([])
+  const [leaderNames, setLeaderNames] = useState<string[]>([])
 
   // Files state
   const [files, setFiles] = useState<ActivityFile[]>([])
@@ -140,7 +141,9 @@ function ActivityWizardModal({
         // Editing existing activity
         const kpiIds = activity.kpis?.map(k => k.id) || []
         setSelectedKpiIds(kpiIds)
+        setLeaderNames(activity.leader_names || [])
         form.setFieldsValue({
+          code: activity.code,
           title: activity.title,
           description: activity.description,
           activity_type_id: activity.activity_type_id,
@@ -162,6 +165,7 @@ function ActivityWizardModal({
       } else {
         // Creating new activity
         setSelectedKpiIds([])
+        setLeaderNames([])
         setFiles([])
         form.resetFields()
       }
@@ -372,6 +376,7 @@ function ActivityWizardModal({
       const end_date = values.end_date ? values.end_date.format('YYYY-MM-DD HH:mm:ss') : undefined
 
       const requestData = {
+        code: values.code || undefined,
         title: values.title,
         description: values.description,
         activity_type_id: values.activity_type_id,
@@ -382,6 +387,7 @@ function ActivityWizardModal({
         budget_source: values.budget_source,
         location: values.location,
         external_url: values.external_url,
+        leader_names: leaderNames.length > 0 ? leaderNames : undefined,
         kpi_ids: selectedKpiIds,
       }
 
@@ -468,6 +474,7 @@ function ActivityWizardModal({
     setFiles([])
     setPendingFiles([])
     setSelectedKpiIds([])
+    setLeaderNames([])
     setAttendanceFile(null)
     setParticipants([])
     setParticipantsSummary(null)
@@ -528,15 +535,29 @@ function ActivityWizardModal({
             />
           )}
 
-          {/* Title */}
-          <Form.Item
-            name="title"
-            label="Tên hoạt động"
-            rules={[{ required: true, message: 'Vui lòng nhập tên hoạt động' }]}
-            style={{ marginBottom: 12 }}
-          >
-            <Input placeholder="Nhập tên hoạt động" maxLength={500} />
-          </Form.Item>
+          {/* Code & Title */}
+          <Row gutter={12}>
+            <Col span={8}>
+              <Form.Item
+                name="code"
+                label="Mã hoạt động"
+                style={{ marginBottom: 12 }}
+                tooltip="Để trống để tự động tạo mã (VD: ACT-2025-001)"
+              >
+                <Input placeholder="Nhập mã hoặc để trống" maxLength={50} disabled={!!activity} />
+              </Form.Item>
+            </Col>
+            <Col span={16}>
+              <Form.Item
+                name="title"
+                label="Tên hoạt động"
+                rules={[{ required: true, message: 'Vui lòng nhập tên hoạt động' }]}
+                style={{ marginBottom: 12 }}
+              >
+                <Input placeholder="Nhập tên hoạt động" maxLength={500} />
+              </Form.Item>
+            </Col>
+          </Row>
 
           {/* Type & Field */}
           <Row gutter={12}>
@@ -622,6 +643,23 @@ function ActivityWizardModal({
               {calculateDuration()}
             </div>
           )}
+
+          {/* Leader Names */}
+          <Form.Item label="Người chủ trì" style={{ marginBottom: 12 }}>
+            <Select
+              mode="tags"
+              style={{ width: '100%' }}
+              placeholder="Nhập tên người chủ trì và nhấn Enter để thêm"
+              value={leaderNames}
+              onChange={setLeaderNames}
+              tokenSeparators={[',']}
+              notFoundContent={null}
+              suffixIcon={<TeamOutlined />}
+            />
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              Nhập tên và nhấn Enter hoặc dấu phẩy (,) để thêm nhiều người chủ trì
+            </Text>
+          </Form.Item>
 
           {/* Location, Budget, Budget Source */}
           <Row gutter={12}>
