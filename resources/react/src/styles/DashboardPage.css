@@ -215,6 +215,21 @@
   font-size: 18px;
 }
 
+/* Ensure organization avatar icon is centered in menu */
+.dashboard-sider .ant-menu-submenu-title .ant-menu-item-icon img,
+.dashboard-sider .ant-menu-item .ant-menu-item-icon img {
+  display: block !important;
+  margin: 0 auto;
+}
+
+/* Fix icon container alignment for submenu titles */
+.dashboard-sider .ant-menu-submenu-title .ant-menu-item-icon {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+}
+
 /* Submenu Styles */
 .dashboard-sider .ant-menu-submenu {
   margin: var(--spacing-xs) 0;

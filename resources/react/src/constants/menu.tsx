@@ -230,17 +230,27 @@ export const getMenuItemsForRole = (
             // Create icon with organization avatar (for collapsed state)
             if (organizationAvatarUrl) {
               icon = (
-                <img
-                  src={organizationAvatarUrl}
-                  alt={organizationName}
+                <span
                   style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 4,
-                    objectFit: 'cover',
-                    border: '1px solid #e8e8e8',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 18,
+                    height: 18,
                   }}
-                />
+                >
+                  <img
+                    src={organizationAvatarUrl}
+                    alt={organizationName}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: 3,
+                      objectFit: 'cover',
+                      border: '1px solid #e8e8e8',
+                    }}
+                  />
+                </span>
               )
             }
             // else: keep default icon (ApartmentOutlined) from item.icon
