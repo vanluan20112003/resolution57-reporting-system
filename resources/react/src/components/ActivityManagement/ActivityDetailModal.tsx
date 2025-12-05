@@ -184,6 +184,7 @@ function ActivityDetailModal({
         description: activity.description,
         activity_type_id: activity.activity_type_id,
         activity_field_id: activity.activity_field_id,
+        leader_names: activity.leader_names || [],
         start_date: activity.start_date ? dayjs(activity.start_date) : undefined,
         end_date: activity.end_date ? dayjs(activity.end_date) : undefined,
         budget: activity.budget,
@@ -500,6 +501,7 @@ function ActivityDetailModal({
           description: values.description,
           activity_type_id: values.activity_type_id,
           activity_field_id: values.activity_field_id,
+          leader_names: values.leader_names || [],
           start_date,
           end_date,
           budget: values.budget,
@@ -1006,6 +1008,22 @@ function ActivityDetailModal({
                 </Form.Item>
               </Col>
             </Row>
+
+            {/* Leader Names - disabled for postponed */}
+            <Form.Item
+              name="leader_names"
+              label="Người chủ trì"
+              style={{ marginBottom: 12 }}
+              tooltip="Nhập tên người chủ trì, nhấn Enter để thêm nhiều người"
+            >
+              <Select
+                mode="tags"
+                placeholder="Nhập tên người chủ trì và nhấn Enter"
+                tokenSeparators={[',']}
+                disabled={isPostponed}
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
 
             {/* Start Date & End Date with Time - EDITABLE for postponed */}
             <Row gutter={12}>
