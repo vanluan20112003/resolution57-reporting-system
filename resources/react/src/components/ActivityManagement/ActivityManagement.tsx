@@ -500,8 +500,8 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   // Check if activity can be postponed/cancelled
   // STAFF can only postpone/cancel their own activities
   // MANAGER, OPERATOR, ADMIN can postpone/cancel any activity in their scope
+  // Note: is_locked does NOT prevent postpone/cancel - this allows fixing mistakes
   const canPostponeOrCancel = (activity: Activity): boolean => {
-    if (activity.is_locked) return false
     const allowedStatuses: ActivityStatus[] = ['APPROVED', 'IN_PROGRESS', 'COMPLETED']
     if (!allowedStatuses.includes(activity.status)) return false
 
