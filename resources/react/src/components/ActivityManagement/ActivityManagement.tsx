@@ -43,11 +43,13 @@ import {
   PauseCircleOutlined,
   StopOutlined,
   UndoOutlined,
+  UserSwitchOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import { useAuth } from '../../shared/hooks'
 import * as activityApi from '../../services/activityApi'
+import { getMyOrganizationMembers, OrganizationMember } from '../../services/organizationApi'
 import type {
   Activity,
   ActivityStatus,
@@ -101,6 +103,14 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelActivityId, setCancelActivityId] = useState<string | null>(null)
+
+  // Assign staff modal state
+  const [assignModalVisible, setAssignModalVisible] = useState(false)
+  const [assigningActivity, setAssigningActivity] = useState<Activity | null>(null)
+  const [staffList, setStaffList] = useState<OrganizationMember[]>([])
+  const [selectedStaffId, setSelectedStaffId] = useState<string | undefined>(undefined)
+  const [loadingStaff, setLoadingStaff] = useState(false)
+  const [assigningStaff, setAssigningStaff] = useState(false)
   const [formData, setFormData] = useState<ActivityFormData | null>(null)
   const [selectedKpiIds, setSelectedKpiIds] = useState<string[]>([])
   const [form] = Form.useForm()
@@ -421,6 +431,56 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       setActionLoading(false)
     }
   }
+
+  // Open assign staff modal
+  const handleOpenAssignModal = async (activity: Activity) => {
+    setAssigningActivity(activity)
+    setSelectedStaffId(activity.assigned_to || undefined)
+    setAssignModalVisible(true)
+
+    // Fetch staff list
+    setLoadingStaff(true)
+    try {
+      const response = await getMyOrganizationMembers({ role: 'STAFF', per_page: 100 })
+      setStaffList(response.data)
+    } catch (error: any) {
+      message.error('Không thể tải danh sách nhân viên')
+    } finally {
+      setLoadingStaff(false)
+    }
+  }
+
+  // Handle assign staff
+  const handleAssignStaff = async () => {
+    if (!assigningActivity) return
+
+    setAssigningStaff(true)
+    try {
+      await activityApi.updateActivity(assigningActivity.id, {
+        assigned_to: selectedStaffId || null,
+      })
+      message.success(selectedStaffId ? 'Đã phân công nhân viên phụ trách' : 'Đã bỏ phân công nhân viên')
+      setAssignModalVisible(false)
+      setAssigningActivity(null)
+      setSelectedStaffId(undefined)
+      fetchActivities()
+    } catch (error: any) {
+      message.error(error.message || 'Không thể phân công nhân viên')
+    } finally {
+      setAssigningStaff(false)
+    }
+  }
+
+  // Close assign modal
+  const handleCloseAssignModal = () => {
+    setAssignModalVisible(false)
+    setAssigningActivity(null)
+    setSelectedStaffId(undefined)
+    setStaffList([])
+  }
+
+  // Check if can assign staff (MANAGER+ only)
+  const canAssignStaff = canApprove
 
   // Handle uncancel activity (ADMIN only)
   const handleUncancel = async (id: string) => {
@@ -818,6 +878,18 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                 icon={<FileSearchOutlined />}
                 onClick={() => handleOpenApprovalWizard(record)}
                 style={{ color: '#1890ff' }}
+              />
+            </Tooltip>
+          )}
+          {/* Assign Staff button - for MANAGER+ only, not locked */}
+          {canAssignStaff && !record.is_locked && (
+            <Tooltip title={record.assigned_to ? 'Đổi nhân viên phụ trách' : 'Phân công nhân viên'}>
+              <Button
+                type="link"
+                size="small"
+                icon={<UserSwitchOutlined />}
+                onClick={() => handleOpenAssignModal(record)}
+                style={{ color: record.assigned_to ? '#52c41a' : '#722ed1' }}
               />
             </Tooltip>
           )}
@@ -1472,6 +1544,74 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
         onClose={handleWizardClose}
         onSuccess={handleWizardSuccess}
       />
+
+      {/* Assign Staff Modal */}
+      <Modal
+        title={
+          <Space>
+            <UserSwitchOutlined style={{ color: '#722ed1' }} />
+            <span>Phân công nhân viên phụ trách</span>
+          </Space>
+        }
+        open={assignModalVisible}
+        onOk={handleAssignStaff}
+        onCancel={handleCloseAssignModal}
+        okText="Xác nhận"
+        cancelText="Hủy"
+        confirmLoading={assigningStaff}
+        centered
+        width={500}
+      >
+        {assigningActivity && (
+          <>
+            <div style={{ marginBottom: 16 }}>
+              <Text type="secondary">Hoạt động:</Text>
+              <div style={{ marginTop: 4 }}>
+                <Text strong>{assigningActivity.title}</Text>
+              </div>
+              <div style={{ marginTop: 4 }}>
+                <Text code>{assigningActivity.code}</Text>
+              </div>
+            </div>
+
+            <Form layout="vertical">
+              <Form.Item
+                label="Chọn nhân viên phụ trách"
+                help="Nhân viên được phân công sẽ có quyền chỉnh sửa hoạt động này"
+              >
+                <Select
+                  value={selectedStaffId}
+                  onChange={setSelectedStaffId}
+                  placeholder="Chọn nhân viên..."
+                  loading={loadingStaff}
+                  allowClear
+                  showSearch
+                  optionFilterProp="children"
+                  filterOption={(input, option) =>
+                    (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
+                  }
+                  style={{ width: '100%' }}
+                >
+                  {staffList.map((staff) => (
+                    <Option key={staff.id} value={staff.id}>
+                      {staff.last_name} {staff.first_name} ({staff.email})
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Form>
+
+            {assigningActivity.assigned_to && !selectedStaffId && (
+              <Alert
+                type="info"
+                message="Bỏ chọn nhân viên sẽ xóa phân công hiện tại"
+                style={{ marginTop: 8 }}
+                showIcon
+              />
+            )}
+          </>
+        )}
+      </Modal>
     </div>
   )
 }

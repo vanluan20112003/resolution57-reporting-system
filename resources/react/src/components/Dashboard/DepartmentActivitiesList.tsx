@@ -17,6 +17,7 @@ import {
   Tooltip,
   Row,
   Col,
+  Tabs,
 } from 'antd'
 import {
   FileTextOutlined,
@@ -503,22 +504,66 @@ function DepartmentActivitiesList() {
               </Col>
             </Row>
 
-            {/* KPIs */}
+            {/* KPIs - Separated into tabs by source */}
             {selectedActivity.kpis && selectedActivity.kpis.length > 0 && (
               <>
                 <Divider />
                 <div>
-                  <Text type="secondary">Chỉ tiêu KPI liên quan</Text>
-                  <div style={{ marginTop: 8 }}>
-                    {selectedActivity.kpis.map((kpi) => (
-                      <Tag key={kpi.id} color={kpi.source === 'CENTRAL' ? 'blue' : 'purple'}>
-                        {kpi.source === 'CENTRAL' ? <GlobalOutlined /> : <BankOutlined />}
-                        {' '}
-                        {kpi.code ? `[${kpi.code}] ` : ''}
-                        {kpi.title}
-                      </Tag>
-                    ))}
-                  </div>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+                    <GlobalOutlined style={{ marginRight: 4 }} />
+                    Chỉ tiêu KPI liên quan ({selectedActivity.kpis.length})
+                  </Text>
+                  <Tabs
+                    size="small"
+                    items={[
+                      {
+                        key: 'central',
+                        label: (
+                          <span>
+                            <GlobalOutlined style={{ marginRight: 4 }} />
+                            Trung ương ({selectedActivity.kpis.filter(k => k.source === 'CENTRAL').length})
+                          </span>
+                        ),
+                        children: (
+                          <div style={{ maxHeight: 150, overflowY: 'auto' }}>
+                            {selectedActivity.kpis.filter(k => k.source === 'CENTRAL').length === 0 ? (
+                              <Text type="secondary">Không có KPI Trung ương</Text>
+                            ) : (
+                              selectedActivity.kpis.filter(k => k.source === 'CENTRAL').map(kpi => (
+                                <Tag key={kpi.id} color="purple" style={{ marginBottom: 4, marginRight: 4 }}>
+                                  {kpi.code && <Text code style={{ marginRight: 4, fontSize: 11 }}>{kpi.code}</Text>}
+                                  {kpi.title}
+                                </Tag>
+                              ))
+                            )}
+                          </div>
+                        ),
+                      },
+                      {
+                        key: 'vnu',
+                        label: (
+                          <span>
+                            <BankOutlined style={{ marginRight: 4 }} />
+                            ĐHQG-HCM ({selectedActivity.kpis.filter(k => k.source === 'VNU').length})
+                          </span>
+                        ),
+                        children: (
+                          <div style={{ maxHeight: 150, overflowY: 'auto' }}>
+                            {selectedActivity.kpis.filter(k => k.source === 'VNU').length === 0 ? (
+                              <Text type="secondary">Không có KPI ĐHQG-HCM</Text>
+                            ) : (
+                              selectedActivity.kpis.filter(k => k.source === 'VNU').map(kpi => (
+                                <Tag key={kpi.id} color="blue" style={{ marginBottom: 4, marginRight: 4 }}>
+                                  {kpi.code && <Text code style={{ marginRight: 4, fontSize: 11 }}>{kpi.code}</Text>}
+                                  {kpi.title}
+                                </Tag>
+                              ))
+                            )}
+                          </div>
+                        ),
+                      },
+                    ]}
+                  />
                 </div>
               </>
             )}

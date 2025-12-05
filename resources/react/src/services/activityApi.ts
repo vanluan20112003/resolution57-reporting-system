@@ -36,6 +36,7 @@ export interface Activity {
   result_summary?: string
   is_locked: boolean
   created_by: string
+  assigned_to?: string // Staff assigned to manage this activity
   approved_by?: string
   approved_at?: string
   created_at: string
@@ -55,6 +56,13 @@ export interface Activity {
     short_name?: string
   }
   creator?: {
+    id: string
+    email: string
+    first_name: string
+    last_name: string
+  }
+  // Backend returns 'assigned_user' as the relationship object (snake_case from assignedUser)
+  assigned_user?: {
     id: string
     email: string
     first_name: string
@@ -160,6 +168,7 @@ export interface CreateActivityRequest {
   activity_type_id: string
   activity_field_id?: string
   leader_names?: string[]
+  assigned_to?: string | null // Staff assigned to manage this activity
   start_date?: string
   end_date?: string
   budget?: number
@@ -175,6 +184,7 @@ export interface UpdateActivityRequest {
   activity_type_id?: string
   activity_field_id?: string
   leader_names?: string[]
+  assigned_to?: string | null // Staff assigned to manage this activity
   status?: ActivityStatus
   start_date?: string
   end_date?: string

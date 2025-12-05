@@ -782,7 +782,7 @@ function ActivityDetailModal({
           <Descriptions.Item label="Lĩnh vực">
             {getActivityFieldName(activity.activity_field_id)}
           </Descriptions.Item>
-          <Descriptions.Item label="Người chủ trì" span={2}>
+          <Descriptions.Item label="Người chủ trì">
             {activity.leader_names && activity.leader_names.length > 0 ? (
               <Space wrap size={[4, 4]}>
                 {activity.leader_names.map((name, index) => (
@@ -791,6 +791,16 @@ function ActivityDetailModal({
                   </Tag>
                 ))}
               </Space>
+            ) : '-'}
+          </Descriptions.Item>
+          <Descriptions.Item label="Nhân viên phụ trách">
+            {activity.assigned_user ? (
+              <Tag icon={<UserOutlined />} color="green">
+                {activity.assigned_user.last_name} {activity.assigned_user.first_name}
+                <Text type="secondary" style={{ marginLeft: 4, fontSize: 12 }}>
+                  ({activity.assigned_user.email})
+                </Text>
+              </Tag>
             ) : '-'}
           </Descriptions.Item>
           <Descriptions.Item label="Thời gian bắt đầu">
@@ -836,18 +846,64 @@ function ActivityDetailModal({
           </div>
         )}
 
-        {/* KPIs */}
+        {/* KPIs - Separated into tabs by source */}
         {activity.kpis && activity.kpis.length > 0 && (
           <div>
-            <Text strong>Chỉ tiêu KPI liên quan:</Text>
-            <div style={{ marginTop: 8 }}>
-              {activity.kpis.map(kpi => (
-                <Tag key={kpi.id} style={{ marginBottom: 4 }}>
-                  {kpi.code && <Text code style={{ marginRight: 4 }}>{kpi.code}</Text>}
-                  {kpi.title}
-                </Tag>
-              ))}
-            </div>
+            <Text strong style={{ display: 'block', marginBottom: 8 }}>
+              <GlobalOutlined style={{ marginRight: 6 }} />
+              Chỉ tiêu KPI liên quan ({activity.kpis.length})
+            </Text>
+            <Tabs
+              size="small"
+              items={[
+                {
+                  key: 'central',
+                  label: (
+                    <span>
+                      <GlobalOutlined style={{ marginRight: 4 }} />
+                      Trung ương ({activity.kpis.filter(k => k.source === 'CENTRAL').length})
+                    </span>
+                  ),
+                  children: (
+                    <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+                      {activity.kpis.filter(k => k.source === 'CENTRAL').length === 0 ? (
+                        <Text type="secondary">Không có KPI Trung ương</Text>
+                      ) : (
+                        activity.kpis.filter(k => k.source === 'CENTRAL').map(kpi => (
+                          <Tag key={kpi.id} color="purple" style={{ marginBottom: 4, marginRight: 4 }}>
+                            {kpi.code && <Text code style={{ marginRight: 4, fontSize: 11 }}>{kpi.code}</Text>}
+                            {kpi.title}
+                          </Tag>
+                        ))
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  key: 'vnu',
+                  label: (
+                    <span>
+                      <BankOutlined style={{ marginRight: 4 }} />
+                      ĐHQG-HCM ({activity.kpis.filter(k => k.source === 'VNU').length})
+                    </span>
+                  ),
+                  children: (
+                    <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+                      {activity.kpis.filter(k => k.source === 'VNU').length === 0 ? (
+                        <Text type="secondary">Không có KPI ĐHQG-HCM</Text>
+                      ) : (
+                        activity.kpis.filter(k => k.source === 'VNU').map(kpi => (
+                          <Tag key={kpi.id} color="blue" style={{ marginBottom: 4, marginRight: 4 }}>
+                            {kpi.code && <Text code style={{ marginRight: 4, fontSize: 11 }}>{kpi.code}</Text>}
+                            {kpi.title}
+                          </Tag>
+                        ))
+                      )}
+                    </div>
+                  ),
+                },
+              ]}
+            />
           </div>
         )}
       </div>

@@ -17,6 +17,7 @@ import {
   Empty,
   Spin,
   Tooltip,
+  Tabs,
 } from 'antd'
 import {
   FileSearchOutlined,
@@ -429,26 +430,66 @@ function ApprovalWizardModal({
             </Col>
           </Row>
 
-          {/* KPIs */}
+          {/* KPIs - Separated into tabs by source */}
           {activity.kpis && activity.kpis.length > 0 && (
             <>
               <Divider />
               <div>
                 <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
-                  Chỉ tiêu KPI liên quan ({activity.kpis.length} chỉ tiêu)
+                  <GlobalOutlined style={{ marginRight: 4 }} />
+                  Chỉ tiêu KPI liên quan ({activity.kpis.length})
                 </Text>
-                <div>
-                  {activity.kpis.map((kpi) => (
-                    <Tag
-                      key={kpi.id}
-                      color={kpi.source === 'CENTRAL' ? 'blue' : 'purple'}
-                      style={{ marginBottom: 4 }}
-                    >
-                      {kpi.code ? `[${kpi.code}] ` : ''}
-                      {kpi.title}
-                    </Tag>
-                  ))}
-                </div>
+                <Tabs
+                  size="small"
+                  items={[
+                    {
+                      key: 'central',
+                      label: (
+                        <span>
+                          <GlobalOutlined style={{ marginRight: 4 }} />
+                          Trung ương ({activity.kpis.filter(k => k.source === 'CENTRAL').length})
+                        </span>
+                      ),
+                      children: (
+                        <div style={{ maxHeight: 150, overflowY: 'auto' }}>
+                          {activity.kpis.filter(k => k.source === 'CENTRAL').length === 0 ? (
+                            <Text type="secondary">Không có KPI Trung ương</Text>
+                          ) : (
+                            activity.kpis.filter(k => k.source === 'CENTRAL').map(kpi => (
+                              <Tag key={kpi.id} color="purple" style={{ marginBottom: 4, marginRight: 4 }}>
+                                {kpi.code && <Text code style={{ marginRight: 4, fontSize: 11 }}>{kpi.code}</Text>}
+                                {kpi.title}
+                              </Tag>
+                            ))
+                          )}
+                        </div>
+                      ),
+                    },
+                    {
+                      key: 'vnu',
+                      label: (
+                        <span>
+                          <BankOutlined style={{ marginRight: 4 }} />
+                          ĐHQG-HCM ({activity.kpis.filter(k => k.source === 'VNU').length})
+                        </span>
+                      ),
+                      children: (
+                        <div style={{ maxHeight: 150, overflowY: 'auto' }}>
+                          {activity.kpis.filter(k => k.source === 'VNU').length === 0 ? (
+                            <Text type="secondary">Không có KPI ĐHQG-HCM</Text>
+                          ) : (
+                            activity.kpis.filter(k => k.source === 'VNU').map(kpi => (
+                              <Tag key={kpi.id} color="blue" style={{ marginBottom: 4, marginRight: 4 }}>
+                                {kpi.code && <Text code style={{ marginRight: 4, fontSize: 11 }}>{kpi.code}</Text>}
+                                {kpi.title}
+                              </Tag>
+                            ))
+                          )}
+                        </div>
+                      ),
+                    },
+                  ]}
+                />
               </div>
             </>
           )}

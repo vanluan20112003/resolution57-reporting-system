@@ -270,6 +270,7 @@ class ActivityController extends Controller
                     'activityField:id,name',
                     'leadOrganization:id,name,short_name',
                     'creator:id,email,first_name,last_name',
+                    'assignedUser:id,email,first_name,last_name',
                 ]);
 
             // Security: Filter by organization for STAFF/MANAGER
@@ -478,6 +479,7 @@ class ActivityController extends Controller
             'external_url' => 'nullable|url|max:1000',
             'leader_names' => 'nullable|array',
             'leader_names.*' => 'string|max:255',
+            'assigned_to' => 'nullable|uuid|exists:nq57_users,id',
             'kpi_ids' => 'nullable|array',
             'kpi_ids.*' => 'uuid|exists:kpis,id',
         ], [
@@ -523,6 +525,27 @@ class ActivityController extends Controller
             // Use provided code or generate one
             $code = $request->code ?: $this->generateActivityCode();
 
+            // Handle assigned_to - only MANAGER+ can assign staff
+            $assignedTo = null;
+            if ($request->has('assigned_to') && $request->assigned_to) {
+                // Only MANAGER+ can assign staff
+                if (!in_array($user->role, ['MANAGER', 'OPERATOR', 'ADMIN'])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Chỉ Quản lý trở lên mới có thể phân công nhân viên phụ trách hoạt động.',
+                    ], 403);
+                }
+                // Validate assigned staff belongs to same organization
+                $assignedUser = User::find($request->assigned_to);
+                if (!$assignedUser || $assignedUser->organization_id !== $organizationId) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Nhân viên được phân công phải thuộc cùng phòng ban với hoạt động.',
+                    ], 422);
+                }
+                $assignedTo = $request->assigned_to;
+            }
+
             $activity = Activity::create([
                 'code' => $code,
                 'title' => $request->title,
@@ -532,6 +555,7 @@ class ActivityController extends Controller
                 'status' => self::STATUS_DRAFT,
                 'lead_organization_id' => $organizationId,
                 'leader_names' => $request->leader_names,
+                'assigned_to' => $assignedTo,
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'budget' => $request->budget,
@@ -617,6 +641,7 @@ class ActivityController extends Controller
                 'activityField:id,name',
                 'leadOrganization:id,name,short_name',
                 'creator:id,email,first_name,last_name',
+                'assignedUser:id,email,first_name,last_name',
                 'approver:id,email,first_name,last_name',
                 'kpis:id,source,code,title',
             ])->findOrFail($id);
@@ -710,12 +735,16 @@ class ActivityController extends Controller
                 ], 403);
             }
 
-            // STAFF can only edit their own activities
-            if ($user->role === 'STAFF' && $activity->created_by !== $user->id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Bạn chỉ có thể chỉnh sửa hoạt động do chính mình tạo.',
-                ], 403);
+            // STAFF can only edit activities they created OR were assigned to
+            if ($user->role === 'STAFF') {
+                $isCreator = $activity->created_by === $user->id;
+                $isAssigned = $activity->assigned_to === $user->id;
+                if (!$isCreator && !$isAssigned) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Bạn chỉ có thể chỉnh sửa hoạt động do chính mình tạo hoặc được phân công.',
+                    ], 403);
+                }
             }
 
             // Define allowed fields for locked/approved activities
@@ -783,7 +812,27 @@ class ActivityController extends Controller
                 'result_summary' => 'nullable|string',
                 'kpi_ids' => 'nullable|array',
                 'kpi_ids.*' => 'uuid|exists:kpis,id',
+                'assigned_to' => 'nullable|uuid|exists:nq57_users,id',
             ]);
+
+            // Only MANAGER+ can assign staff to activities
+            if ($request->has('assigned_to') && !in_array($user->role, ['MANAGER', 'OPERATOR', 'ADMIN'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Chỉ Quản lý trở lên mới có thể phân công nhân viên phụ trách hoạt động.',
+                ], 403);
+            }
+
+            // Validate assigned staff belongs to same organization
+            if ($request->has('assigned_to') && $request->assigned_to) {
+                $assignedUser = \App\Models\User::find($request->assigned_to);
+                if (!$assignedUser || $assignedUser->organization_id !== $activity->lead_organization_id) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Nhân viên được phân công phải thuộc cùng phòng ban với hoạt động.',
+                    ], 422);
+                }
+            }
 
             if ($validator->fails()) {
                 Log::warning('Activity update validation failed', [
@@ -820,6 +869,7 @@ class ActivityController extends Controller
                 'leader_names',
                 'completion_percentage',
                 'result_summary',
+                'assigned_to',
             ]));
 
             $activity->updated_by = $request->user()->id;
@@ -2620,27 +2670,30 @@ class ActivityController extends Controller
                 'needs_action' => 0,
             ];
 
-            // MANAGER sees count of pending approval activities in their organization
+            // MANAGER/OPERATOR/ADMIN sees count of pending approval activities in their organization
             if (in_array($role, ['MANAGER', 'OPERATOR', 'ADMIN'])) {
                 $pendingQuery = Activity::where('status', self::STATUS_PENDING_APPROVAL);
 
-                // MANAGER only sees their organization's activities
-                if ($role === 'MANAGER' && $user->organization_id) {
+                // Filter by user's organization if they have one
+                if ($user->organization_id) {
                     $pendingQuery->where('lead_organization_id', $user->organization_id);
                 }
 
                 $counts['pending_approval'] = $pendingQuery->count();
             }
 
-            // STAFF sees count of their own draft activities
+            // STAFF sees count of their own draft activities (created or assigned), others see their organization's
             if (in_array($role, ['STAFF', 'MANAGER', 'OPERATOR', 'ADMIN'])) {
                 $query = Activity::where('status', self::STATUS_DRAFT);
 
-                // STAFF only sees their own drafts
+                // STAFF only sees their own drafts (created or assigned)
                 if ($role === 'STAFF') {
-                    $query->where('created_by', $user->id);
-                } elseif ($role === 'MANAGER' && $user->organization_id) {
-                    // MANAGER sees all drafts in their organization
+                    $query->where(function ($q) use ($user) {
+                        $q->where('created_by', $user->id)
+                          ->orWhere('assigned_to', $user->id);
+                    });
+                } elseif ($user->organization_id) {
+                    // MANAGER/OPERATOR/ADMIN with organization sees all drafts in their organization
                     $query->where('lead_organization_id', $user->organization_id);
                 }
 
@@ -2657,11 +2710,14 @@ class ActivityController extends Controller
                           ->orWhere('result_summary', '');
                     });
 
-                // STAFF only sees their own activities
+                // STAFF only sees their own activities (created or assigned)
                 if ($role === 'STAFF') {
-                    $needsActionQuery->where('created_by', $user->id);
-                } elseif ($role === 'MANAGER' && $user->organization_id) {
-                    // MANAGER sees all activities in their organization
+                    $needsActionQuery->where(function ($q) use ($user) {
+                        $q->where('created_by', $user->id)
+                          ->orWhere('assigned_to', $user->id);
+                    });
+                } elseif ($user->organization_id) {
+                    // MANAGER/OPERATOR/ADMIN with organization sees all activities in their organization
                     $needsActionQuery->where('lead_organization_id', $user->organization_id);
                 }
 
