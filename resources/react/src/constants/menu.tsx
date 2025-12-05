@@ -220,32 +220,30 @@ export const getMenuItemsForRole = (
       .map(item => {
         // Get translated label
         let label: string | React.ReactNode
+        let icon: React.ReactNode = item.icon
+
         if (t) {
           // Customize label for activities-menu with organization name and avatar
           if (item.key === 'activities-menu' && organizationName) {
             const orgLabel = t('menu.activitiesMenuWithOrg', { orgName: organizationName })
-            // Create label with organization avatar
+            label = orgLabel
+            // Create icon with organization avatar (for collapsed state)
             if (organizationAvatarUrl) {
-              label = (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <img
-                    src={organizationAvatarUrl}
-                    alt={organizationName}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 6,
-                      objectFit: 'cover',
-                      border: '1px solid #e8e8e8',
-                      flexShrink: 0
-                    }}
-                  />
-                  <span style={{ lineHeight: 1.3 }}>{orgLabel}</span>
-                </span>
+              icon = (
+                <img
+                  src={organizationAvatarUrl}
+                  alt={organizationName}
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 4,
+                    objectFit: 'cover',
+                    border: '1px solid #e8e8e8',
+                  }}
+                />
               )
-            } else {
-              label = orgLabel
             }
+            // else: keep default icon (ApartmentOutlined) from item.icon
           } else {
             label = t(item.labelKey)
           }
@@ -256,7 +254,7 @@ export const getMenuItemsForRole = (
 
         const menuItem: any = {
           key: item.key,
-          icon: item.key === 'activities-menu' && organizationAvatarUrl ? null : item.icon,
+          icon: icon,
           label: label,
         }
 

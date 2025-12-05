@@ -263,6 +263,71 @@
   color: var(--gray-600);
 }
 
+/* Fix submenu popup when sidebar collapsed */
+.ant-menu-submenu-popup .ant-menu-item,
+.ant-menu-submenu-popup .ant-menu-submenu-title {
+  padding-left: 16px !important;
+}
+
+.ant-menu-submenu-popup .ant-menu-item .ant-menu-item-icon,
+.ant-menu-submenu-popup .ant-menu-item .anticon {
+  margin-right: 10px;
+  font-size: 16px;
+}
+
+/* Ensure submenu items in collapsed state show icons */
+.ant-layout-sider-collapsed .ant-menu-submenu-popup .ant-menu-item {
+  padding-left: 16px !important;
+}
+
+.ant-layout-sider-collapsed .ant-menu-submenu-popup .ant-menu-item .ant-menu-item-icon,
+.ant-layout-sider-collapsed .ant-menu-submenu-popup .ant-menu-item .anticon {
+  display: inline-flex !important;
+  margin-right: 10px;
+}
+
+/* Menu label with badge styling */
+.menu-label-with-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.menu-label-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Fix for popup menu when sidebar is collapsed - submenu items */
+.ant-menu-submenu-popup .menu-label-with-badge {
+  width: auto !important;
+  justify-content: flex-start !important;
+}
+
+.ant-menu-submenu-popup .menu-label-text {
+  flex: none !important;
+  color: rgba(0, 0, 0, 0.88) !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Ensure popup menu items text is visible */
+.ant-menu-submenu-popup .ant-menu-item .ant-menu-title-content {
+  display: inline-flex !important;
+  align-items: center;
+  overflow: visible !important;
+}
+
+/* Badge positioning in popup menu */
+.ant-menu-submenu-popup .ant-menu-item .ant-badge {
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
 /* ===================================
    Header - Clean & Professional with Background Image
    =================================== */

@@ -129,8 +129,8 @@ function DashboardPage() {
           const activityBadgeCount = badgeCounts.draft + badgeCounts.needs_action
           if (activityBadgeCount > 0) {
             newItem.label = (
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                <span>{item.label}</span>
+              <span className="menu-label-with-badge">
+                <span className="menu-label-text">{item.label}</span>
                 <Badge count={activityBadgeCount} size="small" style={{ backgroundColor: '#ff4d4f' }} />
               </span>
             )
@@ -141,8 +141,8 @@ function DashboardPage() {
         if (item.key === 'pending-approval') {
           if (badgeCounts.pending_approval > 0) {
             newItem.label = (
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                <span>{item.label}</span>
+              <span className="menu-label-with-badge">
+                <span className="menu-label-text">{item.label}</span>
                 <Badge count={badgeCounts.pending_approval} size="small" style={{ backgroundColor: '#ff4d4f' }} />
               </span>
             )
@@ -154,8 +154,8 @@ function DashboardPage() {
           const totalBadge = badgeCounts.draft + badgeCounts.pending_approval + badgeCounts.needs_action
           if (totalBadge > 0) {
             newItem.label = (
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                {item.label}
+              <span className="menu-label-with-badge">
+                <span className="menu-label-text">{item.label}</span>
                 <Badge count={totalBadge} size="small" style={{ backgroundColor: '#ff4d4f', marginLeft: 8 }} />
               </span>
             )
@@ -406,8 +406,13 @@ function DashboardPage() {
             flexDirection: 'column',
           }}
         >
-          {/* Logo at the top */}
-          <div className={`dashboard-logo ${collapsed ? 'collapsed' : ''}`}>
+          {/* Logo at the top - Click to go Home */}
+          <div
+            className={`dashboard-logo ${collapsed ? 'collapsed' : ''}`}
+            onClick={() => handleMenuChange('home')}
+            style={{ cursor: 'pointer' }}
+            title="Về trang chủ"
+          >
             <div className="logo-icon">
               <img
                 src={collapsed ? "/VNUHCM_logo.png" : "/vnuhcm.png"}
