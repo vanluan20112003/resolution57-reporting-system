@@ -21,6 +21,9 @@ class Activity extends Model
         'code',
         'title',
         'description',
+        'focus_content',         // Nội dung trọng tâm
+        'qualitative_target',    // Mục tiêu định tính
+        'quantitative_target',   // Mục tiêu định lượng
         'activity_type_id',
         'activity_field_id',
         'status',
@@ -44,6 +47,7 @@ class Activity extends Model
         'locked_by',
         'completion_percentage',
         'result_summary',
+        'difficulties',          // Khó khăn, vướng mắc
     ];
 
     protected $casts = [
@@ -144,6 +148,16 @@ class Activity extends Model
     public function participants(): HasMany
     {
         return $this->hasMany(ActivityParticipant::class);
+    }
+
+    /**
+     * Đơn vị phối hợp (collaborating organizations)
+     */
+    public function collaboratingOrganizations(): BelongsToMany
+    {
+        return $this->belongsToMany(Organization::class, 'activity_collaborators')
+            ->withPivot('notes')
+            ->withTimestamps();
     }
 
     // Scopes

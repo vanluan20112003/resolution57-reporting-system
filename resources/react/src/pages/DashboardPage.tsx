@@ -17,6 +17,7 @@ import ActivityConfigManagement from '../components/ActivityConfigManagement'
 import { ActivityManagement } from '../components/ActivityManagement'
 import { UserProfile } from '../components/UserProfile'
 import OrganizationProfile from '../components/OrganizationProfile'
+import { ReportManagement } from '../components/ReportManagement'
 import { UserDropdown } from '../features/user'
 import { useAuth } from '../shared/hooks'
 import { ImpersonationBanner } from '../shared/components'
@@ -264,12 +265,7 @@ function DashboardPage() {
         return <DepartmentActivitiesList />
 
       case 'reports':
-        return (
-          <div className="empty-content">
-            <Title level={3}>{t('menu.reports')}</Title>
-            <Text type="secondary">{t('menu.reportsViewDescription')} - {t('menu.underDevelopment')}</Text>
-          </div>
-        )
+        return <ReportManagement />
 
       case 'kpi':
         return (

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Kpi extends Model
@@ -22,6 +23,7 @@ class Kpi extends Model
         'title',
         'description',
         'category',
+        'category_id',
         'order_number',
         'is_active',
         'created_by',
@@ -52,9 +54,17 @@ class Kpi extends Model
             ->withTimestamps();
     }
 
-    public function creator()
+    public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by', 'id');
+    }
+
+    /**
+     * Get the category this KPI belongs to
+     */
+    public function kpiCategory(): BelongsTo
+    {
+        return $this->belongsTo(KpiCategory::class, 'category_id');
     }
 
     public function scopeActive($query)

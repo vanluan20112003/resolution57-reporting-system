@@ -9,6 +9,7 @@ import GoogleCallbackPage from './pages/GoogleCallbackPage'
 import UnauthorizedPage from './pages/UnauthorizedPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import SharedFilesPage from './pages/SharedFilesPage'
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -62,6 +63,13 @@ function App() {
         <Route path="/activities/:id" element={
           <ProtectedRoute>
             <DashboardPage />
+          </ProtectedRoute>
+        } />
+
+        {/* Shared Files - accessible via share token */}
+        <Route path="/shared/files/:token" element={
+          <ProtectedRoute>
+            <SharedFilesPage />
           </ProtectedRoute>
         } />
 

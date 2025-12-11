@@ -19,6 +19,9 @@ export interface Activity {
   code: string
   title: string
   description?: string
+  focus_content?: string       // Nội dung trọng tâm
+  qualitative_target?: string  // Mục tiêu định tính
+  quantitative_target?: string // Mục tiêu định lượng
   activity_type_id: string
   activity_field_id?: string
   status: ActivityStatus
@@ -34,6 +37,7 @@ export interface Activity {
   external_url?: string
   completion_percentage: number
   result_summary?: string
+  difficulties?: string  // Khó khăn, vướng mắc
   is_locked: boolean
   created_by: string
   assigned_to?: string // Staff assigned to manage this activity
@@ -75,6 +79,12 @@ export interface Activity {
     last_name: string
   }
   kpis?: KpiItem[]
+  // Đơn vị phối hợp
+  collaborating_organizations?: {
+    id: string
+    name: string
+    short_name?: string
+  }[]
 }
 
 // Activity Status Workflow:
@@ -150,6 +160,11 @@ export interface ActivityFormData {
     name: string
     short_name?: string
   } | null
+  organizations: {
+    id: string
+    name: string
+    short_name?: string
+  }[] // For collaborating organizations selection
   statuses: {
     value: ActivityStatus
     label: string
@@ -165,6 +180,9 @@ export interface CreateActivityRequest {
   code?: string
   title: string
   description?: string
+  focus_content?: string       // Nội dung trọng tâm
+  qualitative_target?: string  // Mục tiêu định tính
+  quantitative_target?: string // Mục tiêu định lượng
   activity_type_id: string
   activity_field_id?: string
   leader_names?: string[]
@@ -176,11 +194,15 @@ export interface CreateActivityRequest {
   location?: string
   external_url?: string
   kpi_ids?: string[]
+  collaborating_organization_ids?: string[] // Đơn vị phối hợp
 }
 
 export interface UpdateActivityRequest {
   title?: string
   description?: string
+  focus_content?: string       // Nội dung trọng tâm
+  qualitative_target?: string  // Mục tiêu định tính
+  quantitative_target?: string // Mục tiêu định lượng
   activity_type_id?: string
   activity_field_id?: string
   leader_names?: string[]
@@ -196,7 +218,9 @@ export interface UpdateActivityRequest {
   external_url?: string
   completion_percentage?: number
   result_summary?: string
+  difficulties?: string  // Khó khăn, vướng mắc
   kpi_ids?: string[]
+  collaborating_organization_ids?: string[] // Đơn vị phối hợp
 }
 
 export interface ActivityFilters {

@@ -23,6 +23,8 @@ import {
   Select,
   Divider,
   List,
+  InputNumber,
+  Slider,
 } from 'antd'
 import type { UploadProps, UploadFile } from 'antd'
 import {
@@ -82,6 +84,8 @@ function ActivityCompletionModal({
 
   // Step 1: Result summary
   const [resultSummary, setResultSummary] = useState('')
+  const [difficulties, setDifficulties] = useState('')
+  const [completionPercentage, setCompletionPercentage] = useState(0)
 
   // Step 2: Files
   const [files, setFiles] = useState<ActivityFile[]>([])
@@ -107,6 +111,8 @@ function ActivityCompletionModal({
     if (visible && activity) {
       setCurrentStep(0)
       setResultSummary(activity.result_summary || '')
+      setDifficulties(activity.difficulties || '')
+      setCompletionPercentage(activity.completion_percentage || 0)
       setAttendanceRecords([])
       setSelectedAttendees([])
       setAttendanceProcessed(false)
@@ -114,6 +120,8 @@ function ActivityCompletionModal({
       setNewParticipantsToAdd([])
       form.setFieldsValue({
         result_summary: activity.result_summary || '',
+        difficulties: activity.difficulties || '',
+        completion_percentage: activity.completion_percentage || 0,
       })
 
       // Load files
@@ -166,12 +174,14 @@ function ActivityCompletionModal({
     try {
       const response = await activityApi.updateActivity(activity.id, {
         result_summary: resultSummary,
+        difficulties: difficulties,
+        completion_percentage: completionPercentage,
       })
-      message.success('Đã lưu tóm tắt kết quả')
+      message.success('Đã lưu kết quả hoạt động')
       onSuccess(response.data)
       setCurrentStep(1)
     } catch (error: any) {
-      message.error(error.message || 'Không thể lưu tóm tắt kết quả')
+      message.error(error.message || 'Không thể lưu kết quả')
     } finally {
       setLoading(false)
     }
@@ -535,23 +545,75 @@ function ActivityCompletionModal({
               message={hasExistingResult ? "Bước 1: Chỉnh sửa kết quả" : "Bước 1: Cập nhật kết quả"}
               description={hasExistingResult
                 ? "Bạn có thể chỉnh sửa hoặc bổ sung thêm thông tin vào tóm tắt kết quả đã có."
-                : "Nhập tóm tắt kết quả thực hiện hoạt động. Mô tả ngắn gọn những gì đã đạt được, các vấn đề phát sinh và kết quả cuối cùng."
+                : "Nhập tóm tắt kết quả thực hiện hoạt động, tỉ lệ hoàn thành và các khó khăn vướng mắc (nếu có)."
               }
               style={{ marginBottom: 16 }}
               showIcon
               icon={hasExistingResult ? <CheckCircleOutlined /> : <FileTextOutlined />}
             />
             <Form form={form} layout="vertical">
+              {/* Completion percentage */}
+              <Form.Item
+                name="completion_percentage"
+                label="Tỉ lệ hoàn thành (%)"
+                style={{ marginBottom: 16 }}
+              >
+                <Row gutter={16} align="middle">
+                  <Col span={18}>
+                    <Slider
+                      min={0}
+                      max={100}
+                      value={completionPercentage}
+                      onChange={(value) => setCompletionPercentage(value)}
+                      marks={{
+                        0: '0%',
+                        25: '25%',
+                        50: '50%',
+                        75: '75%',
+                        100: '100%',
+                      }}
+                    />
+                  </Col>
+                  <Col span={6}>
+                    <InputNumber
+                      min={0}
+                      max={100}
+                      value={completionPercentage}
+                      onChange={(value) => setCompletionPercentage(value || 0)}
+                      formatter={(value) => `${value}%`}
+                      parser={(value) => parseInt(value!.replace('%', '')) as any}
+                      style={{ width: '100%' }}
+                    />
+                  </Col>
+                </Row>
+              </Form.Item>
+
+              {/* Result summary */}
               <Form.Item
                 name="result_summary"
                 label="Tóm tắt kết quả"
                 rules={[{ required: true, message: 'Vui lòng nhập tóm tắt kết quả' }]}
               >
                 <TextArea
-                  rows={6}
+                  rows={4}
                   placeholder="Nhập tóm tắt kết quả thực hiện hoạt động..."
                   value={resultSummary}
                   onChange={(e) => setResultSummary(e.target.value)}
+                  showCount
+                  maxLength={2000}
+                />
+              </Form.Item>
+
+              {/* Difficulties */}
+              <Form.Item
+                name="difficulties"
+                label="Khó khăn, vướng mắc"
+              >
+                <TextArea
+                  rows={3}
+                  placeholder="Nhập các khó khăn, vướng mắc gặp phải trong quá trình thực hiện (nếu có)..."
+                  value={difficulties}
+                  onChange={(e) => setDifficulties(e.target.value)}
                   showCount
                   maxLength={2000}
                 />
@@ -973,13 +1035,23 @@ function ActivityCompletionModal({
 
   if (!activity) return null
 
+  const getModalTitle = () => {
+    if (activity.status === 'COMPLETED') {
+      return 'Cập nhật sau hoàn thành'
+    } else if (activity.status === 'IN_PROGRESS') {
+      return 'Cập nhật tiến độ thực hiện'
+    } else {
+      return 'Cập nhật tiến độ'
+    }
+  }
+
   return (
     <Modal
       title={
         <Space>
-          <CheckCircleOutlined style={{ color: '#52c41a' }} />
-          <span>Cập nhật sau hoàn thành</span>
-          <Tag color="success">{activity.code}</Tag>
+          <CheckCircleOutlined style={{ color: activity.status === 'COMPLETED' ? '#52c41a' : '#1890ff' }} />
+          <span>{getModalTitle()}</span>
+          <Tag color={activity.status === 'COMPLETED' ? 'success' : 'processing'}>{activity.code}</Tag>
         </Space>
       }
       open={visible}

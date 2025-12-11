@@ -56,6 +56,7 @@ import {
   PlusOutlined,
   PauseCircleOutlined,
   StopOutlined,
+  ShareAltOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import * as activityApi from '../../services/activityApi'
@@ -73,6 +74,7 @@ import type {
 } from '../../services/activityApi'
 import ActivityFilesStep, { PendingFile } from './ActivityFilesStep'
 import ActivityCompletionModal from './ActivityCompletionModal'
+import ShareLinksManager from './ShareLinksManager'
 import { needsCompletionAction } from '../../services/activityApi'
 
 const { Title, Text, Paragraph } = Typography
@@ -144,6 +146,9 @@ function ActivityDetailModal({
   // Completion modal state
   const [showCompletionModal, setShowCompletionModal] = useState(false)
 
+  // Share links modal state
+  const [showShareLinksModal, setShowShareLinksModal] = useState(false)
+
   // Organization groups state (for adding participants)
   const [organizationGroups, setOrganizationGroups] = useState<OrganizationUserGroup[]>([])
   const [organizationsList, setOrganizationsList] = useState<OrganizationOption[]>([])
@@ -179,12 +184,15 @@ function ActivityDetailModal({
       // Set form values
       const kpiIds = activity.kpis?.map(k => k.id) || []
       setSelectedKpiIds(kpiIds)
+      const collabOrgIds = activity.collaborating_organizations?.map(org => org.id) || []
       form.setFieldsValue({
         title: activity.title,
         description: activity.description,
+        focus_content: activity.focus_content,
         activity_type_id: activity.activity_type_id,
         activity_field_id: activity.activity_field_id,
         leader_names: activity.leader_names || [],
+        collaborating_organization_ids: collabOrgIds,
         start_date: activity.start_date ? dayjs(activity.start_date) : undefined,
         end_date: activity.end_date ? dayjs(activity.end_date) : undefined,
         budget: activity.budget,
@@ -499,9 +507,11 @@ function ActivityDetailModal({
         requestData = {
           title: values.title,
           description: values.description,
+          focus_content: values.focus_content,
           activity_type_id: values.activity_type_id,
           activity_field_id: values.activity_field_id,
           leader_names: values.leader_names || [],
+          collaborating_organization_ids: values.collaborating_organization_ids || [],
           start_date,
           end_date,
           budget: values.budget,
@@ -641,6 +651,17 @@ function ActivityDetailModal({
                 style={{ borderColor: '#52c41a', color: '#52c41a' }}
               >
                 Cập nhật thêm
+              </Button>
+            )}
+            {/* Update progress button for APPROVED, IN_PROGRESS */}
+            {['APPROVED', 'IN_PROGRESS'].includes(activity.status) && (
+              <Button
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                onClick={() => setShowCompletionModal(true)}
+                style={{ background: '#1890ff', borderColor: '#1890ff' }}
+              >
+                Cập nhật tiến độ
               </Button>
             )}
             {/* Postpone/Cancel buttons for APPROVED, IN_PROGRESS only (not COMPLETED, not locked) */}
@@ -805,6 +826,17 @@ function ActivityDetailModal({
               </Tag>
             ) : '-'}
           </Descriptions.Item>
+          <Descriptions.Item label="Đơn vị phối hợp" span={2}>
+            {activity.collaborating_organizations && activity.collaborating_organizations.length > 0 ? (
+              <Space wrap size={[4, 4]}>
+                {activity.collaborating_organizations.map((org) => (
+                  <Tag key={org.id} icon={<BankOutlined />} color="cyan">
+                    {org.short_name || org.name}
+                  </Tag>
+                ))}
+              </Space>
+            ) : '-'}
+          </Descriptions.Item>
           <Descriptions.Item label="Thời gian bắt đầu">
             {formatDate(activity.start_date)}
           </Descriptions.Item>
@@ -823,8 +855,11 @@ function ActivityDetailModal({
           <Descriptions.Item label="Tiến độ">
             {activity.completion_percentage != null ? `${activity.completion_percentage}%` : '-'}
           </Descriptions.Item>
-          <Descriptions.Item label="Tóm tắt kết quả">
+          <Descriptions.Item label="Tóm tắt kết quả" span={2}>
             {activity.result_summary || '-'}
+          </Descriptions.Item>
+          <Descriptions.Item label="Khó khăn, vướng mắc" span={2}>
+            {activity.difficulties || '-'}
           </Descriptions.Item>
         </Descriptions>
 
@@ -835,6 +870,39 @@ function ActivityDetailModal({
             <Paragraph style={{ marginTop: 8, marginBottom: 0 }}>
               {activity.description}
             </Paragraph>
+          </div>
+        )}
+
+        {/* Focus Content */}
+        {activity.focus_content && (
+          <div style={{ marginBottom: 16 }}>
+            <Text strong>Nội dung trọng tâm:</Text>
+            <Paragraph style={{ marginTop: 8, marginBottom: 0 }}>
+              {activity.focus_content}
+            </Paragraph>
+          </div>
+        )}
+
+        {/* Targets */}
+        {(activity.qualitative_target || activity.quantitative_target) && (
+          <div style={{ marginBottom: 16 }}>
+            <Divider orientation="left" plain><Text strong>Mục tiêu</Text></Divider>
+            {activity.qualitative_target && (
+              <div style={{ marginBottom: 8 }}>
+                <Text strong>Mục tiêu định tính:</Text>
+                <Paragraph style={{ marginTop: 4, marginBottom: 0 }}>
+                  {activity.qualitative_target}
+                </Paragraph>
+              </div>
+            )}
+            {activity.quantitative_target && (
+              <div>
+                <Text strong>Mục tiêu định lượng:</Text>
+                <Paragraph style={{ marginTop: 4, marginBottom: 0 }}>
+                  {activity.quantitative_target}
+                </Paragraph>
+              </div>
+            )}
           </div>
         )}
 
@@ -1025,6 +1093,35 @@ function ActivityDetailModal({
               />
             </Form.Item>
 
+            {/* Đơn vị phối hợp - disabled for postponed */}
+            <Form.Item
+              name="collaborating_organization_ids"
+              label="Đơn vị phối hợp"
+              style={{ marginBottom: 12 }}
+              tooltip="Chọn các đơn vị khác phối hợp thực hiện hoạt động này"
+            >
+              <Select
+                mode="multiple"
+                placeholder="Chọn đơn vị phối hợp (nếu có)"
+                disabled={isPostponed}
+                allowClear
+                showSearch
+                optionFilterProp="children"
+                filterOption={(input, option) =>
+                  (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
+                }
+                maxTagCount={3}
+                maxTagPlaceholder={(omittedValues) => `+${omittedValues.length} đơn vị khác`}
+                style={{ width: '100%' }}
+              >
+                {formData?.organizations?.map((org) => (
+                  <Option key={org.id} value={org.id}>
+                    {org.short_name || org.name}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+
             {/* Start Date & End Date with Time - EDITABLE for postponed */}
             <Row gutter={12}>
               <Col span={12}>
@@ -1104,6 +1201,11 @@ function ActivityDetailModal({
             {/* Description - disabled for postponed */}
             <Form.Item name="description" label="Mô tả" style={{ marginBottom: 12 }}>
               <TextArea rows={2} placeholder="Mô tả chi tiết về hoạt động" disabled={isPostponed} />
+            </Form.Item>
+
+            {/* Focus Content - disabled for postponed */}
+            <Form.Item name="focus_content" label="Nội dung trọng tâm" style={{ marginBottom: 12 }}>
+              <TextArea rows={3} placeholder="Nhập nội dung trọng tâm của hoạt động" disabled={isPostponed} />
             </Form.Item>
 
             {/* External URL - disabled for postponed */}
@@ -1238,17 +1340,35 @@ function ActivityDetailModal({
     const canUploadFiles = isEditing ||
       ['DRAFT', 'APPROVED', 'IN_PROGRESS', 'COMPLETED'].includes(activity.status)
 
+    // Can share files if activity has files and is not in draft/rejected status
+    const canShareFiles = files.length > 0 &&
+      !['DRAFT', 'REJECTED', 'CANCELLED'].includes(activity.status)
+
     return (
-      <ActivityFilesStep
-        activityId={activity.id}
-        files={files}
-        pendingFiles={pendingFiles}
-        fileTypes={fileTypes}
-        onFilesChange={setFiles}
-        onPendingFilesChange={setPendingFiles}
-        loading={filesLoading}
-        disabled={!canUploadFiles}
-      />
+      <div>
+        {/* Share button */}
+        {canShareFiles && (
+          <div style={{ marginBottom: 16, textAlign: 'right' }}>
+            <Button
+              icon={<ShareAltOutlined />}
+              onClick={() => setShowShareLinksModal(true)}
+            >
+              Chia sẻ tài liệu
+            </Button>
+          </div>
+        )}
+
+        <ActivityFilesStep
+          activityId={activity.id}
+          files={files}
+          pendingFiles={pendingFiles}
+          fileTypes={fileTypes}
+          onFilesChange={setFiles}
+          onPendingFilesChange={setPendingFiles}
+          loading={filesLoading}
+          disabled={!canUploadFiles}
+        />
+      </div>
     )
   }
 
@@ -1860,6 +1980,16 @@ function ActivityDetailModal({
           onSuccess(updatedActivity)
         }}
       />
+
+      {/* Share Links Manager Modal */}
+      {activity && (
+        <ShareLinksManager
+          activityId={activity.id}
+          activityName={activity.title}
+          visible={showShareLinksModal}
+          onClose={() => setShowShareLinksModal(false)}
+        />
+      )}
     </Modal>
   )
 }

@@ -44,11 +44,14 @@ import {
   StopOutlined,
   UndoOutlined,
   UserSwitchOutlined,
+  FileExcelOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import { useAuth } from '../../shared/hooks'
 import * as activityApi from '../../services/activityApi'
+import * as reportApi from '../../services/reportApi'
 import { getMyOrganizationMembers, OrganizationMember } from '../../services/organizationApi'
 import type {
   Activity,
@@ -111,6 +114,17 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   const [selectedStaffId, setSelectedStaffId] = useState<string | undefined>(undefined)
   const [loadingStaff, setLoadingStaff] = useState(false)
   const [assigningStaff, setAssigningStaff] = useState(false)
+
+  // Export report modal state
+  const [exportModalVisible, setExportModalVisible] = useState(false)
+  const [exportMonth, setExportMonth] = useState(dayjs().month() + 1)
+  const [exportYear, setExportYear] = useState(dayjs().year())
+  const [exportViewMode, setExportViewMode] = useState<reportApi.ViewMode>('activities')
+  const [exportColumns, setExportColumns] = useState<reportApi.ExportColumn[]>([])
+  const [selectedExportColumns, setSelectedExportColumns] = useState<string[]>([])
+  const [loadingColumns, setLoadingColumns] = useState(false)
+  const [exporting, setExporting] = useState(false)
+
   const [formData, setFormData] = useState<ActivityFormData | null>(null)
   const [selectedKpiIds, setSelectedKpiIds] = useState<string[]>([])
   const [form] = Form.useForm()
@@ -532,6 +546,74 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     } finally {
       setActionLoading(false)
     }
+  }
+
+  // Fetch export columns when view mode changes
+  const fetchExportColumns = useCallback(async (viewMode: reportApi.ViewMode) => {
+    setLoadingColumns(true)
+    try {
+      const response = await reportApi.getExportColumns(viewMode)
+      const columns = response.data.columns
+      setExportColumns(columns)
+      // Select default columns
+      const defaultCols = columns.filter(c => c.default).map(c => c.key)
+      setSelectedExportColumns(defaultCols)
+    } catch (error: any) {
+      message.error('Không thể tải danh sách cột')
+    } finally {
+      setLoadingColumns(false)
+    }
+  }, [])
+
+  // Handle view mode change
+  const handleExportViewModeChange = (viewMode: reportApi.ViewMode) => {
+    setExportViewMode(viewMode)
+    fetchExportColumns(viewMode)
+  }
+
+  // Handle open export modal
+  const handleOpenExportModal = () => {
+    setExportModalVisible(true)
+    fetchExportColumns(exportViewMode)
+  }
+
+  // Export report handler
+  const handleExportReport = async () => {
+    if (selectedExportColumns.length === 0) {
+      message.warning('Vui lòng chọn ít nhất một cột để xuất')
+      return
+    }
+
+    setExporting(true)
+    try {
+      await reportApi.exportActivityReport({
+        month: exportMonth,
+        year: exportYear,
+        viewMode: exportViewMode,
+        columns: selectedExportColumns,
+      })
+      message.success('Đã xuất báo cáo thành công')
+      setExportModalVisible(false)
+    } catch (error: any) {
+      message.error(error.message || 'Không thể xuất báo cáo')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  // Toggle all columns
+  const handleSelectAllColumns = (checked: boolean) => {
+    if (checked) {
+      setSelectedExportColumns(exportColumns.map(c => c.key))
+    } else {
+      setSelectedExportColumns([])
+    }
+  }
+
+  // Reset to default columns
+  const handleResetDefaultColumns = () => {
+    const defaultCols = exportColumns.filter(c => c.default).map(c => c.key)
+    setSelectedExportColumns(defaultCols)
   }
 
   // Handle submit for approval after creating new activity
@@ -1118,6 +1200,12 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                   onChange={setVisibleColumns}
                   storageKey="activity_management"
                 />
+                <Button
+                  icon={<FileExcelOutlined />}
+                  onClick={handleOpenExportModal}
+                >
+                  Xuất báo cáo
+                </Button>
                 {canCreate && (
                   <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                     Thêm hoạt động
@@ -1611,6 +1699,158 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
             )}
           </>
         )}
+      </Modal>
+
+      {/* Export Report Modal */}
+      <Modal
+        title={
+          <Space>
+            <FileExcelOutlined style={{ color: '#52c41a' }} />
+            <span>Xuất báo cáo hoạt động NQ57</span>
+          </Space>
+        }
+        open={exportModalVisible}
+        onOk={handleExportReport}
+        onCancel={() => setExportModalVisible(false)}
+        confirmLoading={exporting}
+        okText={
+          <Space>
+            <DownloadOutlined />
+            Xuất báo cáo
+          </Space>
+        }
+        cancelText="Hủy"
+        width={700}
+      >
+        <Form layout="vertical">
+          {/* View Mode Selection */}
+          <Form.Item label="Chế độ hiển thị">
+            <Select
+              value={exportViewMode}
+              onChange={handleExportViewModeChange}
+              style={{ width: '100%' }}
+            >
+              <Option value="activities">
+                <Space>
+                  <FlagOutlined />
+                  Theo Hoạt động - Mỗi hoạt động 1 dòng, KPI ở cột riêng
+                </Space>
+              </Option>
+              <Option value="kpis">
+                <Space>
+                  <GlobalOutlined />
+                  Theo KPI - Phân loại theo Categories, hoạt động dưới mỗi KPI
+                </Space>
+              </Option>
+            </Select>
+          </Form.Item>
+
+          {/* Period Selection */}
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label="Tháng">
+                <Select
+                  value={exportMonth}
+                  onChange={setExportMonth}
+                  style={{ width: '100%' }}
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                    <Option key={m} value={m}>
+                      Tháng {m}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Năm">
+                <Select
+                  value={exportYear}
+                  onChange={setExportYear}
+                  style={{ width: '100%' }}
+                >
+                  {[2024, 2025, 2026, 2027, 2028].map((y) => (
+                    <Option key={y} value={y}>
+                      {y}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* Column Selection */}
+          <Form.Item
+            label={
+              <Space>
+                <span>Chọn cột xuất</span>
+                <Text type="secondary">({selectedExportColumns.length}/{exportColumns.length} cột)</Text>
+              </Space>
+            }
+          >
+            <div style={{ marginBottom: 8 }}>
+              <Space>
+                <Checkbox
+                  checked={selectedExportColumns.length === exportColumns.length}
+                  indeterminate={selectedExportColumns.length > 0 && selectedExportColumns.length < exportColumns.length}
+                  onChange={(e) => handleSelectAllColumns(e.target.checked)}
+                >
+                  Chọn tất cả
+                </Checkbox>
+                <Button size="small" onClick={handleResetDefaultColumns}>
+                  Mặc định
+                </Button>
+              </Space>
+            </div>
+
+            <div style={{
+              background: '#fafafa',
+              border: '1px solid #d9d9d9',
+              borderRadius: 6,
+              padding: 12,
+              maxHeight: 200,
+              overflowY: 'auto'
+            }}>
+              {loadingColumns ? (
+                <div style={{ textAlign: 'center', padding: 20 }}>
+                  <Text type="secondary">Đang tải...</Text>
+                </div>
+              ) : (
+                <Checkbox.Group
+                  value={selectedExportColumns}
+                  onChange={(values) => setSelectedExportColumns(values as string[])}
+                  style={{ width: '100%' }}
+                >
+                  <Row gutter={[8, 8]}>
+                    {exportColumns.map((col) => (
+                      <Col span={12} key={col.key}>
+                        <Checkbox value={col.key}>
+                          {col.label}
+                          {col.default && (
+                            <Tag size="small" color="blue" style={{ marginLeft: 4, fontSize: 10 }}>
+                              mặc định
+                            </Tag>
+                          )}
+                        </Checkbox>
+                      </Col>
+                    ))}
+                  </Row>
+                </Checkbox.Group>
+              )}
+            </div>
+          </Form.Item>
+        </Form>
+
+        <Alert
+          type="info"
+          message={
+            exportViewMode === 'activities'
+              ? 'Chế độ Hoạt động: Mỗi hoạt động xuất hiện 1 dòng, các KPI được hiển thị trong cột riêng (KPI Trung ương, KPI ĐHQG-HCM).'
+              : 'Chế độ KPI: Báo cáo phân loại theo KPI Categories (I, II, III...), mỗi KPI hiển thị các hoạt động liên kết bên dưới.'
+          }
+          style={{ marginTop: 8 }}
+          showIcon
+        />
       </Modal>
     </div>
   )

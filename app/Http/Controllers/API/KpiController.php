@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Kpi;
+use App\Models\KpiCategory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -25,14 +26,19 @@ class KpiController extends Controller
         ]);
 
         try {
-            $query = Kpi::query()->with('creator:id,email');
+            $query = Kpi::query()->with(['creator:id,email', 'kpiCategory']);
 
             // Filter by source (CENTRAL or VNU)
             if ($request->has('source') && in_array($request->source, [Kpi::SOURCE_CENTRAL, Kpi::SOURCE_VNU])) {
                 $query->bySource($request->source);
             }
 
-            // Filter by category
+            // Filter by category_id (new)
+            if ($request->has('category_id') && $request->category_id) {
+                $query->where('category_id', $request->category_id);
+            }
+
+            // Filter by category (legacy - text field)
             if ($request->has('category') && $request->category) {
                 $query->byCategory($request->category);
             }
@@ -111,6 +117,7 @@ class KpiController extends Controller
             'title' => 'required|string|max:500',
             'description' => 'nullable|string',
             'category' => 'nullable|string|max:255',
+            'category_id' => 'nullable|uuid|exists:kpi_categories,id',
             'order_number' => 'nullable|integer|min:0',
             'is_active' => 'boolean',
         ]);
@@ -134,6 +141,7 @@ class KpiController extends Controller
                 'title' => $request->title,
                 'description' => $request->description,
                 'category' => $request->category,
+                'category_id' => $request->input('category_id'),
                 'order_number' => $request->order_number ?? 0,
                 'is_active' => $request->input('is_active', true),
                 'created_by' => $request->user()->id,
@@ -232,6 +240,7 @@ class KpiController extends Controller
                 'title' => 'sometimes|required|string|max:500',
                 'description' => 'nullable|string',
                 'category' => 'nullable|string|max:255',
+                'category_id' => 'nullable|uuid|exists:kpi_categories,id',
                 'order_number' => 'nullable|integer|min:0',
                 'is_active' => 'boolean',
             ]);
@@ -254,6 +263,7 @@ class KpiController extends Controller
                 'title',
                 'description',
                 'category',
+                'category_id',
                 'order_number',
                 'is_active',
             ]));

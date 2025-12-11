@@ -1,0 +1,110 @@
+.report-management {
+  padding: 24px;
+}
+
+.report-header {
+  margin-bottom: 24px;
+}
+
+.report-header h3 {
+  margin-bottom: 8px;
+}
+
+.report-stats {
+  margin-bottom: 24px;
+}
+
+.report-stats .ant-card {
+  border-radius: 8px;
+}
+
+.report-stats .ant-statistic-title {
+  font-size: 12px;
+  color: #666;
+}
+
+.report-stats .ant-statistic-content {
+  font-size: 24px;
+}
+
+.export-card {
+  border-radius: 8px;
+}
+
+.export-options .option-group {
+  margin-bottom: 20px;
+}
+
+.columns-selection {
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 16px;
+  height: 100%;
+}
+
+.columns-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.columns-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.columns-list .ant-checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  padding: 6px 0;
+  width: 100%;
+}
+
+.columns-list .ant-checkbox-wrapper:hover {
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+
+.export-actions {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e8e8e8;
+  display: flex;
+  align-items: center;
+}
+
+.history-card {
+  border-radius: 8px;
+}
+
+.history-card .ant-table-wrapper {
+  margin-top: 16px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .report-management {
+    padding: 16px;
+  }
+
+  .report-stats .ant-col {
+    margin-bottom: 12px;
+  }
+
+  .columns-selection {
+    margin-top: 20px;
+  }
+
+  .export-actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .export-actions .ant-typography {
+    margin-left: 0 !important;
+  }
+}

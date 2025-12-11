@@ -99,6 +99,9 @@ function ActivityWizardModal({
   const [loadingStaff, setLoadingStaff] = useState(false)
   const { user: currentUser } = useAuth()
 
+  // Collaborating organizations state (đơn vị phối hợp)
+  const [selectedCollaboratingOrgIds, setSelectedCollaboratingOrgIds] = useState<string[]>([])
+
   // Files state
   const [files, setFiles] = useState<ActivityFile[]>([])
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
@@ -165,6 +168,7 @@ function ActivityWizardModal({
       setSelectedGroups([])
       setStaffList([])
       setSelectedStaffId(undefined)
+      setSelectedCollaboratingOrgIds([])
 
       if (activity) {
         // Editing existing activity
@@ -172,10 +176,16 @@ function ActivityWizardModal({
         setSelectedKpiIds(kpiIds)
         setLeaderNames(activity.leader_names || [])
         setSelectedStaffId(activity.assigned_to || undefined)
+        // Set collaborating organizations if editing
+        const collabOrgIds = activity.collaborating_organizations?.map(org => org.id) || []
+        setSelectedCollaboratingOrgIds(collabOrgIds)
         form.setFieldsValue({
           code: activity.code,
           title: activity.title,
           description: activity.description,
+          focus_content: activity.focus_content,
+          qualitative_target: activity.qualitative_target,
+          quantitative_target: activity.quantitative_target,
           activity_type_id: activity.activity_type_id,
           activity_field_id: activity.activity_field_id,
           start_date: activity.start_date ? dayjs(activity.start_date) : undefined,
@@ -412,6 +422,9 @@ function ActivityWizardModal({
         code: values.code || undefined,
         title: values.title,
         description: values.description,
+        focus_content: values.focus_content,
+        qualitative_target: values.qualitative_target,
+        quantitative_target: values.quantitative_target,
         activity_type_id: values.activity_type_id,
         activity_field_id: values.activity_field_id,
         start_date,
@@ -423,6 +436,7 @@ function ActivityWizardModal({
         leader_names: leaderNames.length > 0 ? leaderNames : undefined,
         assigned_to: selectedStaffId || null, // Staff assigned to manage this activity
         kpi_ids: selectedKpiIds,
+        collaborating_organization_ids: selectedCollaboratingOrgIds.length > 0 ? selectedCollaboratingOrgIds : undefined,
       }
 
       let savedAct: Activity
@@ -732,6 +746,38 @@ function ActivityWizardModal({
             )}
           </Row>
 
+          {/* Đơn vị phối hợp */}
+          <Form.Item
+            label="Đơn vị phối hợp"
+            style={{ marginBottom: 12 }}
+            tooltip="Chọn các đơn vị khác phối hợp thực hiện hoạt động này (nếu có)"
+          >
+            <Select
+              mode="multiple"
+              style={{ width: '100%' }}
+              placeholder="Chọn đơn vị phối hợp (nếu có)"
+              value={selectedCollaboratingOrgIds}
+              onChange={setSelectedCollaboratingOrgIds}
+              allowClear
+              showSearch
+              optionFilterProp="children"
+              filterOption={(input, option) =>
+                (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
+              }
+              maxTagCount={3}
+              maxTagPlaceholder={(omittedValues) => `+${omittedValues.length} đơn vị khác`}
+            >
+              {formData?.organizations?.map((org) => (
+                <Option key={org.id} value={org.id}>
+                  {org.short_name || org.name}
+                </Option>
+              ))}
+            </Select>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              Có thể chọn nhiều đơn vị phối hợp
+            </Text>
+          </Form.Item>
+
           {/* Location, Budget, Budget Source */}
           <Row gutter={12}>
             <Col span={8}>
@@ -761,6 +807,47 @@ function ActivityWizardModal({
           <Form.Item name="description" label="Mô tả" style={{ marginBottom: 12 }}>
             <TextArea rows={2} placeholder="Mô tả chi tiết về hoạt động" />
           </Form.Item>
+
+          {/* Focus Content */}
+          <Form.Item name="focus_content" label="Nội dung trọng tâm" style={{ marginBottom: 12 }}>
+            <TextArea rows={3} placeholder="Nhập nội dung trọng tâm của hoạt động" />
+          </Form.Item>
+
+          {/* Mục tiêu Section */}
+          <div style={{
+            background: '#f6ffed',
+            border: '1px solid #b7eb8f',
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 12
+          }}>
+            <Text strong style={{ display: 'block', marginBottom: 12, color: '#389e0d' }}>
+              <FlagOutlined style={{ marginRight: 6 }} />
+              Mục tiêu hoạt động
+            </Text>
+            <Row gutter={12}>
+              <Col span={12}>
+                <Form.Item
+                  name="qualitative_target"
+                  label="Định tính"
+                  style={{ marginBottom: 8 }}
+                  tooltip="Mục tiêu về chất lượng, kết quả mong muốn đạt được"
+                >
+                  <TextArea rows={3} placeholder="VD: Nâng cao nhận thức, cải thiện kỹ năng..." />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="quantitative_target"
+                  label="Định lượng"
+                  style={{ marginBottom: 8 }}
+                  tooltip="Mục tiêu về số lượng, các chỉ số cụ thể"
+                >
+                  <TextArea rows={3} placeholder="VD: 100 người tham dự, 5 bài báo, 3 sản phẩm..." />
+                </Form.Item>
+              </Col>
+            </Row>
+          </div>
 
           {/* External URL */}
           <Form.Item name="external_url" label="Đường dẫn tham khảo" style={{ marginBottom: 12 }}>

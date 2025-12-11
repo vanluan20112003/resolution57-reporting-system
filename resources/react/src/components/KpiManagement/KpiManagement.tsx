@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   Table,
   Card,
@@ -26,15 +26,17 @@ import {
   TrophyOutlined,
   BankOutlined,
   GlobalOutlined,
+  FolderOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { useAuth } from '../../shared/hooks'
 import * as kpiApi from '../../services/kpiApi'
-import type { Kpi, CreateKpiRequest, UpdateKpiRequest } from '../../services/kpiApi'
+import type { Kpi, KpiCategory, CreateKpiRequest, UpdateKpiRequest } from '../../services/kpiApi'
 import AdvancedFilter, { FilterField, FilterValues } from '../../shared/components/AdvancedFilter'
 import ColumnToggle, { ToggleableColumn } from '../../shared/components/ColumnToggle'
 import { ImportExcelModal } from '../../shared/components/ImportExcelModal'
 import { FileExcelOutlined } from '@ant-design/icons'
+import KpiCategoryManagement from './KpiCategoryManagement'
 import './KpiManagement.css'
 
 const { Title, Text } = Typography
@@ -48,10 +50,11 @@ function KpiManagement() {
   const [kpis, setKpis] = useState<Kpi[]>([])
   const [pagination, setPagination] = useState({ current: 1, pageSize: 15, total: 0 })
   const [activeTab, setActiveTab] = useState<'CENTRAL' | 'VNU'>('CENTRAL')
+  const [mainTab, setMainTab] = useState<'kpis' | 'categories'>('kpis')
   const [editModalVisible, setEditModalVisible] = useState(false)
   const [importModalVisible, setImportModalVisible] = useState(false)
   const [selectedKpi, setSelectedKpi] = useState<Kpi | null>(null)
-  const [categories, setCategories] = useState<string[]>([])
+  const [categories, setCategories] = useState<KpiCategory[]>([])
   const [form] = Form.useForm()
   const { user: currentUser } = useAuth()
 
@@ -63,7 +66,7 @@ function KpiManagement() {
   // Advanced filter state
   const [filterValues, setFilterValues] = useState<FilterValues>({
     search: '',
-    category: undefined,
+    category_id: undefined,
     is_active: undefined,
   })
 
@@ -81,13 +84,13 @@ function KpiManagement() {
         span: 10,
       },
       {
-        key: 'category',
-        label: 'Danh mục',
+        key: 'category_id',
+        label: 'Loại KPI',
         type: 'select',
         span: 8,
         options: categories.map((cat) => ({
-          value: cat,
-          label: cat,
+          value: cat.id,
+          label: cat.name,
         })),
       },
       {
@@ -128,7 +131,7 @@ function KpiManagement() {
       const response = await kpiApi.getKpis({
         source: activeTab,
         search: filterValues.search || undefined,
-        category: filterValues.category,
+        category_id: filterValues.category_id,
         is_active: filterValues.is_active,
         page: pagination.current,
         per_page: pagination.pageSize,
@@ -146,14 +149,14 @@ function KpiManagement() {
     }
   }
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
-      const response = await kpiApi.getKpiCategories()
+      const response = await kpiApi.getKpiCategories({ is_active: true, per_page: 100 })
       setCategories(response.data)
     } catch (error) {
       console.error('Failed to fetch categories:', error)
     }
-  }
+  }, [])
 
   const handleTableChange = (newPagination: any) => {
     setPagination({
@@ -168,9 +171,13 @@ function KpiManagement() {
     setPagination({ ...pagination, current: 1 })
     setFilterValues({
       search: '',
-      category: undefined,
+      category_id: undefined,
       is_active: undefined,
     })
+  }
+
+  const handleMainTabChange = (key: string) => {
+    setMainTab(key as 'kpis' | 'categories')
   }
 
   const handleAdd = () => {
@@ -276,13 +283,15 @@ function KpiManagement() {
       render: (title: string) => <Text>{title}</Text>,
     },
     {
-      title: 'Danh mục',
-      dataIndex: 'category',
+      title: 'Loại KPI',
+      dataIndex: 'kpi_category',
       key: 'category',
-      width: 150,
-      sorter: (a, b) => (a.category || '').localeCompare(b.category || ''),
-      render: (category: string) =>
-        category ? <Tag color="blue">{category}</Tag> : <Text type="secondary">-</Text>,
+      width: 180,
+      sorter: (a, b) => (a.kpi_category?.name || a.category || '').localeCompare(b.kpi_category?.name || b.category || ''),
+      render: (_: any, record: Kpi) => {
+        const categoryName = record.kpi_category?.name || record.category
+        return categoryName ? <Tag color="blue">{categoryName}</Tag> : <Text type="secondary">-</Text>
+      },
     },
     {
       title: 'Thứ tự',
@@ -386,80 +395,105 @@ function KpiManagement() {
           </Text>
         </div>
 
-        {/* Advanced Filter */}
-        <AdvancedFilter
-          fields={filterFields}
-          values={filterValues}
-          onChange={handleFilterChange}
-          onSearch={handleFilterSearch}
-          onReset={handleFilterReset}
-          loading={loading}
-          storageKey={`kpi_management_${activeTab}_filters`}
-          showPresets={true}
-          collapsible={true}
-          defaultExpanded={true}
-          extra={
-            <Space>
-              <Button icon={<ReloadOutlined />} onClick={fetchKpis} loading={loading}>
-                Làm mới
-              </Button>
-              <ColumnToggle
-                columns={toggleableColumns}
-                visibleColumns={visibleColumns}
-                onChange={setVisibleColumns}
-                storageKey={`kpi_management_${activeTab}`}
-              />
-              <Button
-                icon={<FileExcelOutlined />}
-                onClick={() => setImportModalVisible(true)}
-              >
-                Import Excel
-              </Button>
-              <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                Thêm KPI mới
-              </Button>
-            </Space>
-          }
-        />
-
-        {/* Tabs for CENTRAL and VNU */}
-        <div style={{ marginBottom: 16 }}>
-          <Tabs activeKey={activeTab} onChange={handleTabChange}>
-            <TabPane
-              tab={
-                <span>
-                  <GlobalOutlined />
-                  Trung ương
-                </span>
+        {/* Main Tabs: KPI List and KPI Categories */}
+        <Tabs activeKey={mainTab} onChange={handleMainTabChange} style={{ marginBottom: 16 }}>
+          <TabPane
+            tab={
+              <span>
+                <TrophyOutlined />
+                Danh sách KPI
+              </span>
+            }
+            key="kpis"
+          >
+            {/* Advanced Filter */}
+            <AdvancedFilter
+              fields={filterFields}
+              values={filterValues}
+              onChange={handleFilterChange}
+              onSearch={handleFilterSearch}
+              onReset={handleFilterReset}
+              loading={loading}
+              storageKey={`kpi_management_${activeTab}_filters`}
+              showPresets={true}
+              collapsible={true}
+              defaultExpanded={true}
+              extra={
+                <Space>
+                  <Button icon={<ReloadOutlined />} onClick={fetchKpis} loading={loading}>
+                    Làm mới
+                  </Button>
+                  <ColumnToggle
+                    columns={toggleableColumns}
+                    visibleColumns={visibleColumns}
+                    onChange={setVisibleColumns}
+                    storageKey={`kpi_management_${activeTab}`}
+                  />
+                  <Button
+                    icon={<FileExcelOutlined />}
+                    onClick={() => setImportModalVisible(true)}
+                  >
+                    Import Excel
+                  </Button>
+                  <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                    Thêm KPI mới
+                  </Button>
+                </Space>
               }
-              key="CENTRAL"
             />
-            <TabPane
-              tab={
-                <span>
-                  <BankOutlined />
-                  ĐHQG-HCM
-                </span>
-              }
-              key="VNU"
-            />
-          </Tabs>
-        </div>
 
-        {/* Table */}
-        <Table
-          columns={columns}
-          dataSource={kpis}
-          loading={loading}
-          rowKey="id"
-          pagination={{
-            ...pagination,
-            showSizeChanger: true,
-            showTotal: (total) => `Tổng ${total} KPI`,
-          }}
-          onChange={handleTableChange}
-          scroll={{ x: 1200 }}
-        />
+            {/* Tabs for CENTRAL and VNU */}
+            <div style={{ marginBottom: 16 }}>
+              <Tabs activeKey={activeTab} onChange={handleTabChange}>
+                <TabPane
+                  tab={
+                    <span>
+                      <GlobalOutlined />
+                      Trung ương
+                    </span>
+                  }
+                  key="CENTRAL"
+                />
+                <TabPane
+                  tab={
+                    <span>
+                      <BankOutlined />
+                      ĐHQG-HCM
+                    </span>
+                  }
+                  key="VNU"
+                />
+              </Tabs>
+            </div>
+
+            {/* Table */}
+            <Table
+              columns={columns}
+              dataSource={kpis}
+              loading={loading}
+              rowKey="id"
+              pagination={{
+                ...pagination,
+                showSizeChanger: true,
+                showTotal: (total) => `Tổng ${total} KPI`,
+              }}
+              onChange={handleTableChange}
+              scroll={{ x: 1200 }}
+            />
+          </TabPane>
+
+          <TabPane
+            tab={
+              <span>
+                <FolderOutlined />
+                Quản lý loại KPI
+              </span>
+            }
+            key="categories"
+          >
+            <KpiCategoryManagement onCategoriesChange={fetchCategories} />
+          </TabPane>
+        </Tabs>
       </Card>
 
       {/* Add/Edit Modal */}
@@ -509,18 +543,13 @@ function KpiManagement() {
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="category" label="Danh mục">
-                <Select placeholder="Chọn danh mục" allowClear showSearch>
+              <Form.Item name="category_id" label="Loại KPI">
+                <Select placeholder="Chọn loại KPI" allowClear showSearch optionFilterProp="children">
                   {categories.map(cat => (
-                    <Option key={cat} value={cat}>
-                      {cat}
+                    <Option key={cat.id} value={cat.id}>
+                      {cat.name}
                     </Option>
                   ))}
-                  <Option value="RANKING">Xếp hạng</Option>
-                  <Option value="INNOVATION">Đổi mới sáng tạo</Option>
-                  <Option value="MANAGEMENT">Quản trị</Option>
-                  <Option value="RESEARCH">Nghiên cứu</Option>
-                  <Option value="TRAINING">Đào tạo</Option>
                 </Select>
               </Form.Item>
             </Col>

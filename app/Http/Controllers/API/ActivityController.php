@@ -271,6 +271,7 @@ class ActivityController extends Controller
                     'leadOrganization:id,name,short_name',
                     'creator:id,email,first_name,last_name',
                     'assignedUser:id,email,first_name,last_name',
+                    'collaboratingOrganizations:id,name,short_name',
                 ]);
 
             // Security: Filter by organization for STAFF/MANAGER
@@ -469,6 +470,8 @@ class ActivityController extends Controller
             'code' => 'nullable|string|max:50|unique:activities,code',
             'title' => 'required|string|max:500',
             'description' => 'nullable|string',
+            'qualitative_target' => 'nullable|string',
+            'quantitative_target' => 'nullable|string',
             'activity_type_id' => 'required|uuid|exists:activity_types,id',
             'activity_field_id' => 'nullable|uuid|exists:activity_fields,id',
             'start_date' => 'nullable|date_format:Y-m-d H:i:s,Y-m-d\TH:i:s,Y-m-d H:i,Y-m-d',
@@ -550,6 +553,9 @@ class ActivityController extends Controller
                 'code' => $code,
                 'title' => $request->title,
                 'description' => $request->description,
+                'focus_content' => $request->focus_content,
+                'qualitative_target' => $request->qualitative_target,
+                'quantitative_target' => $request->quantitative_target,
                 'activity_type_id' => $request->activity_type_id,
                 'activity_field_id' => $request->activity_field_id,
                 'status' => self::STATUS_DRAFT,
@@ -569,6 +575,11 @@ class ActivityController extends Controller
             // Attach KPIs if provided
             if ($request->has('kpi_ids') && is_array($request->kpi_ids)) {
                 $activity->kpis()->attach($request->kpi_ids);
+            }
+
+            // Attach collaborating organizations if provided
+            if ($request->has('collaborating_organization_ids') && is_array($request->collaborating_organization_ids)) {
+                $activity->collaboratingOrganizations()->attach($request->collaborating_organization_ids);
             }
 
             Notification::create([
@@ -594,6 +605,7 @@ class ActivityController extends Controller
                 'leadOrganization:id,name,short_name',
                 'creator:id,email,first_name,last_name',
                 'kpis:id,source,code,title',
+                'collaboratingOrganizations:id,name,short_name',
             ]);
 
             // Apply computed status for response
@@ -644,6 +656,7 @@ class ActivityController extends Controller
                 'assignedUser:id,email,first_name,last_name',
                 'approver:id,email,first_name,last_name',
                 'kpis:id,source,code,title',
+                'collaboratingOrganizations:id,name,short_name',
             ])->findOrFail($id);
 
             // Security check
@@ -748,7 +761,7 @@ class ActivityController extends Controller
             }
 
             // Define allowed fields for locked/approved activities
-            $completionAllowedFields = ['completion_percentage', 'result_summary', 'actual_start_date', 'actual_end_date', 'status'];
+            $completionAllowedFields = ['completion_percentage', 'result_summary', 'difficulties', 'actual_start_date', 'actual_end_date', 'status'];
             $requestFields = array_keys($request->except(['_method', '_token']));
 
             // Check if activity is POSTPONED - allow editing dates only
@@ -795,6 +808,9 @@ class ActivityController extends Controller
             $validator = Validator::make($request->all(), [
                 'title' => 'sometimes|required|string|max:500',
                 'description' => 'nullable|string',
+                'focus_content' => 'nullable|string',
+                'qualitative_target' => 'nullable|string',
+                'quantitative_target' => 'nullable|string',
                 'activity_type_id' => 'sometimes|required|uuid|exists:activity_types,id',
                 'activity_field_id' => 'nullable|uuid|exists:activity_fields,id',
                 'status' => 'sometimes|in:DRAFT,PENDING_APPROVAL,APPROVED,REJECTED,POSTPONED,CANCELLED',
@@ -810,6 +826,7 @@ class ActivityController extends Controller
                 'leader_names.*' => 'string|max:255',
                 'completion_percentage' => 'nullable|integer|min:0|max:100',
                 'result_summary' => 'nullable|string',
+                'difficulties' => 'nullable|string',
                 'kpi_ids' => 'nullable|array',
                 'kpi_ids.*' => 'uuid|exists:kpis,id',
                 'assigned_to' => 'nullable|uuid|exists:nq57_users,id',
@@ -855,6 +872,9 @@ class ActivityController extends Controller
             $activity->update($request->only([
                 'title',
                 'description',
+                'focus_content',
+                'qualitative_target',
+                'quantitative_target',
                 'activity_type_id',
                 'activity_field_id',
                 'status',
@@ -869,6 +889,7 @@ class ActivityController extends Controller
                 'leader_names',
                 'completion_percentage',
                 'result_summary',
+                'difficulties',
                 'assigned_to',
             ]));
 
@@ -939,12 +960,18 @@ class ActivityController extends Controller
                 $activity->kpis()->sync($request->kpi_ids ?? []);
             }
 
+            // Update collaborating organizations if provided
+            if ($request->has('collaborating_organization_ids')) {
+                $activity->collaboratingOrganizations()->sync($request->collaborating_organization_ids ?? []);
+            }
+
             $activity->load([
                 'activityType:id,name',
                 'activityField:id,name',
                 'leadOrganization:id,name,short_name',
                 'creator:id,email,first_name,last_name',
                 'kpis:id,source,code,title',
+                'collaboratingOrganizations:id,name,short_name',
             ]);
 
             Log::info('Activity updated successfully', [
@@ -2468,6 +2495,14 @@ class ActivityController extends Controller
                 $userOrganization = Organization::find($user->organization_id, ['id', 'name', 'short_name']);
             }
 
+            // Get all organizations for collaborating selection (exclude user's own organization)
+            $organizations = Organization::where('status', 'active')
+                ->when($user->organization_id, function ($q) use ($user) {
+                    return $q->where('id', '!=', $user->organization_id);
+                })
+                ->orderBy('name')
+                ->get(['id', 'name', 'short_name']);
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -2478,6 +2513,7 @@ class ActivityController extends Controller
                         'vnu' => $kpisVNU,
                     ],
                     'user_organization' => $userOrganization,
+                    'organizations' => $organizations, // For collaborating organizations selection
                     'statuses' => [
                         ['value' => 'DRAFT', 'label' => 'Nháp'],
                         ['value' => 'PENDING_APPROVAL', 'label' => 'Chờ phê duyệt'],

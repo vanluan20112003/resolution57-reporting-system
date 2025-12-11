@@ -13,8 +13,11 @@ use App\Http\Controllers\API\ActivityTypeController;
 use App\Http\Controllers\API\ActivityFieldController;
 use App\Http\Controllers\API\ActivityController;
 use App\Http\Controllers\API\FileTypeController;
+use App\Http\Controllers\API\KpiCategoryController;
 use App\Http\Controllers\API\ImportController;
 use App\Http\Controllers\API\NotificationController;
+use App\Http\Controllers\API\ReportController;
+use App\Http\Controllers\API\ActivityShareLinkController;
 
 /*
 |--------------------------------------------------------------------------
@@ -165,7 +168,16 @@ Route::prefix('v1')->group(function () {
 
         // Process attendance with new participants and file upload
         Route::post('/{id}/participants/process-attendance', [ActivityController::class, 'processAttendance']);
+
+        // Activity Share Links Management
+        Route::get('/{id}/share-links', [ActivityShareLinkController::class, 'index']);
+        Route::post('/{id}/share-links', [ActivityShareLinkController::class, 'store']);
+        Route::put('/{id}/share-links/{linkId}', [ActivityShareLinkController::class, 'update']);
+        Route::delete('/{id}/share-links/{linkId}', [ActivityShareLinkController::class, 'destroy']);
     });
+
+    // Shared Files Access (authenticated users with share token)
+    Route::middleware('auth:sanctum')->get('/shared/files/{token}', [ActivityShareLinkController::class, 'accessSharedFiles']);
 
     // Authentication Routes
     Route::prefix('auth')->group(function () {
@@ -229,7 +241,7 @@ Route::prefix('v1')->group(function () {
         // List all KPIs with filtering
         Route::get('/', [KpiController::class, 'index']);
 
-        // Get KPI categories
+        // Get KPI categories (deprecated - use /kpi-categories instead)
         Route::get('/categories', [KpiController::class, 'categories']);
 
         // Get single KPI
@@ -243,6 +255,15 @@ Route::prefix('v1')->group(function () {
 
         // Delete KPI
         Route::delete('/{id}', [KpiController::class, 'destroy']);
+    });
+
+    // KPI Category Management Routes (OPERATOR and ADMIN only)
+    Route::middleware(['auth:sanctum', 'role:OPERATOR,ADMIN'])->prefix('kpi-categories')->group(function () {
+        Route::get('/', [KpiCategoryController::class, 'index']);
+        Route::get('/{id}', [KpiCategoryController::class, 'show']);
+        Route::post('/', [KpiCategoryController::class, 'store']);
+        Route::put('/{id}', [KpiCategoryController::class, 'update']);
+        Route::delete('/{id}', [KpiCategoryController::class, 'destroy']);
     });
 
    // Organization Management Routes (OPERATOR and ADMIN only)
@@ -333,6 +354,27 @@ Route::prefix('v1')->group(function () {
 
         // Import data from Excel
         Route::post('/', [ImportController::class, 'import']);
+    });
+
+    // Report Management Routes (STAFF+ only - users must have organization)
+    Route::middleware(['auth:sanctum', 'role:STAFF,MANAGER,OPERATOR,ADMIN'])->prefix('reports')->group(function () {
+        // Get available report periods with activity counts
+        Route::get('/periods', [ReportController::class, 'getReportPeriods']);
+
+        // Get available export columns for a view mode
+        Route::get('/columns', [ReportController::class, 'getExportColumns']);
+
+        // Get export history for current user's organization
+        Route::get('/history', [ReportController::class, 'getExportHistory']);
+
+        // Get report statistics for dashboard
+        Route::get('/stats', [ReportController::class, 'getReportStats']);
+
+        // Export activity report (creates history record)
+        Route::get('/export', [ReportController::class, 'exportActivityReport']);
+
+        // Delete export history record (MANAGER+ only)
+        Route::delete('/history/{id}', [ReportController::class, 'deleteExport']);
     });
 
     // SSO Authentication Routes (Simple Test)

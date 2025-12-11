@@ -96,7 +96,8 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
     labelKey: 'menu.reportsMenu',
     descriptionKey: 'menu.reportsDescription',
     tab: 'reports',
-    roles: [UserRole.GUEST, UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
+    roles: [UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
+    requiresOrganization: true,
     children: [
       {
         key: 'reports',
@@ -104,7 +105,8 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
         labelKey: 'menu.reports',
         descriptionKey: 'menu.reportsViewDescription',
         tab: 'reports',
-        roles: [UserRole.GUEST, UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
+        roles: [UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
+        requiresOrganization: true,
       },
       {
         key: 'kpi',
