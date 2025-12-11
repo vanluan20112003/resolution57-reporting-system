@@ -389,7 +389,7 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     $row[] = $timePeriod;
                     break;
                 case 'budget':
-                    $row[] = '';
+                    $row[] = $activity ? ($activity->budget ?? '') : '';
                     break;
                 case 'qualitative_target':
                     $row[] = $activity ? ($activity->qualitative_target ?? '') : '';
@@ -482,7 +482,7 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     $row[] = $timePeriod;
                     break;
                 case 'budget':
-                    $row[] = '';
+                    $row[] = $activity->budget ?? '';
                     break;
                 case 'qualitative_target':
                     $row[] = $activity->qualitative_target ?? '';
@@ -741,7 +741,7 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     $row[] = $timePeriod;
                     break;
                 case 'budget':
-                    $row[] = '';
+                    $row[] = $activity ? ($activity->budget ?? '') : '';
                     break;
                 case 'qualitative_target':
                     $row[] = $activity ? ($activity->qualitative_target ?? '') : '';
@@ -836,7 +836,7 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     $row[] = $timePeriod;
                     break;
                 case 'budget':
-                    $row[] = '';
+                    $row[] = $activity->budget ?? '';
                     break;
                 case 'qualitative_target':
                     $row[] = $activity->qualitative_target ?? '';
