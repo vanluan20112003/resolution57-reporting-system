@@ -1019,6 +1019,15 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                 // Center STT column
                 $sheet->getStyle("A6:A{$highestRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
+                // Format budget column as number with thousand separator (e.g., 3,940,000,000)
+                $budgetIndex = array_search('budget', $selectedCols);
+                if ($budgetIndex !== false) {
+                    $budgetCol = \chr(\ord('A') + $budgetIndex);
+                    $sheet->getStyle("{$budgetCol}6:{$budgetCol}{$highestRow}")
+                        ->getNumberFormat()
+                        ->setFormatCode('#,##0');
+                }
+
                 // Row heights
                 $sheet->getRowDimension(1)->setRowHeight(30);
                 $sheet->getRowDimension(4)->setRowHeight(35);
