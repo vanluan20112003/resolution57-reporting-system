@@ -1200,12 +1200,6 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                   onChange={setVisibleColumns}
                   storageKey="activity_management"
                 />
-                <Button
-                  icon={<FileExcelOutlined />}
-                  onClick={handleOpenExportModal}
-                >
-                  Xuất báo cáo
-                </Button>
                 {canCreate && (
                   <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                     Thêm hoạt động
