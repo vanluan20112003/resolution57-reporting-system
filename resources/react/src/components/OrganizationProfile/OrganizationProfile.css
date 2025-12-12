@@ -162,19 +162,26 @@
     margin-bottom: 12px;
   }
 
-  /* Avatar size is now controlled by JS (avatarSize = 180px on mobile) */
+  /* Avatar size is now controlled by JS (avatarSize = 200px on mobile) */
   /* These CSS rules ensure proper display */
   .org-avatar {
-    font-size: 72px !important;
+    font-size: 80px !important;
   }
 
   .org-avatar .anticon {
-    font-size: 72px !important;
+    font-size: 80px !important;
   }
 
   /* Make sure img inside avatar displays correctly */
   .org-avatar img {
     object-fit: contain !important;
+  }
+
+  /* Ensure avatar wrapper displays correctly */
+  .org-avatar-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   /* Avatar buttons */
