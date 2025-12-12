@@ -21,6 +21,7 @@ import {
   Dropdown,
   message,
   InputNumber,
+  Grid,
 } from 'antd'
 import {
   SearchOutlined,
@@ -37,9 +38,11 @@ import type { MenuProps } from 'antd'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import './AdvancedFilter.css'
+import { MobileDatePicker, MobileDateRangePicker } from '../MobileDatePicker'
 
 const { RangePicker } = DatePicker
 const { Option } = Select
+const { useBreakpoint } = Grid
 
 // Filter field types
 export type FilterFieldType =
@@ -119,6 +122,8 @@ function AdvancedFilter({
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [presets, setPresets] = useState<FilterPreset[]>([])
   const [presetName, setPresetName] = useState('')
+  const screens = useBreakpoint()
+  const isMobile = !screens.sm // < 576px
 
   // Count active filters
   const activeFilterCount = Object.values(values).filter(
@@ -296,14 +301,23 @@ function AdvancedFilter({
           <Col span={span} key={field.key}>
             <div className="filter-field">
               <label className="filter-label">{field.label}</label>
-              <RangePicker
-                value={value}
-                onChange={(dates) => handleFieldChange(field.key, dates)}
-                format="DD/MM/YYYY"
-                style={{ width: '100%' }}
-                placeholder={['Từ ngày', 'Đến ngày']}
-                allowClear={field.allowClear !== false}
-              />
+              {isMobile ? (
+                <MobileDateRangePicker
+                  value={value}
+                  onChange={(dates) => handleFieldChange(field.key, dates)}
+                  placeholder={['Từ ngày', 'Đến ngày']}
+                  allowClear={field.allowClear !== false}
+                />
+              ) : (
+                <RangePicker
+                  value={value}
+                  onChange={(dates) => handleFieldChange(field.key, dates)}
+                  format="DD/MM/YYYY"
+                  style={{ width: '100%' }}
+                  placeholder={['Từ ngày', 'Đến ngày']}
+                  allowClear={field.allowClear !== false}
+                />
+              )}
             </div>
           </Col>
         )
@@ -313,14 +327,23 @@ function AdvancedFilter({
           <Col span={span} key={field.key}>
             <div className="filter-field">
               <label className="filter-label">{field.label}</label>
-              <DatePicker
-                value={value}
-                onChange={(date) => handleFieldChange(field.key, date)}
-                format="DD/MM/YYYY"
-                style={{ width: '100%' }}
-                placeholder={field.placeholder || 'Chọn ngày'}
-                allowClear={field.allowClear !== false}
-              />
+              {isMobile ? (
+                <MobileDatePicker
+                  value={value}
+                  onChange={(date) => handleFieldChange(field.key, date)}
+                  placeholder={field.placeholder || 'Chọn ngày'}
+                  allowClear={field.allowClear !== false}
+                />
+              ) : (
+                <DatePicker
+                  value={value}
+                  onChange={(date) => handleFieldChange(field.key, date)}
+                  format="DD/MM/YYYY"
+                  style={{ width: '100%' }}
+                  placeholder={field.placeholder || 'Chọn ngày'}
+                  allowClear={field.allowClear !== false}
+                />
+              )}
             </div>
           </Col>
         )

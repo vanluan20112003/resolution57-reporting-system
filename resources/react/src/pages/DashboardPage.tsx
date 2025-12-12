@@ -348,8 +348,11 @@ function DashboardPage() {
               style={{ height: '48px', width: 'auto', objectFit: 'contain' }}
             />
           </div>
-          <Title level={4} className="header-title" style={{ margin: 0 }}>
+          <Title level={4} className="header-title header-title-full" style={{ margin: 0 }}>
             {t('dashboard.headerTitle')}
+          </Title>
+          <Title level={4} className="header-title header-title-short" style={{ margin: 0 }}>
+            NQ57
           </Title>
         </div>
 

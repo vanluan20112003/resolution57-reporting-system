@@ -455,6 +455,16 @@
     1px 1px 0 #fff;
 }
 
+/* Full title - visible on desktop, hidden on mobile */
+.header-title-full {
+  display: block;
+}
+
+/* Short title (NQ57) - hidden on desktop, visible on mobile */
+.header-title-short {
+  display: none;
+}
+
 .header-right {
   display: flex;
   align-items: center;
@@ -916,6 +926,17 @@
   .header-title {
     font-size: 13px;
     line-height: 1.4;
+  }
+
+  /* Hide full title, show short title on mobile */
+  .header-title-full {
+    display: none;
+  }
+
+  .header-title-short {
+    display: block;
+    font-size: 24px;
+    line-height: 1.2;
   }
 
   .vietnam-flag {

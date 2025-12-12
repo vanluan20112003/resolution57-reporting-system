@@ -120,6 +120,7 @@
   }
 }
 
+/* Tablet - 768px */
 @media (max-width: 768px) {
   .advanced-filter-card .ant-card-body {
     padding: 8px 12px;
@@ -143,6 +144,329 @@
 
   .filter-actions-row .ant-space .ant-btn {
     flex: 1;
+  }
+
+  /* Date picker adjustments for tablet */
+  .filter-field .ant-picker {
+    width: 100% !important;
+  }
+
+  .filter-field .ant-picker-range {
+    flex-direction: row;
+  }
+}
+
+/* Mobile - 576px and below */
+@media (max-width: 576px) {
+  .advanced-filter-card {
+    margin-bottom: 12px;
+    border-radius: 12px;
+  }
+
+  .advanced-filter-card .ant-card-body {
+    padding: 10px;
+  }
+
+  /* Collapse header on mobile */
+  .advanced-filter-card .ant-collapse-header {
+    padding: 8px 0 !important;
+    font-size: 14px;
+  }
+
+  .advanced-filter-card .ant-collapse-content-box {
+    padding: 12px 0 0 0 !important;
+  }
+
+  /* Filter fields - full width on mobile */
+  .advanced-filter-content .ant-row {
+    margin: 0 !important;
+  }
+
+  .advanced-filter-content .ant-col {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin-bottom: 12px !important;
+  }
+
+  /* Filter field styling on mobile */
+  .filter-field {
+    margin-bottom: 0;
+  }
+
+  .filter-label {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #333;
+  }
+
+  /* Input fields - larger touch targets */
+  .filter-field .ant-input {
+    height: 44px !important;
+    font-size: 16px !important; /* Prevent iOS zoom */
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+  }
+
+  .filter-field .ant-input-affix-wrapper {
+    height: 44px !important;
+    border-radius: 8px !important;
+    padding: 0 12px !important;
+  }
+
+  .filter-field .ant-input-affix-wrapper .ant-input {
+    height: auto !important;
+    font-size: 16px !important;
+  }
+
+  /* Select fields */
+  .filter-field .ant-select {
+    width: 100% !important;
+  }
+
+  .filter-field .ant-select-selector {
+    height: 44px !important;
+    min-height: 44px !important;
+    border-radius: 8px !important;
+    padding: 0 12px !important;
+    font-size: 16px !important;
+  }
+
+  .filter-field .ant-select-selection-item {
+    line-height: 42px !important;
+    font-size: 15px !important;
+  }
+
+  .filter-field .ant-select-selection-placeholder {
+    line-height: 42px !important;
+    font-size: 15px !important;
+    color: #999 !important;
+  }
+
+  /* Multi-select tags */
+  .filter-field .ant-select-multiple .ant-select-selector {
+    height: auto !important;
+    min-height: 44px !important;
+    padding: 4px 8px !important;
+  }
+
+  .filter-field .ant-select-multiple .ant-select-selection-item {
+    height: 28px !important;
+    line-height: 26px !important;
+    font-size: 13px !important;
+    border-radius: 6px !important;
+  }
+
+  /* Date picker on mobile */
+  .filter-field .ant-picker {
+    height: 44px !important;
+    border-radius: 8px !important;
+    width: 100% !important;
+  }
+
+  .filter-field .ant-picker-input > input {
+    font-size: 16px !important;
+  }
+
+  /* Range picker - stack vertically on mobile */
+  .filter-field .ant-picker-range {
+    flex-wrap: wrap;
+    height: auto !important;
+    min-height: 44px;
+    padding: 6px 12px !important;
+  }
+
+  .filter-field .ant-picker-range .ant-picker-input {
+    width: 100%;
+  }
+
+  .filter-field .ant-picker-range .ant-picker-range-separator {
+    display: none;
+  }
+
+  .filter-field .ant-picker-range .ant-picker-input:first-child::after {
+    content: 'đến';
+    display: block;
+    text-align: center;
+    color: #999;
+    font-size: 12px;
+    padding: 4px 0;
+  }
+
+  /* Number input */
+  .filter-field .ant-input-number {
+    height: 44px !important;
+    border-radius: 8px !important;
+    width: 100% !important;
+  }
+
+  .filter-field .ant-input-number-input {
+    height: 42px !important;
+    font-size: 16px !important;
+  }
+
+  /* Number range - stack vertically */
+  .filter-field .ant-space-compact {
+    flex-direction: column !important;
+    gap: 8px;
+  }
+
+  .filter-field .ant-space-compact .ant-input-number {
+    width: 100% !important;
+    border-radius: 8px !important;
+  }
+
+  /* Action buttons on mobile */
+  .filter-actions-row {
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 16px;
+    margin-top: 8px;
+  }
+
+  .filter-actions-row .ant-space {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .filter-actions-row .ant-space-item {
+    flex: 1;
+    min-width: calc(50% - 4px);
+  }
+
+  .filter-actions-row .ant-btn {
+    width: 100%;
+    height: 44px !important;
+    font-size: 14px !important;
+    border-radius: 8px !important;
+  }
+
+  /* Primary search button - full width */
+  .filter-actions-row .ant-btn-primary {
+    flex: 0 0 100% !important;
+    order: -1;
+  }
+
+  .filter-extra {
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  .filter-extra .ant-btn {
+    width: 100%;
+    height: 44px !important;
+  }
+
+  /* Placeholder text - ensure visibility */
+  .filter-field input::placeholder,
+  .filter-field .ant-select-selection-placeholder {
+    font-size: 14px !important;
+    color: #999 !important;
+    opacity: 1 !important;
+  }
+
+  /* Tags in options */
+  .filter-field .ant-select-item {
+    padding: 10px 12px !important;
+    font-size: 15px !important;
+  }
+
+  .filter-field .ant-tag {
+    font-size: 13px !important;
+    padding: 2px 8px !important;
+  }
+}
+
+/* Very small screens - 375px and below */
+@media (max-width: 375px) {
+  .advanced-filter-card .ant-card-body {
+    padding: 8px;
+  }
+
+  .filter-label {
+    font-size: 12px;
+  }
+
+  .filter-field .ant-input,
+  .filter-field .ant-select-selector,
+  .filter-field .ant-picker,
+  .filter-field .ant-input-number {
+    font-size: 15px !important;
+  }
+
+  .filter-actions-row .ant-space-item {
+    min-width: 100%;
+  }
+
+  .filter-actions-row .ant-btn {
+    font-size: 13px !important;
+  }
+}
+
+/* Fix date picker popup on mobile */
+@media (max-width: 576px) {
+  .ant-picker-dropdown {
+    width: calc(100vw - 16px) !important;
+    left: 8px !important;
+    right: 8px !important;
+  }
+
+  .ant-picker-panel-container {
+    width: 100% !important;
+  }
+
+  .ant-picker-date-panel,
+  .ant-picker-month-panel,
+  .ant-picker-year-panel {
+    width: 100% !important;
+  }
+
+  .ant-picker-content {
+    width: 100% !important;
+  }
+
+  .ant-picker-content th,
+  .ant-picker-content td {
+    width: calc(100% / 7) !important;
+    min-width: 36px;
+    height: 36px;
+  }
+
+  .ant-picker-cell-inner {
+    min-width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    font-size: 14px !important;
+  }
+
+  /* Range picker panels */
+  .ant-picker-panels {
+    flex-direction: column !important;
+  }
+
+  .ant-picker-panel {
+    width: 100% !important;
+    border-width: 0 0 1px 0 !important;
+  }
+
+  .ant-picker-panel:last-child {
+    border-bottom: none !important;
+  }
+
+  /* Select dropdown on mobile */
+  .ant-select-dropdown {
+    max-height: 50vh !important;
+  }
+
+  .ant-select-item {
+    padding: 12px !important;
+    font-size: 15px !important;
+    min-height: 44px;
+  }
+
+  .ant-select-item-option-content {
+    font-size: 15px !important;
   }
 }
 

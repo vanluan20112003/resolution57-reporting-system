@@ -8,11 +8,57 @@
   flex-direction: column;
 }
 
+/* Dropdown overlay positioning */
+.notification-dropdown-overlay {
+  z-index: 1050;
+}
+
+@media (max-width: 768px) {
+  .notification-dropdown-overlay {
+    left: 8px !important;
+    right: 8px !important;
+    width: calc(100vw - 16px) !important;
+    transform: none !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .notification-dropdown-overlay {
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+  }
+
+  /* Bottom sheet style on very small screens */
+  .notification-dropdown-overlay .notification-dropdown {
+    border-radius: 20px 20px 0 0;
+    max-height: 85vh;
+  }
+
+  /* Drag handle indicator */
+  .notification-dropdown-overlay .notification-dropdown::before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 4px;
+    background: #d9d9d9;
+    border-radius: 2px;
+    margin: 8px auto 4px;
+  }
+}
+
 .notification-header {
   padding: 16px 16px 8px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+/* Hide close button on desktop */
+.notification-close-btn {
+  display: none;
 }
 
 .notification-list {
@@ -121,23 +167,177 @@
 /* Mobile responsive */
 @media (max-width: 768px) {
   .notification-dropdown {
-    max-height: 500px;
+    max-height: 85vh;
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    margin: 0 auto;
+    border-radius: 12px;
   }
 
   .notification-list {
-    max-height: 400px;
+    max-height: calc(85vh - 140px);
+    -webkit-overflow-scrolling: touch;
   }
 
   .notification-item {
-    padding: 10px 12px !important;
+    padding: 14px 12px !important;
+    border-bottom: 1px solid #f0f0f0;
   }
 
   .notification-item .ant-list-item-meta-avatar {
     margin-right: 12px;
   }
 
+  /* Larger avatar for easier tap */
+  .notification-item .ant-avatar {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 18px !important;
+  }
+
   .notification-header {
-    padding: 12px;
+    padding: 14px 12px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  /* Show close button on mobile */
+  .notification-close-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    background: #f5f5f5 !important;
+    color: #666 !important;
+  }
+
+  .notification-close-btn:hover {
+    background: #e8e8e8 !important;
+  }
+
+  /* Larger header text */
+  .notification-header .ant-typography {
+    font-size: 17px !important;
+  }
+
+  /* Tabs on mobile - scroll horizontally */
+  .notification-dropdown .ant-tabs {
+    padding: 0 8px;
+  }
+
+  .notification-dropdown .ant-tabs-nav-list {
+    flex-wrap: nowrap;
+  }
+
+  .notification-dropdown .ant-tabs-tab {
+    font-size: 14px;
+    padding: 10px 4px;
+    margin: 0 8px 0 0 !important;
+  }
+
+  /* Larger touch targets for tabs */
+  .notification-dropdown .ant-tabs-tab-btn {
+    padding: 4px 8px;
+  }
+
+  /* Item title and message larger */
+  .notification-item .ant-list-item-meta-title .ant-typography {
+    font-size: 15px !important;
+  }
+
+  .notification-item .ant-list-item-meta-description .ant-typography {
+    font-size: 14px !important;
+    line-height: 1.5;
+  }
+
+  /* Show archive button always on mobile (easier to tap) */
+  .notification-item .archive-btn {
+    opacity: 1;
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  /* Action buttons - larger touch targets */
+  .notification-item .ant-btn {
+    height: 40px !important;
+    font-size: 14px !important;
+    border-radius: 8px !important;
+  }
+
+  /* Stack action buttons vertically */
+  .notification-item .ant-list-item-meta-description > div:last-child {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .notification-item .ant-list-item-meta-description > div:last-child .ant-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Tags larger on mobile */
+  .notification-item .ant-tag {
+    font-size: 12px !important;
+    padding: 2px 8px !important;
+    line-height: 1.5;
+  }
+
+  /* Footer button larger */
+  .notification-footer .ant-btn {
+    height: 44px !important;
+    font-size: 15px !important;
+  }
+}
+
+/* Fix dropdown position on mobile - smaller screens */
+@media (max-width: 576px) {
+  .notification-dropdown {
+    max-height: 90vh;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .notification-list {
+    max-height: calc(90vh - 140px);
+  }
+
+  .notification-header {
+    padding: 16px 14px;
+  }
+
+  .notification-header .ant-btn-link {
+    font-size: 13px;
+    height: 36px;
+  }
+
+  /* Even larger items on small screens */
+  .notification-item {
+    padding: 16px 14px !important;
+  }
+
+  /* Swipe hint - visual indicator */
+  .notification-item::after {
+    content: '';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 24px;
+    background: #e0e0e0;
+    border-radius: 2px;
+    opacity: 0.5;
+  }
+
+  /* Priority indicator more visible */
+  .notification-item.priority-urgent {
+    border-left-width: 4px;
+  }
+
+  .notification-item.priority-high {
+    border-left-width: 4px;
   }
 }
 

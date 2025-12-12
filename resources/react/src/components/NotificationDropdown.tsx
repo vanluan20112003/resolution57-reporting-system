@@ -690,6 +690,15 @@ export default function NotificationDropdown() {
               Đánh dấu đã đọc tất cả
             </Button>
           )}
+          {/* Close button for mobile */}
+          <Button
+            type="text"
+            size="small"
+            onClick={() => setOpen(false)}
+            className="notification-close-btn"
+            style={{ fontSize: "18px", padding: "4px 8px" }}>
+            ✕
+          </Button>
         </div>
       </div>
 
@@ -995,7 +1004,13 @@ export default function NotificationDropdown() {
       open={open}
       onOpenChange={setOpen}
       placement="bottomRight"
-      overlayStyle={{ width: "480px", maxWidth: "90vw" }}>
+      overlayClassName="notification-dropdown-overlay"
+      overlayStyle={{
+        width: "480px",
+        maxWidth: "calc(100vw - 16px)",
+        position: "fixed",
+        right: "8px"
+      }}>
       <Badge
         count={initialLoaded ? unreadCount : 0}
         offset={[-4, 4]}
