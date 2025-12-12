@@ -4,8 +4,6 @@ import {
   Table,
   Tag,
   Space,
-  Input,
-  Select,
   Row,
   Col,
   Statistic,
@@ -15,29 +13,21 @@ import {
   Button,
   message,
   Tooltip,
-  Spin,
   Alert,
 } from 'antd'
 import {
-  SearchOutlined,
-  FilterOutlined,
   FileTextOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
-  ExclamationCircleOutlined,
-  EyeOutlined,
   DownloadOutlined,
-  EditOutlined,
   DeleteOutlined,
+  UndoOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
-import dayjs from 'dayjs'
 import * as reportApi from '../../services/reportApi'
-import type { PreviewActivity, PreviewFilters, PeriodType, ViewMode, ExportColumn } from '../../services/reportApi'
+import type { PreviewRow, PreviewActivityRow, PreviewFilters, PeriodType, ViewMode, ExportColumn } from '../../services/reportApi'
 
 const { Text, Title } = Typography
-const { Option } = Select
-const { TextArea } = Input
 
 interface ReportPreviewModalProps {
   visible: boolean
@@ -102,20 +92,12 @@ function ReportPreviewModal({
   exportLoading,
 }: ReportPreviewModalProps) {
   const [loading, setLoading] = useState(false)
-  const [activities, setActivities] = useState<PreviewActivity[]>([])
-  const [pagination, setPagination] = useState({
-    current: 1,
-    pageSize: 50,
-    total: 0,
-  })
+  const [rows, setRows] = useState<PreviewRow[]>([])
   const [summary, setSummary] = useState<{
     total: number
     by_status: Record<string, number>
   }>({ total: 0, by_status: {} })
-
-  // Filters
-  const [searchText, setSearchText] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
+  const [organization, setOrganization] = useState<{ name: string; short_name?: string } | null>(null)
 
   // Excluded activities (user can remove from export)
   const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set())
@@ -127,8 +109,6 @@ function ReportPreviewModal({
       const filters: PreviewFilters = {
         periodType,
         year,
-        page: pagination.current,
-        per_page: pagination.pageSize,
       }
 
       if (periodType === 'month' && month) {
@@ -137,29 +117,20 @@ function ReportPreviewModal({
       if (periodType === 'quarter' && quarter) {
         filters.quarter = quarter
       }
-      if (searchText) {
-        filters.search = searchText
-      }
-      if (statusFilter) {
-        filters.status = statusFilter
-      }
 
       const response = await reportApi.getReportPreview(filters)
-      setActivities(response.data.activities)
+      setRows(response.data.rows)
       setSummary(response.data.summary)
-      setPagination((prev) => ({
-        ...prev,
-        total: response.data.pagination.total,
-      }))
+      setOrganization(response.data.organization)
     } catch (error: any) {
       console.error('Failed to fetch preview:', error)
       message.error('Không thể tải xem trước báo cáo')
     } finally {
       setLoading(false)
     }
-  }, [periodType, month, quarter, year, pagination.current, pagination.pageSize, searchText, statusFilter])
+  }, [periodType, month, quarter, year])
 
-  // Fetch when modal opens or filters change
+  // Fetch when modal opens
   useEffect(() => {
     if (visible) {
       fetchPreview()
@@ -169,26 +140,9 @@ function ReportPreviewModal({
   // Reset when modal closes
   useEffect(() => {
     if (!visible) {
-      setSearchText('')
-      setStatusFilter(undefined)
-      setPagination((prev) => ({ ...prev, current: 1 }))
       setExcludedIds(new Set())
     }
   }, [visible])
-
-  // Handle search
-  const handleSearch = () => {
-    setPagination((prev) => ({ ...prev, current: 1 }))
-  }
-
-  // Handle table change
-  const handleTableChange = (newPagination: any) => {
-    setPagination({
-      ...pagination,
-      current: newPagination.current,
-      pageSize: newPagination.pageSize,
-    })
-  }
 
   // Toggle exclude activity
   const toggleExclude = (id: string) => {
@@ -216,34 +170,40 @@ function ReportPreviewModal({
 
   // Format currency
   const formatCurrency = (value: number | null) => {
-    if (!value) return '-'
+    if (!value) return ''
     return new Intl.NumberFormat('vi-VN').format(value)
   }
 
-  // Build dynamic columns based on selectedColumns
-  const buildColumns = (): ColumnsType<PreviewActivity> => {
-    const cols: ColumnsType<PreviewActivity> = []
+  // Build table columns based on selectedColumns
+  const buildColumns = (): ColumnsType<PreviewRow> => {
+    const cols: ColumnsType<PreviewRow> = []
 
-    // Always add action column first
+    // Action column (exclude/include)
     cols.push({
       title: '',
       key: 'action',
       width: 40,
       fixed: 'left',
-      render: (_, record) => (
-        <Tooltip title={excludedIds.has(record.id) ? 'Thêm vào báo cáo' : 'Loại khỏi báo cáo'}>
-          <Button
-            type="text"
-            size="small"
-            danger={!excludedIds.has(record.id)}
-            icon={excludedIds.has(record.id) ? <EditOutlined /> : <DeleteOutlined />}
-            onClick={() => toggleExclude(record.id)}
-          />
-        </Tooltip>
-      ),
+      render: (_, record) => {
+        if (record.type === 'category') return null
+        const activityRow = record as PreviewActivityRow
+        const isExcluded = excludedIds.has(activityRow.id)
+        return (
+          <Tooltip title={isExcluded ? 'Thêm vào báo cáo' : 'Loại khỏi báo cáo'}>
+            <Button
+              type="text"
+              size="small"
+              danger={!isExcluded}
+              icon={isExcluded ? <UndoOutlined /> : <DeleteOutlined />}
+              onClick={() => toggleExclude(activityRow.id)}
+            />
+          </Tooltip>
+        )
+      },
     })
 
-    selectedColumns.forEach((colKey, index) => {
+    // Build columns based on selectedColumns
+    selectedColumns.forEach((colKey) => {
       const label = columnLabels[colKey] || colKey
 
       switch (colKey) {
@@ -253,7 +213,11 @@ function ReportPreviewModal({
             key: 'stt',
             width: 50,
             align: 'center',
-            render: (_, __, idx) => (pagination.current - 1) * pagination.pageSize + idx + 1,
+            render: (_, record) => {
+              if (record.type === 'category') return null
+              const row = record as PreviewActivityRow
+              return row.stt || ''
+            },
           })
           break
 
@@ -261,35 +225,45 @@ function ReportPreviewModal({
           cols.push({
             title: label,
             key: 'nhiem_vu_trong_tam',
-            width: 200,
-            render: (_, record) => (
-              <Text style={{ fontSize: 12 }}>
-                {record.kpis && record.kpis.length > 0
-                  ? record.kpis.map((k) => k.title).join('; ')
-                  : '-'}
-              </Text>
-            ),
+            width: 250,
+            render: (_, record) => {
+              if (record.type === 'category') {
+                return (
+                  <Text strong style={{ fontSize: 13 }}>
+                    {record.roman_numeral}. {record.category_name}
+                  </Text>
+                )
+              }
+              const row = record as PreviewActivityRow
+              return <Text style={{ fontSize: 12 }}>{row.nhiem_vu_trong_tam}</Text>
+            },
           })
           break
 
         case 'noi_dung_cu_the':
           cols.push({
             title: label,
-            dataIndex: 'description',
             key: 'noi_dung_cu_the',
             width: 180,
             ellipsis: true,
-            render: (val: string) => <Text style={{ fontSize: 12 }}>{val || '-'}</Text>,
+            render: (_, record) => {
+              if (record.type === 'category') return null
+              const row = record as PreviewActivityRow
+              return <Text style={{ fontSize: 12 }}>{row.noi_dung_cu_the || '-'}</Text>
+            },
           })
           break
 
         case 'phuong_an_de_xuat':
           cols.push({
             title: label,
-            dataIndex: 'title',
             key: 'phuong_an_de_xuat',
             width: 200,
-            render: (val: string) => <Text style={{ fontSize: 12 }} strong>{val}</Text>,
+            render: (_, record) => {
+              if (record.type === 'category') return null
+              const row = record as PreviewActivityRow
+              return <Text style={{ fontSize: 12 }} strong>{row.phuong_an_de_xuat}</Text>
+            },
           })
           break
 
@@ -297,72 +271,93 @@ function ReportPreviewModal({
           cols.push({
             title: label,
             key: 'time_period',
-            width: 120,
-            render: (_, record) => (
-              <Text style={{ fontSize: 11 }}>
-                {record.start_date
-                  ? `${dayjs(record.start_date).format('DD/MM/YY')} - ${
-                      record.end_date ? dayjs(record.end_date).format('DD/MM/YY') : '...'
-                    }`
-                  : '-'}
-              </Text>
-            ),
+            width: 100,
+            render: (_, record) => {
+              if (record.type === 'category') return null
+              const row = record as PreviewActivityRow
+              return <Text style={{ fontSize: 11 }}>{row.time_period || '-'}</Text>
+            },
           })
           break
 
         case 'budget':
           cols.push({
             title: label,
-            dataIndex: 'budget',
             key: 'budget',
             width: 100,
             align: 'right',
-            render: (val: number) => <Text style={{ fontSize: 11 }}>{formatCurrency(val)}</Text>,
+            render: (_, record) => {
+              if (record.type === 'category') return null
+              const row = record as PreviewActivityRow
+              return <Text style={{ fontSize: 11 }}>{formatCurrency(row.budget)}</Text>
+            },
           })
           break
 
         case 'qualitative_target':
           cols.push({
             title: label,
-            dataIndex: 'qualitative_target',
             key: 'qualitative_target',
             width: 150,
             ellipsis: true,
-            render: (val: string) => <Text style={{ fontSize: 11 }}>{val || '-'}</Text>,
+            render: (_, record) => {
+              if (record.type === 'category') return null
+              const row = record as PreviewActivityRow
+              return <Text style={{ fontSize: 11 }}>{row.qualitative_target || '-'}</Text>
+            },
           })
           break
 
         case 'quantitative_target':
           cols.push({
             title: label,
-            dataIndex: 'quantitative_target',
             key: 'quantitative_target',
             width: 150,
             ellipsis: true,
-            render: (val: string) => <Text style={{ fontSize: 11 }}>{val || '-'}</Text>,
+            render: (_, record) => {
+              if (record.type === 'category') return null
+              const row = record as PreviewActivityRow
+              return <Text style={{ fontSize: 11 }}>{row.quantitative_target || '-'}</Text>
+            },
           })
           break
 
         case 'implementation_content':
           cols.push({
             title: label,
-            dataIndex: 'focus_content',
             key: 'implementation_content',
             width: 180,
             ellipsis: true,
-            render: (val: string) => <Text style={{ fontSize: 11 }}>{val || '-'}</Text>,
+            render: (_, record) => {
+              if (record.type === 'category') return null
+              const row = record as PreviewActivityRow
+              return <Text style={{ fontSize: 11 }}>{row.implementation_content || '-'}</Text>
+            },
           })
           break
 
         case 'updated_at':
           cols.push({
             title: label,
-            dataIndex: 'updated_at',
             key: 'updated_at',
             width: 90,
-            render: (val: string) => (
-              <Text style={{ fontSize: 11 }}>{val ? dayjs(val).format('DD/MM/YY') : '-'}</Text>
-            ),
+            render: (_, record) => {
+              if (record.type === 'category') return null
+              const row = record as PreviewActivityRow
+              return <Text style={{ fontSize: 11 }}>{row.updated_at || '-'}</Text>
+            },
+          })
+          break
+
+        case 'evidence_link':
+          cols.push({
+            title: label,
+            key: 'evidence_link',
+            width: 100,
+            render: (_, record) => {
+              if (record.type === 'category') return null
+              return <Text style={{ fontSize: 11, color: '#999' }}>(Tự động tạo)</Text>
+            },
           })
           break
 
@@ -371,14 +366,11 @@ function ReportPreviewModal({
             title: label,
             key: 'leader',
             width: 120,
-            render: (_, record: any) => (
-              <Text style={{ fontSize: 11 }}>
-                {record.participants
-                  ?.filter((p: any) => p.role === 'LEADER')
-                  .map((p: any) => p.user?.first_name + ' ' + p.user?.last_name)
-                  .join(', ') || '-'}
-              </Text>
-            ),
+            render: (_, record) => {
+              if (record.type === 'category') return null
+              const row = record as PreviewActivityRow
+              return <Text style={{ fontSize: 11 }}>{row.leader || '-'}</Text>
+            },
           })
           break
 
@@ -387,11 +379,11 @@ function ReportPreviewModal({
             title: label,
             key: 'organization',
             width: 100,
-            render: (_, record) => (
-              <Text style={{ fontSize: 11 }}>
-                {record.lead_organization?.short_name || record.lead_organization?.name || '-'}
-              </Text>
-            ),
+            render: (_, record) => {
+              if (record.type === 'category') return null
+              const row = record as PreviewActivityRow
+              return <Text style={{ fontSize: 11 }}>{row.organization || '-'}</Text>
+            },
           })
           break
 
@@ -400,60 +392,53 @@ function ReportPreviewModal({
             title: label,
             key: 'partner_organizations',
             width: 120,
-            render: (_, record: any) => (
-              <Text style={{ fontSize: 11 }}>
-                {record.collaborating_organizations
-                  ?.map((o: any) => o.short_name || o.name)
-                  .join(', ') || '-'}
-              </Text>
-            ),
+            render: (_, record) => {
+              if (record.type === 'category') return null
+              const row = record as PreviewActivityRow
+              return <Text style={{ fontSize: 11 }}>{row.partner_organizations || '-'}</Text>
+            },
           })
           break
 
         case 'completion_date':
           cols.push({
             title: label,
-            dataIndex: 'end_date',
             key: 'completion_date',
             width: 90,
-            render: (val: string) => (
-              <Text style={{ fontSize: 11 }}>{val ? dayjs(val).format('DD/MM/YY') : '-'}</Text>
-            ),
+            render: (_, record) => {
+              if (record.type === 'category') return null
+              const row = record as PreviewActivityRow
+              return <Text style={{ fontSize: 11 }}>{row.completion_date || '-'}</Text>
+            },
           })
           break
 
         case 'result_evaluation':
           cols.push({
             title: label,
-            dataIndex: 'result',
             key: 'result_evaluation',
             width: 180,
             ellipsis: true,
-            render: (val: string) => <Text style={{ fontSize: 11 }}>{val || '-'}</Text>,
+            render: (_, record) => {
+              if (record.type === 'category') return null
+              const row = record as PreviewActivityRow
+              return <Text style={{ fontSize: 11 }}>{row.result_evaluation || '-'}</Text>
+            },
           })
           break
-
-        default:
-          // For any other columns
-          cols.push({
-            title: label,
-            dataIndex: colKey,
-            key: colKey,
-            width: 100,
-            render: (val: any) => <Text style={{ fontSize: 11 }}>{val || '-'}</Text>,
-          })
       }
     })
 
-    // Add status column (for reference, not in Excel)
+    // Status column (for reference)
     cols.push({
       title: 'Trạng thái',
-      dataIndex: 'status',
       key: 'status',
       width: 100,
       fixed: 'right',
-      render: (status: string) => {
-        const config = statusConfig[status] || { label: status, color: 'default' }
+      render: (_, record) => {
+        if (record.type === 'category') return null
+        const row = record as PreviewActivityRow
+        const config = statusConfig[row.status] || { label: row.status, color: 'default' }
         return <Tag color={config.color} style={{ fontSize: 10 }}>{config.label}</Tag>
       },
     })
@@ -461,15 +446,35 @@ function ReportPreviewModal({
     return cols
   }
 
-  // Filter out excluded activities for count
-  const includedCount = activities.filter((a) => !excludedIds.has(a.id)).length
-  const totalIncluded = summary.total - excludedIds.size
+  // Count excluded activities
+  const activityRows = rows.filter((r): r is PreviewActivityRow => r.type === 'activity')
+  const totalIncluded = activityRows.length - excludedIds.size
+
+  // Get row key
+  const getRowKey = (record: PreviewRow, index: number): string => {
+    if (record.type === 'category') {
+      return `category-${record.category_id || index}`
+    }
+    return record.id
+  }
+
+  // Get row class name
+  const getRowClassName = (record: PreviewRow): string => {
+    if (record.type === 'category') {
+      return 'category-row'
+    }
+    const activityRow = record as PreviewActivityRow
+    if (excludedIds.has(activityRow.id)) {
+      return 'excluded-row'
+    }
+    return ''
+  }
 
   return (
     <Modal
       title={
         <Space>
-          <EyeOutlined />
+          <FileTextOutlined />
           <span>Xem trước nội dung báo cáo Excel - {getPeriodLabel()}</span>
         </Space>
       }
@@ -507,7 +512,7 @@ function ReportPreviewModal({
           BÁO CÁO TIẾN ĐỘ TRIỂN KHAI THỰC HIỆN NGHỊ QUYẾT 57-NQ/TW
         </Title>
         <Text style={{ display: 'block', textAlign: 'center' }}>
-          {getPeriodLabel()} - Chế độ: {viewMode === 'kpis' ? 'Theo KPI' : 'Theo hoạt động'}
+          {getPeriodLabel()} - Đơn vị: {organization?.short_name || organization?.name || '...'}
         </Text>
         {reportName && (
           <Text style={{ display: 'block', textAlign: 'center' }} type="secondary">
@@ -574,58 +579,15 @@ function ReportPreviewModal({
         style={{ marginBottom: 16 }}
       />
 
-      {/* Filters */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={10}>
-          <Input
-            placeholder="Tìm theo mã hoặc tên hoạt động..."
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            onPressEnter={handleSearch}
-            allowClear
-          />
-        </Col>
-        <Col span={8}>
-          <Select
-            style={{ width: '100%' }}
-            placeholder="Lọc theo trạng thái"
-            value={statusFilter}
-            onChange={(value) => {
-              setStatusFilter(value)
-              setPagination((prev) => ({ ...prev, current: 1 }))
-            }}
-            allowClear
-          >
-            {Object.entries(statusConfig).map(([key, config]) => (
-              <Option key={key} value={key}>
-                <Tag color={config.color}>{config.label}</Tag>
-              </Option>
-            ))}
-          </Select>
-        </Col>
-        <Col span={6}>
-          <Button icon={<FilterOutlined />} onClick={handleSearch}>
-            Lọc
-          </Button>
-        </Col>
-      </Row>
-
-      {/* Activities Table - Excel Preview */}
+      {/* Preview Table */}
       <Table
         columns={buildColumns()}
-        dataSource={activities}
-        rowKey="id"
+        dataSource={rows}
+        rowKey={getRowKey}
         loading={loading}
-        rowClassName={(record) => (excludedIds.has(record.id) ? 'excluded-row' : '')}
-        pagination={{
-          ...pagination,
-          showSizeChanger: true,
-          pageSizeOptions: ['20', '50', '100'],
-          showTotal: (total) => `Tổng ${total} hoạt động`,
-        }}
-        onChange={handleTableChange}
-        scroll={{ x: 1600 }}
+        rowClassName={getRowClassName}
+        pagination={false}
+        scroll={{ x: 1600, y: 400 }}
         size="small"
         locale={{
           emptyText: (
@@ -638,6 +600,12 @@ function ReportPreviewModal({
       />
 
       <style>{`
+        .category-row {
+          background-color: #e6f7ff !important;
+        }
+        .category-row td {
+          font-weight: bold;
+        }
         .excluded-row {
           background-color: #fff1f0 !important;
           opacity: 0.6;

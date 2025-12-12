@@ -281,83 +281,64 @@ export const exportActivityReport = async (options: ExportOptions = {}): Promise
   window.URL.revokeObjectURL(downloadUrl)
 }
 
-// Preview interfaces
-export interface PreviewActivity {
-  id: string
-  code: string
-  title: string
-  description?: string | null
-  status: string
-  start_date: string | null
-  end_date: string | null
-  completion_percentage: number
-  budget: number | null
-  qualitative_target?: string | null
-  quantitative_target?: string | null
-  focus_content?: string | null
-  result?: string | null
-  updated_at?: string | null
-  activity_type?: {
-    id: string
-    name: string
-  }
-  lead_organization?: {
-    id: string
-    name: string
-    short_name?: string
-  }
-  kpis?: {
-    id: string
-    code: string
-    title: string
-  }[]
-  participants?: {
-    id: string
-    role: string
-    user?: {
-      id: string
-      first_name?: string
-      last_name?: string
-    }
-  }[]
-  collaborating_organizations?: {
-    id: string
-    name: string
-    short_name?: string
-  }[]
+// Preview interfaces - matching Excel export structure
+export interface PreviewCategoryRow {
+  type: 'category'
+  roman_numeral: string
+  category_name: string
+  category_id: string | null
 }
+
+export interface PreviewActivityRow {
+  type: 'activity'
+  id: string
+  stt: number | null
+  nhiem_vu_trong_tam: string
+  noi_dung_cu_the: string
+  phuong_an_de_xuat: string
+  time_period: string
+  budget: number | null
+  qualitative_target: string
+  quantitative_target: string
+  implementation_content: string
+  updated_at: string
+  evidence_link: string
+  leader: string
+  organization: string
+  partner_organizations: string
+  completion_date: string
+  result_evaluation: string
+  status: string
+  kpi_id: string | null
+}
+
+export type PreviewRow = PreviewCategoryRow | PreviewActivityRow
 
 export interface PreviewFilters {
   periodType?: PeriodType
   month?: number
   quarter?: number
   year?: number
-  status?: string
-  activity_type_id?: string
-  search?: string
-  page?: number
-  per_page?: number
 }
 
 export interface PreviewResponse {
   success: boolean
   data: {
-    activities: PreviewActivity[]
-    pagination: {
-      current_page: number
-      last_page: number
-      per_page: number
-      total: number
-    }
+    rows: PreviewRow[]
     summary: {
       total: number
       by_status: Record<string, number>
+    }
+    organization: {
+      id: string
+      name: string
+      short_name?: string
     }
   }
 }
 
 /**
- * Get preview of activities for report
+ * Get preview of activities for report (structured like Excel export)
  */
 export const getReportPreview = async (filters: PreviewFilters = {}): Promise<PreviewResponse> => {
   const params = new URLSearchParams()
@@ -365,11 +346,6 @@ export const getReportPreview = async (filters: PreviewFilters = {}): Promise<Pr
   if (filters.month) params.append('month', String(filters.month))
   if (filters.quarter) params.append('quarter', String(filters.quarter))
   if (filters.year) params.append('year', String(filters.year))
-  if (filters.status) params.append('status', filters.status)
-  if (filters.activity_type_id) params.append('activity_type_id', filters.activity_type_id)
-  if (filters.search) params.append('search', filters.search)
-  if (filters.page) params.append('page', String(filters.page))
-  if (filters.per_page) params.append('per_page', String(filters.per_page))
 
   const queryString = params.toString()
   const url = `${API_CONFIG.BASE_URL}/reports/preview${queryString ? `?${queryString}` : ''}`

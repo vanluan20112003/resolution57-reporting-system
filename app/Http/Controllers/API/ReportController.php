@@ -391,6 +391,7 @@ class ReportController extends Controller
 
     /**
      * Preview activities for report before exporting
+     * Returns data structured exactly like Excel export (Category -> KPI -> Activities)
      */
     public function previewActivities(Request $request): JsonResponse
     {
@@ -430,75 +431,223 @@ class ReportController extends Controller
             $endMonth = $quarter * 3;
         }
 
-        // Get filters
-        $statusFilter = $request->input("status");
-        $activityTypeFilter = $request->input("activity_type_id");
-        $searchFilter = $request->input("search");
+        // Build date range
+        $startDate = Carbon::create($year, $startMonth, 1)->startOfMonth();
+        $endDate = Carbon::create($year, $endMonth, 1)->endOfMonth();
 
-        // Build query with all relations needed for preview
-        $query = Activity::with([
+        // Get all activities for the period
+        $activities = Activity::with([
             "activityType:id,name",
             "leadOrganization:id,name,short_name",
-            "kpis:id,code,title",
+            "kpis.kpiCategory",
             "collaboratingOrganizations:id,name,short_name",
-            "participants" => function ($q) {
-                $q->with("user:id,first_name,last_name")->where("role", "LEADER");
-            }
+            "assignedUser:id,first_name,last_name",
         ])
             ->where("lead_organization_id", $organization->id)
-            ->whereYear("start_date", $year);
+            ->where(function($q) use ($startDate, $endDate) {
+                $q->whereBetween('start_date', [$startDate, $endDate])
+                  ->orWhereBetween('end_date', [$startDate, $endDate])
+                  ->orWhere(function($q2) use ($startDate, $endDate) {
+                      $q2->where('start_date', '<=', $startDate)
+                         ->where('end_date', '>=', $endDate);
+                  });
+            })
+            ->orderBy("start_date", "asc")
+            ->get();
 
-        if ($periodType === "month") {
-            $query->whereMonth("start_date", $month);
-        } elseif ($periodType === "quarter") {
-            $query->whereRaw("MONTH(start_date) BETWEEN ? AND ?", [$startMonth, $endMonth]);
+        // Get KPI Categories
+        $categories = \App\Models\KpiCategory::where('is_active', true)
+            ->orderBy('display_order')
+            ->with(['kpis' => function($query) {
+                $query->where('is_active', true)->orderBy('order_number');
+            }])
+            ->get();
+
+        // Build KPI -> Activities map
+        $kpiActivitiesMap = [];
+        foreach ($activities as $activity) {
+            foreach ($activity->kpis as $kpi) {
+                if (!isset($kpiActivitiesMap[$kpi->id])) {
+                    $kpiActivitiesMap[$kpi->id] = [];
+                }
+                $kpiActivitiesMap[$kpi->id][] = $activity;
+            }
         }
 
-        // Apply filters
-        if ($statusFilter) {
-            $query->where("status", $statusFilter);
-        }
-        if ($activityTypeFilter) {
-            $query->where("activity_type_id", $activityTypeFilter);
-        }
-        if ($searchFilter) {
-            $query->where(function ($q) use ($searchFilter) {
-                $q->where("title", "like", "%{$searchFilter}%")
-                  ->orWhere("code", "like", "%{$searchFilter}%");
-            });
+        // Build preview rows (matching Excel structure)
+        $previewRows = [];
+        $romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+        $categoryIndex = 0;
+        $kpiIndex = 1;
+        $totalActivities = 0;
+
+        foreach ($categories as $category) {
+            if ($category->kpis->isEmpty()) continue;
+
+            // Check if any KPI in this category has activities
+            $hasActivities = false;
+            foreach ($category->kpis as $kpi) {
+                if (!empty($kpiActivitiesMap[$kpi->id])) {
+                    $hasActivities = true;
+                    break;
+                }
+            }
+            if (!$hasActivities) continue;
+
+            // Category header row
+            $romanNumeral = $romanNumerals[$categoryIndex] ?? ($categoryIndex + 1);
+            $previewRows[] = [
+                'type' => 'category',
+                'roman_numeral' => $romanNumeral,
+                'category_name' => $category->name,
+                'category_id' => $category->id,
+            ];
+            $categoryIndex++;
+
+            // KPIs under this category
+            foreach ($category->kpis as $kpi) {
+                $linkedActivities = $kpiActivitiesMap[$kpi->id] ?? [];
+                if (empty($linkedActivities)) continue;
+
+                foreach ($linkedActivities as $idx => $activity) {
+                    $isFirstActivity = ($idx === 0);
+
+                    // Get leader name
+                    $leaderName = '';
+                    if ($activity->assignedUser) {
+                        $leaderName = trim(($activity->assignedUser->last_name ?? '') . ' ' . ($activity->assignedUser->first_name ?? ''));
+                    }
+
+                    // Time period
+                    $timePeriod = '';
+                    if ($activity->start_date && $activity->end_date) {
+                        $startYear = Carbon::parse($activity->start_date)->format('Y');
+                        $endYear = Carbon::parse($activity->end_date)->format('Y');
+                        $timePeriod = ($startYear === $endYear) ? $startYear : "{$startYear}-{$endYear}";
+                    }
+
+                    // Partner organizations
+                    $partnerOrgs = $activity->collaboratingOrganizations
+                        ? $activity->collaboratingOrganizations->map(fn($org) => $org->short_name ?? $org->name)->implode(', ')
+                        : '';
+
+                    // Result with completion percentage
+                    $result = $activity->result_summary ?? '';
+                    if ($activity->completion_percentage !== null && $activity->completion_percentage > 0) {
+                        $result .= ($result ? " " : '') . "(Tiến độ: {$activity->completion_percentage}%)";
+                    }
+
+                    $previewRows[] = [
+                        'type' => 'activity',
+                        'id' => $activity->id,
+                        'stt' => $isFirstActivity ? $kpiIndex : null,
+                        'nhiem_vu_trong_tam' => $isFirstActivity
+                            ? ($kpi->code ? "[{$kpi->code}] {$kpi->title}" : $kpi->title)
+                            : '',
+                        'noi_dung_cu_the' => $activity->description ?? '',
+                        'phuong_an_de_xuat' => $activity->title,
+                        'time_period' => $timePeriod,
+                        'budget' => $activity->budget,
+                        'qualitative_target' => $activity->qualitative_target ?? '',
+                        'quantitative_target' => $activity->quantitative_target ?? '',
+                        'implementation_content' => $activity->focus_content ?? '',
+                        'updated_at' => $activity->updated_at ? Carbon::parse($activity->updated_at)->format('d/m/Y') : '',
+                        'evidence_link' => '', // Will be generated during export
+                        'leader' => $leaderName,
+                        'organization' => $activity->leadOrganization
+                            ? ($activity->leadOrganization->short_name ?? $activity->leadOrganization->name)
+                            : '',
+                        'partner_organizations' => $partnerOrgs,
+                        'completion_date' => $activity->end_date ? Carbon::parse($activity->end_date)->format('d/m/Y') : '',
+                        'result_evaluation' => $result,
+                        'status' => $activity->status,
+                        'kpi_id' => $kpi->id,
+                    ];
+                    $totalActivities++;
+                }
+                $kpiIndex++;
+            }
         }
 
-        // Get pagination
-        $perPage = $request->input("per_page", 20);
-        $activities = $query->orderBy("start_date", "desc")->paginate($perPage);
+        // Unlinked activities
+        $unlinkedActivities = $activities->filter(fn($a) => $a->kpis->isEmpty());
+        if ($unlinkedActivities->isNotEmpty()) {
+            $previewRows[] = [
+                'type' => 'category',
+                'roman_numeral' => '*',
+                'category_name' => 'Hoạt động chưa liên kết KPI',
+                'category_id' => null,
+            ];
+
+            foreach ($unlinkedActivities as $activity) {
+                $leaderName = '';
+                if ($activity->assignedUser) {
+                    $leaderName = trim(($activity->assignedUser->last_name ?? '') . ' ' . ($activity->assignedUser->first_name ?? ''));
+                }
+
+                $timePeriod = '';
+                if ($activity->start_date && $activity->end_date) {
+                    $startYear = Carbon::parse($activity->start_date)->format('Y');
+                    $endYear = Carbon::parse($activity->end_date)->format('Y');
+                    $timePeriod = ($startYear === $endYear) ? $startYear : "{$startYear}-{$endYear}";
+                }
+
+                $partnerOrgs = $activity->collaboratingOrganizations
+                    ? $activity->collaboratingOrganizations->map(fn($org) => $org->short_name ?? $org->name)->implode(', ')
+                    : '';
+
+                $result = $activity->result_summary ?? '';
+                if ($activity->completion_percentage !== null && $activity->completion_percentage > 0) {
+                    $result .= ($result ? " " : '') . "(Tiến độ: {$activity->completion_percentage}%)";
+                }
+
+                $previewRows[] = [
+                    'type' => 'activity',
+                    'id' => $activity->id,
+                    'stt' => null,
+                    'nhiem_vu_trong_tam' => '',
+                    'noi_dung_cu_the' => $activity->description ?? '',
+                    'phuong_an_de_xuat' => $activity->title,
+                    'time_period' => $timePeriod,
+                    'budget' => $activity->budget,
+                    'qualitative_target' => $activity->qualitative_target ?? '',
+                    'quantitative_target' => $activity->quantitative_target ?? '',
+                    'implementation_content' => $activity->focus_content ?? '',
+                    'updated_at' => $activity->updated_at ? Carbon::parse($activity->updated_at)->format('d/m/Y') : '',
+                    'evidence_link' => '',
+                    'leader' => $leaderName,
+                    'organization' => $activity->leadOrganization
+                        ? ($activity->leadOrganization->short_name ?? $activity->leadOrganization->name)
+                        : '',
+                    'partner_organizations' => $partnerOrgs,
+                    'completion_date' => $activity->end_date ? Carbon::parse($activity->end_date)->format('d/m/Y') : '',
+                    'result_evaluation' => $result,
+                    'status' => $activity->status,
+                    'kpi_id' => null,
+                ];
+                $totalActivities++;
+            }
+        }
 
         // Get status summary
-        $statusSummary = Activity::where("lead_organization_id", $organization->id)
-            ->whereYear("start_date", $year)
-            ->when($periodType === "month", function ($q) use ($month) {
-                return $q->whereMonth("start_date", $month);
-            })
-            ->when($periodType === "quarter", function ($q) use ($startMonth, $endMonth) {
-                return $q->whereRaw("MONTH(start_date) BETWEEN ? AND ?", [$startMonth, $endMonth]);
-            })
-            ->selectRaw("status, COUNT(*) as count")
-            ->groupBy("status")
-            ->pluck("count", "status")
-            ->toArray();
+        $statusSummary = [];
+        foreach ($activities as $activity) {
+            $status = $activity->status;
+            $statusSummary[$status] = ($statusSummary[$status] ?? 0) + 1;
+        }
 
         return response()->json([
             "success" => true,
             "data" => [
-                "activities" => $activities->items(),
-                "pagination" => [
-                    "current_page" => $activities->currentPage(),
-                    "last_page" => $activities->lastPage(),
-                    "per_page" => $activities->perPage(),
-                    "total" => $activities->total(),
-                ],
+                "rows" => $previewRows,
                 "summary" => [
-                    "total" => $activities->total(),
+                    "total" => $totalActivities,
                     "by_status" => $statusSummary,
+                ],
+                "organization" => [
+                    "id" => $organization->id,
+                    "name" => $organization->name,
+                    "short_name" => $organization->short_name,
                 ],
             ],
         ]);
