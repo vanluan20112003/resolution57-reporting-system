@@ -1,0 +1,223 @@
+/* Organization Management Mobile Responsive Styles */
+
+/* Header section */
+.org-management-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.org-management-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0 !important;
+}
+
+/* Filter extra buttons wrapper */
+.org-management-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Table action buttons */
+.org-management-table .ant-btn-text {
+  padding: 4px 8px;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  /* Header */
+  .org-management-header h3 {
+    font-size: 18px !important;
+  }
+
+  .org-management-header .ant-typography-secondary {
+    font-size: 13px;
+  }
+
+  /* Table scroll indicator */
+  .org-management-table {
+    position: relative;
+  }
+
+  .org-management-table::after {
+    content: '← Vuốt để xem thêm →';
+    display: block;
+    text-align: center;
+    padding: 8px;
+    font-size: 12px;
+    color: #8c8c8c;
+    background: #f5f5f5;
+    border-radius: 4px;
+    margin-top: 8px;
+  }
+
+  /* Action buttons in table */
+  .org-management-table .ant-space-item .ant-btn {
+    padding: 8px;
+    min-width: 36px;
+    min-height: 36px;
+  }
+}
+
+@media (max-width: 576px) {
+  /* Card padding */
+  .org-management-card .ant-card-body {
+    padding: 12px;
+  }
+
+  /* Header title */
+  .org-management-header h3 {
+    font-size: 16px !important;
+  }
+
+  /* Table compact mode */
+  .org-management-table .ant-table-cell {
+    padding: 8px !important;
+    font-size: 13px;
+  }
+
+  /* Action buttons stacked */
+  .org-management-actions {
+    width: 100%;
+  }
+
+  .org-management-actions .ant-btn {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .org-management-actions .ant-btn span:not(.anticon) {
+    display: none;
+  }
+
+  .org-management-actions .ant-btn .anticon {
+    margin: 0;
+  }
+
+  /* Tooltip only on hover for action buttons */
+  .org-management-actions .ant-btn {
+    min-height: 40px;
+    min-width: 40px;
+  }
+
+  /* Modal full width on mobile */
+  .org-modal-mobile {
+    max-width: 100vw !important;
+    margin: 0 !important;
+    top: 0 !important;
+    padding: 0 !important;
+  }
+
+  .org-modal-mobile .ant-modal-content {
+    border-radius: 0;
+    min-height: 100vh;
+  }
+
+  .org-modal-mobile .ant-modal-body {
+    max-height: calc(100vh - 110px);
+    overflow-y: auto;
+  }
+
+  /* Form in modal */
+  .org-modal-mobile .ant-form-item {
+    margin-bottom: 12px;
+  }
+
+  .org-modal-mobile .ant-space {
+    flex-wrap: wrap !important;
+    width: 100%;
+  }
+
+  .org-modal-mobile .ant-space > .ant-space-item {
+    width: 100%;
+  }
+
+  .org-modal-mobile .ant-form-item[style*="width: 350px"] {
+    width: 100% !important;
+  }
+
+  /* Tags in table */
+  .org-management-table .ant-tag {
+    font-size: 11px;
+    padding: 0 6px;
+    line-height: 18px;
+  }
+
+  /* Contact info compact */
+  .org-management-table .ant-space-vertical {
+    gap: 2px !important;
+  }
+
+  /* Pagination compact */
+  .org-management-table .ant-pagination {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .org-management-table .ant-pagination-total-text {
+    flex: 0 0 100%;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+}
+
+/* View detail modal mobile */
+@media (max-width: 576px) {
+  .org-view-modal .ant-modal-body {
+    padding: 12px;
+  }
+
+  .org-view-modal .ant-space-vertical {
+    width: 100%;
+  }
+
+  .org-view-modal .ant-space-vertical > .ant-space-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .org-view-modal .ant-space-vertical > .ant-space-item:last-child {
+    border-bottom: none;
+  }
+
+  .org-view-modal h4 {
+    font-size: 16px !important;
+  }
+
+  /* Footer buttons */
+  .org-view-modal .ant-modal-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .org-view-modal .ant-modal-footer .ant-btn {
+    width: 100%;
+    margin: 0;
+  }
+}
+
+/* Import modal mobile */
+.import-modal-mobile .ant-modal-content {
+  border-radius: 16px 16px 0 0;
+}
+
+@media (max-width: 576px) {
+  .import-modal-mobile {
+    max-width: 100vw !important;
+    margin: 0 !important;
+    top: auto !important;
+    bottom: 0;
+    padding: 0 !important;
+  }
+
+  .import-modal-mobile .ant-modal-content {
+    border-radius: 16px 16px 0 0;
+  }
+}

@@ -42,6 +42,7 @@ import AdvancedFilter, { FilterField, FilterValues } from "../../shared/componen
 import ColumnToggle, { ToggleableColumn } from "../../shared/components/ColumnToggle"
 import { ImportExcelModal } from "../../shared/components/ImportExcelModal"
 import { FileExcelOutlined } from "@ant-design/icons"
+import './OrganizationManagement.css'
 
 const { Title, Text } = Typography
 const { Option } = Select
@@ -485,9 +486,9 @@ function OrganizationManagement() {
 
   return (
     <div style={{ padding: "0" }}>
-      <Card>
+      <Card className="org-management-card">
         {/* Header */}
-        <div style={{ marginBottom: 16 }}>
+        <div className="org-management-header">
           <Title level={3} style={{ marginBottom: 4 }}>
             <BankOutlined /> Quản lý Đơn vị
           </Title>
@@ -509,7 +510,7 @@ function OrganizationManagement() {
           collapsible={true}
           defaultExpanded={true}
           extra={
-            <Space>
+            <Space wrap className="org-management-actions">
               <Button icon={<ReloadOutlined />} onClick={fetchOrganizations} loading={loading}>
                 Làm mới
               </Button>
@@ -533,25 +534,27 @@ function OrganizationManagement() {
         />
 
         {/* Table */}
-        <Table
-          columns={columns}
-          dataSource={organizationList}
-          loading={loading}
-          rowKey="id"
-          pagination={{
-            current: pagination.current,
-            pageSize: pagination.pageSize,
-            total: pagination.total,
-            showSizeChanger: true,
-            showTotal: (total) => `Tổng ${total} đơn vị`,
-            onChange: (page, pageSize) => {
-              fetchOrganizations(pageSize, page)
-            }
-          }}
-          onChange={handleTableChange}
-          scroll={{ x: 1400 }}
-          bordered
-        />
+        <div className="org-management-table">
+          <Table
+            columns={columns}
+            dataSource={organizationList}
+            loading={loading}
+            rowKey="id"
+            pagination={{
+              current: pagination.current,
+              pageSize: pagination.pageSize,
+              total: pagination.total,
+              showSizeChanger: true,
+              showTotal: (total) => `Tổng ${total} đơn vị`,
+              onChange: (page, pageSize) => {
+                fetchOrganizations(pageSize, page)
+              }
+            }}
+            onChange={handleTableChange}
+            scroll={{ x: 1400 }}
+            bordered
+          />
+        </div>
       </Card>
 
       {/* Add/Edit Modal */}
@@ -718,7 +721,8 @@ function OrganizationManagement() {
             Chỉnh sửa
           </Button>
         ]}
-        width={700}>
+        width={700}
+        className="org-view-modal">
         {selectedOrganization && (
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
             <div>
