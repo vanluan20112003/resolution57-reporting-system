@@ -162,15 +162,29 @@
     margin-bottom: 12px;
   }
 
-  /* Avatar LARGER on mobile for better visibility */
+  /* Avatar MUCH LARGER on mobile for better visibility */
   .org-avatar {
-    width: 120px !important;
-    height: 120px !important;
-    font-size: 48px !important;
+    width: 180px !important;
+    height: 180px !important;
+    font-size: 72px !important;
   }
 
   .org-avatar .anticon {
-    font-size: 48px !important;
+    font-size: 72px !important;
+  }
+
+  /* Make sure img inside avatar is also large */
+  .org-avatar img,
+  .org-avatar .ant-avatar-image img {
+    width: 180px !important;
+    height: 180px !important;
+    object-fit: contain !important;
+  }
+
+  /* Avatar wrapper - ensure proper centering */
+  .org-avatar-wrapper .ant-avatar {
+    width: 180px !important;
+    height: 180px !important;
   }
 
   /* Avatar buttons */
