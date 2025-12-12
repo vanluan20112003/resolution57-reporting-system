@@ -370,6 +370,9 @@ Route::prefix('v1')->group(function () {
         // Get report statistics for dashboard
         Route::get('/stats', [ReportController::class, 'getReportStats']);
 
+        // Preview activities before exporting
+        Route::get('/preview', [ReportController::class, 'previewActivities']);
+
         // Export activity report (creates history record)
         Route::get('/export', [ReportController::class, 'exportActivityReport']);
 

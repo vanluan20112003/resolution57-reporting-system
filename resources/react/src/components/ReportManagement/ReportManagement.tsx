@@ -43,6 +43,7 @@ import type {
   ViewMode,
   PeriodType,
 } from '../../services/reportApi'
+import ReportPreviewModal from './ReportPreviewModal'
 import './ReportManagement.css'
 
 const { Title, Text, Paragraph } = Typography
@@ -67,6 +68,9 @@ function ReportManagement() {
   const [notes, setNotes] = useState('')
   const [reportName, setReportName] = useState('')
   const [organization, setOrganization] = useState<{ id: string; name: string; short_name?: string } | null>(null)
+
+  // Preview modal state
+  const [previewVisible, setPreviewVisible] = useState(false)
 
   // Available years (last 5 years + current)
   const availableYears = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i)
@@ -590,21 +594,35 @@ function ReportManagement() {
                 </Row>
 
                 <div className="export-actions">
-                  <Button
-                    type="primary"
-                    size="large"
-                    icon={<DownloadOutlined />}
-                    loading={exportLoading}
-                    onClick={handleExport}
-                    disabled={
-                      selectedColumns.length === 0 ||
-                      !selectedYear ||
-                      (periodType === 'month' && !selectedMonth) ||
-                      (periodType === 'quarter' && !selectedQuarter)
-                    }
-                  >
-                    Xuất báo cáo Excel
-                  </Button>
+                  <Space size="middle">
+                    <Button
+                      size="large"
+                      icon={<EyeOutlined />}
+                      onClick={() => setPreviewVisible(true)}
+                      disabled={
+                        !selectedYear ||
+                        (periodType === 'month' && !selectedMonth) ||
+                        (periodType === 'quarter' && !selectedQuarter)
+                      }
+                    >
+                      Xem trước
+                    </Button>
+                    <Button
+                      type="primary"
+                      size="large"
+                      icon={<DownloadOutlined />}
+                      loading={exportLoading}
+                      onClick={handleExport}
+                      disabled={
+                        selectedColumns.length === 0 ||
+                        !selectedYear ||
+                        (periodType === 'month' && !selectedMonth) ||
+                        (periodType === 'quarter' && !selectedQuarter)
+                      }
+                    >
+                      Xuất báo cáo Excel
+                    </Button>
+                  </Space>
                   <Text type="secondary" style={{ marginLeft: 16 }}>
                     {selectedColumns.length} cột được chọn
                   </Text>
@@ -664,6 +682,16 @@ function ReportManagement() {
             ),
           },
         ]}
+      />
+
+      {/* Preview Modal */}
+      <ReportPreviewModal
+        visible={previewVisible}
+        onClose={() => setPreviewVisible(false)}
+        periodType={periodType}
+        month={selectedMonth}
+        quarter={selectedQuarter}
+        year={selectedYear}
       />
     </div>
   )

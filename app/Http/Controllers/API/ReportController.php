@@ -378,6 +378,114 @@ class ReportController extends Controller
         ]);
     }
 
+
+    /**
+     * Preview activities for report before exporting
+     */
+    public function previewActivities(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user->organization_id) {
+            return response()->json([
+                "success" => false,
+                "message" => "Bạn chưa được phân công vào đơn vị nào",
+            ], 400);
+        }
+
+        $organization = $user->organization;
+
+        // Get period type (month, quarter, year)
+        $periodType = $request->input("period_type", "month");
+        if (!in_array($periodType, ["month", "quarter", "year"])) {
+            $periodType = "month";
+        }
+
+        // Get year from request
+        $year = $request->input("year", Carbon::now()->year);
+
+        // Get month or quarter based on period type
+        $month = null;
+        $quarter = null;
+        $startMonth = 1;
+        $endMonth = 12;
+
+        if ($periodType === "month") {
+            $month = $request->input("month", Carbon::now()->month);
+            $startMonth = $month;
+            $endMonth = $month;
+        } elseif ($periodType === "quarter") {
+            $quarter = $request->input("quarter", ceil(Carbon::now()->month / 3));
+            $startMonth = ($quarter - 1) * 3 + 1;
+            $endMonth = $quarter * 3;
+        }
+
+        // Get filters
+        $statusFilter = $request->input("status");
+        $activityTypeFilter = $request->input("activity_type_id");
+        $searchFilter = $request->input("search");
+
+        // Build query
+        $query = Activity::with(["activityType:id,name", "leadOrganization:id,name,short_name", "kpis:id,code,title"])
+            ->where("lead_organization_id", $organization->id)
+            ->whereYear("start_date", $year);
+
+        if ($periodType === "month") {
+            $query->whereMonth("start_date", $month);
+        } elseif ($periodType === "quarter") {
+            $query->whereRaw("MONTH(start_date) BETWEEN ? AND ?", [$startMonth, $endMonth]);
+        }
+
+        // Apply filters
+        if ($statusFilter) {
+            $query->where("status", $statusFilter);
+        }
+        if ($activityTypeFilter) {
+            $query->where("activity_type_id", $activityTypeFilter);
+        }
+        if ($searchFilter) {
+            $query->where(function ($q) use ($searchFilter) {
+                $q->where("title", "like", "%{$searchFilter}%")
+                  ->orWhere("code", "like", "%{$searchFilter}%");
+            });
+        }
+
+        // Get pagination
+        $perPage = $request->input("per_page", 20);
+        $activities = $query->orderBy("start_date", "desc")->paginate($perPage);
+
+        // Get status summary
+        $statusSummary = Activity::where("lead_organization_id", $organization->id)
+            ->whereYear("start_date", $year)
+            ->when($periodType === "month", function ($q) use ($month) {
+                return $q->whereMonth("start_date", $month);
+            })
+            ->when($periodType === "quarter", function ($q) use ($startMonth, $endMonth) {
+                return $q->whereRaw("MONTH(start_date) BETWEEN ? AND ?", [$startMonth, $endMonth]);
+            })
+            ->selectRaw("status, COUNT(*) as count")
+            ->groupBy("status")
+            ->pluck("count", "status")
+            ->toArray();
+
+        return response()->json([
+            "success" => true,
+            "data" => [
+                "activities" => $activities->items(),
+                "pagination" => [
+                    "current_page" => $activities->currentPage(),
+                    "last_page" => $activities->lastPage(),
+                    "per_page" => $activities->perPage(),
+                    "total" => $activities->total(),
+                ],
+                "summary" => [
+                    "total" => $activities->total(),
+                    "by_status" => $statusSummary,
+                ],
+            ],
+        ]);
+    }
+
     /**
      * Delete an export record
      */

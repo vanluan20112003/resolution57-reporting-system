@@ -276,3 +276,89 @@ export const exportActivityReport = async (options: ExportOptions = {}): Promise
   document.body.removeChild(link)
   window.URL.revokeObjectURL(downloadUrl)
 }
+
+// Preview interfaces
+export interface PreviewActivity {
+  id: string
+  code: string
+  title: string
+  status: string
+  start_date: string | null
+  end_date: string | null
+  completion_percentage: number
+  budget: number | null
+  activity_type?: {
+    id: string
+    name: string
+  }
+  lead_organization?: {
+    id: string
+    name: string
+    short_name?: string
+  }
+  kpis?: {
+    id: string
+    code: string
+    title: string
+  }[]
+}
+
+export interface PreviewFilters {
+  periodType?: PeriodType
+  month?: number
+  quarter?: number
+  year?: number
+  status?: string
+  activity_type_id?: string
+  search?: string
+  page?: number
+  per_page?: number
+}
+
+export interface PreviewResponse {
+  success: boolean
+  data: {
+    activities: PreviewActivity[]
+    pagination: {
+      current_page: number
+      last_page: number
+      per_page: number
+      total: number
+    }
+    summary: {
+      total: number
+      by_status: Record<string, number>
+    }
+  }
+}
+
+/**
+ * Get preview of activities for report
+ */
+export const getReportPreview = async (filters: PreviewFilters = {}): Promise<PreviewResponse> => {
+  const params = new URLSearchParams()
+  if (filters.periodType) params.append('period_type', filters.periodType)
+  if (filters.month) params.append('month', String(filters.month))
+  if (filters.quarter) params.append('quarter', String(filters.quarter))
+  if (filters.year) params.append('year', String(filters.year))
+  if (filters.status) params.append('status', filters.status)
+  if (filters.activity_type_id) params.append('activity_type_id', filters.activity_type_id)
+  if (filters.search) params.append('search', filters.search)
+  if (filters.page) params.append('page', String(filters.page))
+  if (filters.per_page) params.append('per_page', String(filters.per_page))
+
+  const queryString = params.toString()
+  const url = \`\${API_CONFIG.BASE_URL}/reports/preview\${queryString ? \`?\${queryString}\` : ''}\`
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Không thể tải xem trước báo cáo')
+  }
+
+  return response.json()
+}
