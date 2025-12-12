@@ -32,6 +32,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   ReloadOutlined,
+  EyeOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { useAuth } from '../../shared/hooks'
