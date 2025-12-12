@@ -274,18 +274,22 @@ function DepartmentActivitiesList() {
 
           {/* Statistics */}
           <Space size="large" wrap>
-            <Badge count={stats.total} showZero color="blue">
-              <Text strong>Tổng số: </Text>
-            </Badge>
-            <Badge count={stats.completed} showZero color="green">
-              <Text strong>Hoàn thành: </Text>
-            </Badge>
-            <Badge count={stats.inProgress} showZero color="orange">
-              <Text strong>Đang thực hiện: </Text>
-            </Badge>
-            <Badge count={stats.pending} showZero color="gold">
-              <Text strong>Chờ duyệt: </Text>
-            </Badge>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Text strong>Tổng số:</Text>
+              <Badge count={stats.total} showZero color="blue" style={{ marginLeft: 4 }} />
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Text strong>Hoàn thành:</Text>
+              <Badge count={stats.completed} showZero color="green" style={{ marginLeft: 4 }} />
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Text strong>Đang thực hiện:</Text>
+              <Badge count={stats.inProgress} showZero color="orange" style={{ marginLeft: 4 }} />
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Text strong>Chờ duyệt:</Text>
+              <Badge count={stats.pending} showZero color="gold" style={{ marginLeft: 4 }} />
+            </span>
           </Space>
 
           {/* Filters */}
