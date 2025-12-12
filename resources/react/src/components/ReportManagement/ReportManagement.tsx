@@ -175,7 +175,7 @@ function ReportManagement() {
     }
   }
 
-  const handleExport = async () => {
+  const handleExport = async (excludedIds: string[] = []) => {
     // Validate based on period type
     if (periodType === 'month' && !selectedMonth) {
       message.warning('Vui lòng chọn tháng')
@@ -206,8 +206,12 @@ function ReportManagement() {
         columns: selectedColumns,
         notes: notes || undefined,
         reportName: reportName || undefined,
+        excludedIds: excludedIds.length > 0 ? excludedIds : undefined,
       })
       message.success('Xuất báo cáo thành công!')
+
+      // Close preview modal if open
+      setPreviewVisible(false)
 
       // Refresh stats and history
       fetchStats()
@@ -597,23 +601,10 @@ function ReportManagement() {
                 <div className="export-actions">
                   <Space size="middle">
                     <Button
+                      type="primary"
                       size="large"
                       icon={<EyeOutlined />}
                       onClick={() => setPreviewVisible(true)}
-                      disabled={
-                        !selectedYear ||
-                        (periodType === 'month' && !selectedMonth) ||
-                        (periodType === 'quarter' && !selectedQuarter)
-                      }
-                    >
-                      Xem trước
-                    </Button>
-                    <Button
-                      type="primary"
-                      size="large"
-                      icon={<DownloadOutlined />}
-                      loading={exportLoading}
-                      onClick={handleExport}
                       disabled={
                         selectedColumns.length === 0 ||
                         !selectedYear ||
@@ -621,7 +612,7 @@ function ReportManagement() {
                         (periodType === 'quarter' && !selectedQuarter)
                       }
                     >
-                      Xuất báo cáo Excel
+                      Xem trước và Xuất
                     </Button>
                   </Space>
                   <Text type="secondary" style={{ marginLeft: 16 }}>
@@ -693,6 +684,15 @@ function ReportManagement() {
         month={selectedMonth}
         quarter={selectedQuarter}
         year={selectedYear}
+        viewMode={viewMode}
+        selectedColumns={selectedColumns}
+        availableColumns={availableColumns}
+        notes={notes}
+        reportName={reportName}
+        onExport={(excludedIds) => {
+          handleExport(excludedIds)
+        }}
+        exportLoading={exportLoading}
       />
     </div>
   )

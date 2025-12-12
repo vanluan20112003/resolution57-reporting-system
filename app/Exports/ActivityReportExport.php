@@ -31,6 +31,7 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
     protected $kpiRows = [];
     protected $activityShareLinks = []; // Cache share links by activity_id
     protected $currentUserId; // User ID for creating share links
+    protected $excludedIds = []; // Activity IDs to exclude from export
 
     // Available columns configuration - matching template structure
     // Nhiệm vụ trọng tâm = Category + KPIs combined
@@ -91,7 +92,7 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
         ],
     ];
 
-    public function __construct($organizationId, $organizationName, $month = null, $year = null, $viewMode = 'activities', $selectedColumns = null, $currentUserId = null, $endMonth = null)
+    public function __construct($organizationId, $organizationName, $month = null, $year = null, $viewMode = 'activities', $selectedColumns = null, $currentUserId = null, $endMonth = null, $excludedIds = [])
     {
         $this->organizationId = $organizationId;
         $this->organizationName = $organizationName;
@@ -101,6 +102,7 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
         $this->viewMode = $viewMode;
         $this->selectedColumns = $selectedColumns ?? self::$defaultColumns[$viewMode];
         $this->currentUserId = $currentUserId;
+        $this->excludedIds = $excludedIds ?? [];
 
         $this->loadActivities();
     }
@@ -186,6 +188,11 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                          ->where('end_date', '>=', $endDate);
                   });
             });
+        }
+
+        // Exclude specific activities (from preview modal)
+        if (!empty($this->excludedIds)) {
+            $query->whereNotIn('id', $this->excludedIds);
         }
 
         $this->activities = $query->orderBy('start_date', 'asc')->get();

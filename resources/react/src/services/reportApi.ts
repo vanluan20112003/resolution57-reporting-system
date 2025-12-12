@@ -53,6 +53,7 @@ export interface ExportOptions {
   columns?: string[]
   notes?: string
   reportName?: string
+  excludedIds?: string[]
 }
 
 // Export History interfaces
@@ -217,7 +218,7 @@ export const deleteExportHistory = async (id: string): Promise<{ success: boolea
  * Export activity report - downloads Excel file
  */
 export const exportActivityReport = async (options: ExportOptions = {}): Promise<void> => {
-  const { periodType = 'month', month, quarter, year, viewMode = 'activities', columns, notes, reportName } = options
+  const { periodType = 'month', month, quarter, year, viewMode = 'activities', columns, notes, reportName, excludedIds } = options
 
   const params = new URLSearchParams()
   params.append('period_type', periodType)
@@ -230,6 +231,9 @@ export const exportActivityReport = async (options: ExportOptions = {}): Promise
   }
   if (notes) params.append('notes', notes)
   if (reportName) params.append('report_name', reportName)
+  if (excludedIds && excludedIds.length > 0) {
+    params.append('excluded_ids', excludedIds.join(','))
+  }
 
   const queryString = params.toString()
   const url = `${API_CONFIG.BASE_URL}/reports/export${queryString ? `?${queryString}` : ''}`
@@ -282,11 +286,17 @@ export interface PreviewActivity {
   id: string
   code: string
   title: string
+  description?: string | null
   status: string
   start_date: string | null
   end_date: string | null
   completion_percentage: number
   budget: number | null
+  qualitative_target?: string | null
+  quantitative_target?: string | null
+  focus_content?: string | null
+  result?: string | null
+  updated_at?: string | null
   activity_type?: {
     id: string
     name: string
@@ -300,6 +310,20 @@ export interface PreviewActivity {
     id: string
     code: string
     title: string
+  }[]
+  participants?: {
+    id: string
+    role: string
+    user?: {
+      id: string
+      first_name?: string
+      last_name?: string
+    }
+  }[]
+  collaborating_organizations?: {
+    id: string
+    name: string
+    short_name?: string
   }[]
 }
 

@@ -235,6 +235,15 @@ class ReportController extends Controller
         // Get custom report name
         $customReportName = $request->input('report_name');
 
+        // Get excluded activity IDs (from preview modal)
+        $excludedIds = $request->input('excluded_ids');
+        if (is_string($excludedIds)) {
+            $excludedIds = array_filter(explode(',', $excludedIds));
+        }
+        if (!is_array($excludedIds)) {
+            $excludedIds = [];
+        }
+
         try {
             $organizationName = $organization->short_name ?? $organization->name;
             $viewModeLabel = $viewMode === 'kpis' ? 'KPI' : 'HD';
@@ -313,7 +322,8 @@ class ReportController extends Controller
                     $viewMode,
                     $selectedColumns,
                     $user->id,
-                    $endMonth // Pass end month for quarter/year reports
+                    $endMonth, // Pass end month for quarter/year reports
+                    $excludedIds // Pass excluded activity IDs
                 ),
                 $fileName
             );
@@ -425,8 +435,16 @@ class ReportController extends Controller
         $activityTypeFilter = $request->input("activity_type_id");
         $searchFilter = $request->input("search");
 
-        // Build query
-        $query = Activity::with(["activityType:id,name", "leadOrganization:id,name,short_name", "kpis:id,code,title"])
+        // Build query with all relations needed for preview
+        $query = Activity::with([
+            "activityType:id,name",
+            "leadOrganization:id,name,short_name",
+            "kpis:id,code,title",
+            "collaboratingOrganizations:id,name,short_name",
+            "participants" => function ($q) {
+                $q->with("user:id,first_name,last_name")->where("role", "LEADER");
+            }
+        ])
             ->where("lead_organization_id", $organization->id)
             ->whereYear("start_date", $year);
 
