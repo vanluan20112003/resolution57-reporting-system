@@ -348,7 +348,7 @@ export const getReportPreview = async (filters: PreviewFilters = {}): Promise<Pr
   if (filters.per_page) params.append('per_page', String(filters.per_page))
 
   const queryString = params.toString()
-  const url = \`\${API_CONFIG.BASE_URL}/reports/preview\${queryString ? \`?\${queryString}\` : ''}\`
+  const url = `${API_CONFIG.BASE_URL}/reports/preview${queryString ? `?${queryString}` : ''}`
 
   const response = await fetch(url, {
     method: 'GET',
