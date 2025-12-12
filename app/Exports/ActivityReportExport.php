@@ -32,6 +32,7 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
     protected $activityShareLinks = []; // Cache share links by activity_id
     protected $currentUserId; // User ID for creating share links
     protected $excludedIds = []; // Activity IDs to exclude from export
+    protected $editedRowsMap = []; // Map of activity ID => edited fields from preview
 
     // Available columns configuration - matching template structure
     // Nhiệm vụ trọng tâm = Category + KPIs combined
@@ -92,7 +93,7 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
         ],
     ];
 
-    public function __construct($organizationId, $organizationName, $month = null, $year = null, $viewMode = 'activities', $selectedColumns = null, $currentUserId = null, $endMonth = null, $excludedIds = [])
+    public function __construct($organizationId, $organizationName, $month = null, $year = null, $viewMode = 'activities', $selectedColumns = null, $currentUserId = null, $endMonth = null, $excludedIds = [], $editedRowsMap = [])
     {
         $this->organizationId = $organizationId;
         $this->organizationName = $organizationName;
@@ -103,8 +104,20 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
         $this->selectedColumns = $selectedColumns ?? self::$defaultColumns[$viewMode];
         $this->currentUserId = $currentUserId;
         $this->excludedIds = $excludedIds ?? [];
+        $this->editedRowsMap = $editedRowsMap ?? [];
 
         $this->loadActivities();
+    }
+
+    /**
+     * Get edited value for an activity field, or original value if not edited
+     */
+    protected function getEditedValue($activityId, string $field, $originalValue)
+    {
+        if (isset($this->editedRowsMap[$activityId]) && \array_key_exists($field, $this->editedRowsMap[$activityId])) {
+            return $this->editedRowsMap[$activityId][$field];
+        }
+        return $originalValue;
     }
 
     /**
@@ -348,6 +361,7 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
         $leaderNames = '';
         $timePeriod = '';
         $result = '';
+        $activityId = $activity ? $activity->id : null;
 
         if ($activity) {
             $leaderNames = \is_array($activity->leader_names)
@@ -358,21 +372,25 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     ($activity->assignedUser->last_name . ' ' . $activity->assignedUser->first_name);
             }
 
-            // Time period
-            if ($activity->start_date && $activity->end_date) {
+            // Time period (can be edited)
+            $timePeriod = $this->getEditedValue($activityId, 'time_period', null);
+            if ($timePeriod === null && $activity->start_date && $activity->end_date) {
                 $startYear = Carbon::parse($activity->start_date)->format('Y');
                 $endYear = Carbon::parse($activity->end_date)->format('Y');
                 $timePeriod = ($startYear === $endYear) ? $startYear : "{$startYear}-{$endYear}";
             }
 
-            $result = $activity->result_summary ?? '';
-            if ($activity->completion_percentage !== null && $activity->completion_percentage > 0) {
+            $result = $this->getEditedValue($activityId, 'result_evaluation', $activity->result_summary ?? '');
+            if ($activity->completion_percentage !== null && $activity->completion_percentage > 0 && !isset($this->editedRowsMap[$activityId]['result_evaluation'])) {
                 $result .= ($result ? "\n" : '') . "(Tiến độ: {$activity->completion_percentage}%)";
             }
         }
 
-        // KPI text
+        // KPI text (can be edited via nhiem_vu_trong_tam)
         $kpiText = $kpi->code ? "[{$kpi->code}] {$kpi->title}" : $kpi->title;
+        if ($activityId) {
+            $kpiText = $this->getEditedValue($activityId, 'nhiem_vu_trong_tam', $kpiText);
+        }
 
         $row = [];
         foreach ($cols as $col) {
@@ -385,27 +403,27 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     $row[] = $kpiText;
                     break;
                 case 'noi_dung_cu_the':
-                    // Activity description
-                    $row[] = $activity ? ($activity->description ?? '') : '';
+                    // Activity description (can be edited)
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'noi_dung_cu_the', $activity->description ?? '') : '';
                     break;
                 case 'phuong_an_de_xuat':
-                    // Activity title
-                    $row[] = $activity ? $activity->title : '';
+                    // Activity title (can be edited)
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'phuong_an_de_xuat', $activity->title) : '';
                     break;
                 case 'time_period':
-                    $row[] = $timePeriod;
+                    $row[] = $timePeriod ?? '';
                     break;
                 case 'budget':
-                    $row[] = $activity ? ($activity->budget ?? '') : '';
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'budget', $activity->budget ?? '') : '';
                     break;
                 case 'qualitative_target':
-                    $row[] = $activity ? ($activity->qualitative_target ?? '') : '';
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'qualitative_target', $activity->qualitative_target ?? '') : '';
                     break;
                 case 'quantitative_target':
-                    $row[] = $activity ? ($activity->quantitative_target ?? '') : '';
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'quantitative_target', $activity->quantitative_target ?? '') : '';
                     break;
                 case 'implementation_content':
-                    $row[] = $activity ? ($activity->focus_content ?? '') : '';
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'implementation_content', $activity->focus_content ?? '') : '';
                     break;
                 case 'updated_at':
                     $row[] = $activity && $activity->updated_at ? Carbon::parse($activity->updated_at)->format('d/m/Y') : '';
@@ -414,7 +432,7 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     $row[] = $activity ? $this->getActivityShareLinkUrl($activity) : '';
                     break;
                 case 'leader':
-                    $row[] = $leaderNames;
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'leader', $leaderNames) : '';
                     break;
                 case 'organization':
                     $row[] = $activity && $activity->leadOrganization
@@ -422,17 +440,18 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                         : '';
                     break;
                 case 'partner_organizations':
-                    // Lấy tên các đơn vị phối hợp
+                    // Lấy tên các đơn vị phối hợp (can be edited)
                     $partnerOrgs = '';
                     if ($activity && $activity->collaboratingOrganizations && $activity->collaboratingOrganizations->count() > 0) {
                         $partnerOrgs = $activity->collaboratingOrganizations
                             ->map(fn($org) => $org->short_name ?? $org->name)
                             ->implode(', ');
                     }
-                    $row[] = $partnerOrgs;
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'partner_organizations', $partnerOrgs) : '';
                     break;
                 case 'completion_date':
-                    $row[] = $activity && $activity->end_date ? Carbon::parse($activity->end_date)->format('d/m/Y') : '';
+                    $completionDate = $activity && $activity->end_date ? Carbon::parse($activity->end_date)->format('d/m/Y') : '';
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'completion_date', $completionDate) : '';
                     break;
                 case 'result_evaluation':
                     $row[] = $result;
@@ -449,6 +468,8 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
      */
     protected function buildActivityRowOnly($activity, $cols): array
     {
+        $activityId = $activity->id;
+
         $leaderNames = \is_array($activity->leader_names)
             ? implode(', ', $activity->leader_names)
             : ($activity->leader_names ?? '');
@@ -457,16 +478,16 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                 ($activity->assignedUser->last_name . ' ' . $activity->assignedUser->first_name);
         }
 
-        // Time period
-        $timePeriod = '';
-        if ($activity->start_date && $activity->end_date) {
+        // Time period (can be edited)
+        $timePeriod = $this->getEditedValue($activityId, 'time_period', null);
+        if ($timePeriod === null && $activity->start_date && $activity->end_date) {
             $startYear = Carbon::parse($activity->start_date)->format('Y');
             $endYear = Carbon::parse($activity->end_date)->format('Y');
             $timePeriod = ($startYear === $endYear) ? $startYear : "{$startYear}-{$endYear}";
         }
 
-        $result = $activity->result_summary ?? '';
-        if ($activity->completion_percentage !== null && $activity->completion_percentage > 0) {
+        $result = $this->getEditedValue($activityId, 'result_evaluation', $activity->result_summary ?? '');
+        if ($activity->completion_percentage !== null && $activity->completion_percentage > 0 && !isset($this->editedRowsMap[$activityId]['result_evaluation'])) {
             $result .= ($result ? "\n" : '') . "(Tiến độ: {$activity->completion_percentage}%)";
         }
 
@@ -480,25 +501,25 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     $row[] = ''; // KPI already shown in previous row
                     break;
                 case 'noi_dung_cu_the':
-                    $row[] = $activity->description ?? '';
+                    $row[] = $this->getEditedValue($activityId, 'noi_dung_cu_the', $activity->description ?? '');
                     break;
                 case 'phuong_an_de_xuat':
-                    $row[] = $activity->title;
+                    $row[] = $this->getEditedValue($activityId, 'phuong_an_de_xuat', $activity->title);
                     break;
                 case 'time_period':
-                    $row[] = $timePeriod;
+                    $row[] = $timePeriod ?? '';
                     break;
                 case 'budget':
-                    $row[] = $activity->budget ?? '';
+                    $row[] = $this->getEditedValue($activityId, 'budget', $activity->budget ?? '');
                     break;
                 case 'qualitative_target':
-                    $row[] = $activity->qualitative_target ?? '';
+                    $row[] = $this->getEditedValue($activityId, 'qualitative_target', $activity->qualitative_target ?? '');
                     break;
                 case 'quantitative_target':
-                    $row[] = $activity->quantitative_target ?? '';
+                    $row[] = $this->getEditedValue($activityId, 'quantitative_target', $activity->quantitative_target ?? '');
                     break;
                 case 'implementation_content':
-                    $row[] = $activity->focus_content ?? '';
+                    $row[] = $this->getEditedValue($activityId, 'implementation_content', $activity->focus_content ?? '');
                     break;
                 case 'updated_at':
                     $row[] = $activity->updated_at ? Carbon::parse($activity->updated_at)->format('d/m/Y') : '';
@@ -507,7 +528,7 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     $row[] = $this->getActivityShareLinkUrl($activity);
                     break;
                 case 'leader':
-                    $row[] = $leaderNames;
+                    $row[] = $this->getEditedValue($activityId, 'leader', $leaderNames);
                     break;
                 case 'organization':
                     $row[] = $activity->leadOrganization
@@ -515,17 +536,18 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                         : '';
                     break;
                 case 'partner_organizations':
-                    // Lấy tên các đơn vị phối hợp
+                    // Lấy tên các đơn vị phối hợp (can be edited)
                     $partnerOrgs = '';
                     if ($activity->collaboratingOrganizations && $activity->collaboratingOrganizations->count() > 0) {
                         $partnerOrgs = $activity->collaboratingOrganizations
                             ->map(fn($org) => $org->short_name ?? $org->name)
                             ->implode(', ');
                     }
-                    $row[] = $partnerOrgs;
+                    $row[] = $this->getEditedValue($activityId, 'partner_organizations', $partnerOrgs);
                     break;
                 case 'completion_date':
-                    $row[] = $activity->end_date ? Carbon::parse($activity->end_date)->format('d/m/Y') : '';
+                    $completionDate = $activity->end_date ? Carbon::parse($activity->end_date)->format('d/m/Y') : '';
+                    $row[] = $this->getEditedValue($activityId, 'completion_date', $completionDate);
                     break;
                 case 'result_evaluation':
                     $row[] = $result;
@@ -698,6 +720,7 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
         $timePeriod = '';
         $completionDate = '';
         $result = '';
+        $activityId = $activity ? $activity->id : null;
 
         if ($activity) {
             $leaderNames = \is_array($activity->leader_names)
@@ -708,8 +731,9 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     ($activity->assignedUser->last_name . ' ' . $activity->assignedUser->first_name);
             }
 
-            // Time period
-            if ($activity->start_date && $activity->end_date) {
+            // Time period (can be edited)
+            $timePeriod = $this->getEditedValue($activityId, 'time_period', null);
+            if ($timePeriod === null && $activity->start_date && $activity->end_date) {
                 $startYear = Carbon::parse($activity->start_date)->format('Y');
                 $endYear = Carbon::parse($activity->end_date)->format('Y');
                 $timePeriod = ($startYear === $endYear) ? $startYear : "{$startYear}-{$endYear}";
@@ -717,14 +741,17 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
 
             $completionDate = $activity->end_date ? Carbon::parse($activity->end_date)->format('d/m/Y') : '';
 
-            $result = $activity->result_summary ?? '';
-            if ($activity->completion_percentage !== null && $activity->completion_percentage > 0) {
+            $result = $this->getEditedValue($activityId, 'result_evaluation', $activity->result_summary ?? '');
+            if ($activity->completion_percentage !== null && $activity->completion_percentage > 0 && !isset($this->editedRowsMap[$activityId]['result_evaluation'])) {
                 $result .= ($result ? "\n" : '') . "(Tiến độ: {$activity->completion_percentage}%)";
             }
         }
 
         // KPI text only (Category already shown in category header row)
         $kpiText = $kpi->code ? "[{$kpi->code}] {$kpi->title}" : $kpi->title;
+        if ($activityId) {
+            $kpiText = $this->getEditedValue($activityId, 'nhiem_vu_trong_tam', $kpiText);
+        }
 
         $row = [];
         foreach ($cols as $col) {
@@ -737,27 +764,27 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     $row[] = $kpiText;
                     break;
                 case 'noi_dung_cu_the':
-                    // Activity description
-                    $row[] = $activity ? ($activity->description ?? '') : '';
+                    // Activity description (can be edited)
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'noi_dung_cu_the', $activity->description ?? '') : '';
                     break;
                 case 'phuong_an_de_xuat':
-                    // Activity title
-                    $row[] = $activity ? $activity->title : '';
+                    // Activity title (can be edited)
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'phuong_an_de_xuat', $activity->title) : '';
                     break;
                 case 'time_period':
-                    $row[] = $timePeriod;
+                    $row[] = $timePeriod ?? '';
                     break;
                 case 'budget':
-                    $row[] = $activity ? ($activity->budget ?? '') : '';
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'budget', $activity->budget ?? '') : '';
                     break;
                 case 'qualitative_target':
-                    $row[] = $activity ? ($activity->qualitative_target ?? '') : '';
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'qualitative_target', $activity->qualitative_target ?? '') : '';
                     break;
                 case 'quantitative_target':
-                    $row[] = $activity ? ($activity->quantitative_target ?? '') : '';
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'quantitative_target', $activity->quantitative_target ?? '') : '';
                     break;
                 case 'implementation_content':
-                    $row[] = $activity ? ($activity->focus_content ?? '') : '';
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'implementation_content', $activity->focus_content ?? '') : '';
                     break;
                 case 'updated_at':
                     $row[] = $activity && $activity->updated_at ? Carbon::parse($activity->updated_at)->format('d/m/Y') : '';
@@ -766,7 +793,7 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     $row[] = $activity ? $this->getActivityShareLinkUrl($activity) : '';
                     break;
                 case 'leader':
-                    $row[] = $leaderNames;
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'leader', $leaderNames) : '';
                     break;
                 case 'organization':
                     $row[] = $activity && $activity->leadOrganization
@@ -774,17 +801,17 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                         : '';
                     break;
                 case 'partner_organizations':
-                    // Lấy tên các đơn vị phối hợp
+                    // Lấy tên các đơn vị phối hợp (can be edited)
                     $partnerOrgs = '';
                     if ($activity && $activity->collaboratingOrganizations && $activity->collaboratingOrganizations->count() > 0) {
                         $partnerOrgs = $activity->collaboratingOrganizations
                             ->map(fn($org) => $org->short_name ?? $org->name)
                             ->implode(', ');
                     }
-                    $row[] = $partnerOrgs;
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'partner_organizations', $partnerOrgs) : '';
                     break;
                 case 'completion_date':
-                    $row[] = $completionDate;
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'completion_date', $completionDate) : '';
                     break;
                 case 'result_evaluation':
                     $row[] = $result;
@@ -801,6 +828,8 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
      */
     protected function buildActivityUnderKpiRow($activity, $cols): array
     {
+        $activityId = $activity->id;
+
         $leaderNames = \is_array($activity->leader_names)
             ? implode(', ', $activity->leader_names)
             : ($activity->leader_names ?? '');
@@ -809,16 +838,16 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                 ($activity->assignedUser->last_name . ' ' . $activity->assignedUser->first_name);
         }
 
-        // Time period
-        $timePeriod = '';
-        if ($activity->start_date && $activity->end_date) {
+        // Time period (can be edited)
+        $timePeriod = $this->getEditedValue($activityId, 'time_period', null);
+        if ($timePeriod === null && $activity->start_date && $activity->end_date) {
             $startYear = Carbon::parse($activity->start_date)->format('Y');
             $endYear = Carbon::parse($activity->end_date)->format('Y');
             $timePeriod = ($startYear === $endYear) ? $startYear : "{$startYear}-{$endYear}";
         }
 
-        $result = $activity->result_summary ?? '';
-        if ($activity->completion_percentage !== null && $activity->completion_percentage > 0) {
+        $result = $this->getEditedValue($activityId, 'result_evaluation', $activity->result_summary ?? '');
+        if ($activity->completion_percentage !== null && $activity->completion_percentage > 0 && !isset($this->editedRowsMap[$activityId]['result_evaluation'])) {
             $result .= ($result ? "\n" : '') . "(Tiến độ: {$activity->completion_percentage}%)";
         }
 
@@ -832,27 +861,27 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     $row[] = ''; // Already shown in KPI row
                     break;
                 case 'noi_dung_cu_the':
-                    // Activity description
-                    $row[] = $activity->description ?? '';
+                    // Activity description (can be edited)
+                    $row[] = $this->getEditedValue($activityId, 'noi_dung_cu_the', $activity->description ?? '');
                     break;
                 case 'phuong_an_de_xuat':
-                    // Activity title
-                    $row[] = $activity->title;
+                    // Activity title (can be edited)
+                    $row[] = $this->getEditedValue($activityId, 'phuong_an_de_xuat', $activity->title);
                     break;
                 case 'time_period':
-                    $row[] = $timePeriod;
+                    $row[] = $timePeriod ?? '';
                     break;
                 case 'budget':
-                    $row[] = $activity->budget ?? '';
+                    $row[] = $this->getEditedValue($activityId, 'budget', $activity->budget ?? '');
                     break;
                 case 'qualitative_target':
-                    $row[] = $activity->qualitative_target ?? '';
+                    $row[] = $this->getEditedValue($activityId, 'qualitative_target', $activity->qualitative_target ?? '');
                     break;
                 case 'quantitative_target':
-                    $row[] = $activity->quantitative_target ?? '';
+                    $row[] = $this->getEditedValue($activityId, 'quantitative_target', $activity->quantitative_target ?? '');
                     break;
                 case 'implementation_content':
-                    $row[] = $activity->focus_content ?? '';
+                    $row[] = $this->getEditedValue($activityId, 'implementation_content', $activity->focus_content ?? '');
                     break;
                 case 'updated_at':
                     $row[] = $activity->updated_at ? Carbon::parse($activity->updated_at)->format('d/m/Y') : '';
@@ -861,7 +890,7 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     $row[] = $this->getActivityShareLinkUrl($activity);
                     break;
                 case 'leader':
-                    $row[] = $leaderNames;
+                    $row[] = $this->getEditedValue($activityId, 'leader', $leaderNames);
                     break;
                 case 'organization':
                     $row[] = $activity->leadOrganization
@@ -869,17 +898,18 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                         : '';
                     break;
                 case 'partner_organizations':
-                    // Lấy tên các đơn vị phối hợp
+                    // Lấy tên các đơn vị phối hợp (can be edited)
                     $partnerOrgs = '';
                     if ($activity->collaboratingOrganizations && $activity->collaboratingOrganizations->count() > 0) {
                         $partnerOrgs = $activity->collaboratingOrganizations
                             ->map(fn($org) => $org->short_name ?? $org->name)
                             ->implode(', ');
                     }
-                    $row[] = $partnerOrgs;
+                    $row[] = $this->getEditedValue($activityId, 'partner_organizations', $partnerOrgs);
                     break;
                 case 'completion_date':
-                    $row[] = $activity->end_date ? Carbon::parse($activity->end_date)->format('d/m/Y') : '';
+                    $completionDate = $activity->end_date ? Carbon::parse($activity->end_date)->format('d/m/Y') : '';
+                    $row[] = $this->getEditedValue($activityId, 'completion_date', $completionDate);
                     break;
                 case 'result_evaluation':
                     $row[] = $result;

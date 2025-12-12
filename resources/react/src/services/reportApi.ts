@@ -44,6 +44,11 @@ export interface ExportColumnsResponse {
   }
 }
 
+export interface EditedRowData {
+  id: string
+  edits: Record<string, string | number | null>
+}
+
 export interface ExportOptions {
   periodType?: PeriodType
   month?: number
@@ -54,6 +59,7 @@ export interface ExportOptions {
   notes?: string
   reportName?: string
   excludedIds?: string[]
+  editedRows?: EditedRowData[]
 }
 
 // Export History interfaces
@@ -215,36 +221,70 @@ export const deleteExportHistory = async (id: string): Promise<{ success: boolea
 }
 
 /**
- * Export activity report - downloads Excel file
+ * Download a previously exported report from history
  */
-export const exportActivityReport = async (options: ExportOptions = {}): Promise<void> => {
-  const { periodType = 'month', month, quarter, year, viewMode = 'activities', columns, notes, reportName, excludedIds } = options
-
-  const params = new URLSearchParams()
-  params.append('period_type', periodType)
-  if (month) params.append('month', String(month))
-  if (quarter) params.append('quarter', String(quarter))
-  if (year) params.append('year', String(year))
-  params.append('view_mode', viewMode)
-  if (columns && columns.length > 0) {
-    params.append('columns', columns.join(','))
-  }
-  if (notes) params.append('notes', notes)
-  if (reportName) params.append('report_name', reportName)
-  if (excludedIds && excludedIds.length > 0) {
-    params.append('excluded_ids', excludedIds.join(','))
-  }
-
-  const queryString = params.toString()
-  const url = `${API_CONFIG.BASE_URL}/reports/export${queryString ? `?${queryString}` : ''}`
-
+export const downloadExportHistory = async (id: string, fileName: string): Promise<void> => {
   const token = localStorage.getItem('access_token')
 
-  const response = await fetch(url, {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/reports/history/${id}/download`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
     },
+  })
+
+  if (!response.ok) {
+    const contentType = response.headers.get('content-type')
+    if (contentType && contentType.includes('application/json')) {
+      const errorData = await response.json()
+      throw new Error(errorData.message || 'Không thể tải file')
+    }
+    throw new Error('Không thể tải file báo cáo')
+  }
+
+  // Download the file
+  const blob = await response.blob()
+  const downloadUrl = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = downloadUrl
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  window.URL.revokeObjectURL(downloadUrl)
+}
+
+/**
+ * Export activity report - downloads Excel file
+ * Uses POST to support sending editedRows data
+ */
+export const exportActivityReport = async (options: ExportOptions = {}): Promise<void> => {
+  const { periodType = 'month', month, quarter, year, viewMode = 'activities', columns, notes, reportName, excludedIds, editedRows } = options
+
+  const url = `${API_CONFIG.BASE_URL}/reports/export`
+  const token = localStorage.getItem('access_token')
+
+  // Build request body
+  const body: Record<string, unknown> = {
+    period_type: periodType,
+    view_mode: viewMode,
+  }
+  if (month) body.month = month
+  if (quarter) body.quarter = quarter
+  if (year) body.year = year
+  if (columns && columns.length > 0) body.columns = columns
+  if (notes) body.notes = notes
+  if (reportName) body.report_name = reportName
+  if (excludedIds && excludedIds.length > 0) body.excluded_ids = excludedIds
+  if (editedRows && editedRows.length > 0) body.edited_rows = editedRows
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
   })
 
   if (!response.ok) {

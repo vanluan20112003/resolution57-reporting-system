@@ -374,7 +374,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/preview', [ReportController::class, 'previewActivities']);
 
         // Export activity report (creates history record)
-        Route::get('/export', [ReportController::class, 'exportActivityReport']);
+        // Using POST to support sending edited_rows data in request body
+        Route::post('/export', [ReportController::class, 'exportActivityReport']);
+
+        // Download export file from history
+        Route::get('/history/{id}/download', [ReportController::class, 'downloadExport']);
 
         // Delete export history record (MANAGER+ only)
         Route::delete('/history/{id}', [ReportController::class, 'deleteExport']);

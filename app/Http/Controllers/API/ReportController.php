@@ -244,6 +244,20 @@ class ReportController extends Controller
             $excludedIds = [];
         }
 
+        // Get edited rows (from preview modal)
+        // Format: [{ id: 'uuid', edits: { field: value, ... } }, ...]
+        $editedRows = $request->input('edited_rows');
+        if (!is_array($editedRows)) {
+            $editedRows = [];
+        }
+        // Convert to map for easier lookup: id => edits
+        $editedRowsMap = [];
+        foreach ($editedRows as $row) {
+            if (isset($row['id']) && isset($row['edits']) && is_array($row['edits'])) {
+                $editedRowsMap[$row['id']] = $row['edits'];
+            }
+        }
+
         try {
             $organizationName = $organization->short_name ?? $organization->name;
             $viewModeLabel = $viewMode === 'kpis' ? 'KPI' : 'HD';
@@ -297,7 +311,32 @@ class ReportController extends Controller
                 'activity_count' => $activityCount,
             ]);
 
-            // Create export record
+            // Create the export instance
+            $exportInstance = new ActivityReportExport(
+                $organization->id,
+                $organizationName,
+                $startMonth,
+                $year,
+                $viewMode,
+                $selectedColumns,
+                $user->id,
+                $endMonth, // Pass end month for quarter/year reports
+                $excludedIds, // Pass excluded activity IDs
+                $editedRowsMap // Pass edited rows map (id => edits)
+            );
+
+            // Generate unique file path for storage
+            $storagePath = "reports/{$organization->id}/" . date('Y/m');
+            $uniqueFileName = pathinfo($fileName, PATHINFO_FILENAME) . '_' . time() . '.xlsx';
+            $fullStoragePath = "{$storagePath}/{$uniqueFileName}";
+
+            // Store the file
+            Excel::store($exportInstance, $fullStoragePath, 'local');
+
+            // Get file size
+            $fileSize = \Storage::disk('local')->size($fullStoragePath);
+
+            // Create export record with file path
             $exportRecord = ReportExport::create([
                 'organization_id' => $organization->id,
                 'exported_by' => $user->id,
@@ -307,26 +346,16 @@ class ReportController extends Controller
                 'year' => $year,
                 'selected_columns' => $selectedColumns,
                 'file_name' => $fileName,
+                'file_path' => $fullStoragePath,
+                'file_size' => $fileSize,
                 'activity_count' => $activityCount,
                 'status' => 'completed',
                 'notes' => $request->input('notes'),
                 'exported_at' => now(),
             ]);
 
-            return Excel::download(
-                new ActivityReportExport(
-                    $organization->id,
-                    $organizationName,
-                    $startMonth,
-                    $year,
-                    $viewMode,
-                    $selectedColumns,
-                    $user->id,
-                    $endMonth, // Pass end month for quarter/year reports
-                    $excludedIds // Pass excluded activity IDs
-                ),
-                $fileName
-            );
+            // Return the file for download
+            return Excel::download($exportInstance, $fileName);
         } catch (\Exception $e) {
             Log::error('Report export failed', [
                 'error' => $e->getMessage(),
@@ -650,6 +679,45 @@ class ReportController extends Controller
                     "short_name" => $organization->short_name,
                 ],
             ],
+        ]);
+    }
+
+    /**
+     * Download a previously exported report from history
+     */
+    public function downloadExport(Request $request, string $id)
+    {
+        $user = $request->user();
+
+        $export = ReportExport::find($id);
+
+        if (!$export) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy bản ghi xuất báo cáo',
+            ], 404);
+        }
+
+        // Check permission - same organization
+        if ($export->organization_id !== $user->organization_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền tải file này',
+            ], 403);
+        }
+
+        // Check if file exists
+        if (!$export->file_path || !\Storage::disk('local')->exists($export->file_path)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'File báo cáo không tồn tại hoặc đã bị xóa',
+            ], 404);
+        }
+
+        // Return file for download
+        $filePath = storage_path('app/' . $export->file_path);
+        return response()->download($filePath, $export->file_name, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
     }
 

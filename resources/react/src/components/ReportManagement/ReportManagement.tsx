@@ -44,7 +44,7 @@ import type {
   ViewMode,
   PeriodType,
 } from '../../services/reportApi'
-import ReportPreviewModal from './ReportPreviewModal'
+import ReportPreviewModal, { type EditedRow } from './ReportPreviewModal'
 import './ReportManagement.css'
 
 const { Title, Text, Paragraph } = Typography
@@ -75,6 +75,25 @@ function ReportManagement() {
 
   // Available years (last 5 years + current)
   const availableYears = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i)
+
+  // Generate default file name based on current selections
+  const getDefaultFileName = () => {
+    const orgName = organization?.short_name || organization?.name || 'DonVi'
+    const viewModeLabel = viewMode === 'kpis' ? 'KPI' : 'HD'
+    let periodLabel = ''
+
+    if (periodType === 'month' && selectedMonth) {
+      periodLabel = `T${selectedMonth}_${selectedYear}`
+    } else if (periodType === 'quarter' && selectedQuarter) {
+      periodLabel = `Q${selectedQuarter}_${selectedYear}`
+    } else if (periodType === 'year') {
+      periodLabel = `Nam${selectedYear}`
+    } else {
+      periodLabel = `${selectedYear}`
+    }
+
+    return `BaoCao_NQ57_${viewModeLabel}_${orgName}_${periodLabel}`
+  }
 
   // History state
   const [history, setHistory] = useState<ExportHistoryItem[]>([])
@@ -175,7 +194,7 @@ function ReportManagement() {
     }
   }
 
-  const handleExport = async (excludedIds: string[] = []) => {
+  const handleExport = async (excludedIds: string[] = [], editedRows: EditedRow[] = []) => {
     // Validate based on period type
     if (periodType === 'month' && !selectedMonth) {
       message.warning('Vui lòng chọn tháng')
@@ -207,6 +226,7 @@ function ReportManagement() {
         notes: notes || undefined,
         reportName: reportName || undefined,
         excludedIds: excludedIds.length > 0 ? excludedIds : undefined,
+        editedRows: editedRows.length > 0 ? editedRows : undefined,
       })
       message.success('Xuất báo cáo thành công!')
 
@@ -233,6 +253,16 @@ function ReportManagement() {
       fetchStats()
     } catch (error: any) {
       message.error(error.message || 'Không thể xóa bản ghi')
+    }
+  }
+
+  const handleDownloadHistory = async (id: string, fileName: string) => {
+    try {
+      message.loading({ content: 'Đang tải file...', key: 'download' })
+      await reportApi.downloadExportHistory(id, fileName)
+      message.success({ content: 'Đã tải file thành công', key: 'download' })
+    } catch (error: any) {
+      message.error({ content: error.message || 'Không thể tải file', key: 'download' })
     }
   }
 
@@ -282,10 +312,21 @@ function ReportManagement() {
       dataIndex: 'file_name',
       key: 'file_name',
       ellipsis: true,
-      render: (name: string) => (
+      render: (name: string, record) => (
         <Space>
           <FileExcelOutlined style={{ color: '#52c41a' }} />
           <Text ellipsis style={{ maxWidth: 200 }}>{name}</Text>
+          {record.file_path && (
+            <Tooltip title="Tải lại file này">
+              <Button
+                type="link"
+                size="small"
+                icon={<DownloadOutlined />}
+                onClick={() => handleDownloadHistory(record.id, record.file_name)}
+                style={{ padding: 0 }}
+              />
+            </Tooltip>
+          )}
         </Space>
       ),
     },
@@ -443,16 +484,19 @@ function ReportManagement() {
                   <Col xs={24} md={12}>
                     <div className="export-options">
                       <div className="option-group">
-                        <Text strong>Tên báo cáo (tùy chọn):</Text>
+                        <Text strong>Tên file báo cáo:</Text>
                         <Input
                           style={{ marginTop: 8 }}
-                          placeholder="Nhập tên báo cáo tùy chỉnh..."
+                          placeholder={getDefaultFileName()}
                           value={reportName}
                           onChange={(e) => setReportName(e.target.value)}
                           maxLength={100}
+                          suffix=".xlsx"
                         />
                         <Text type="secondary" style={{ fontSize: 12 }}>
-                          Để trống để sử dụng tên mặc định
+                          {reportName
+                            ? `File sẽ được lưu: ${reportName}.xlsx`
+                            : `File sẽ được lưu: ${getDefaultFileName()}.xlsx`}
                         </Text>
                       </div>
 

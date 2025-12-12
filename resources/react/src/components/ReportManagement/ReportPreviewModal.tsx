@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Modal,
   Table,
@@ -14,7 +14,12 @@ import {
   message,
   Tooltip,
   Alert,
+  Input,
+  Select,
+  Divider,
+  Dropdown,
 } from 'antd'
+import type { MenuProps } from 'antd'
 import {
   FileTextOutlined,
   CheckCircleOutlined,
@@ -22,12 +27,23 @@ import {
   DownloadOutlined,
   DeleteOutlined,
   UndoOutlined,
+  SearchOutlined,
+  FilterOutlined,
+  CheckSquareOutlined,
+  CloseSquareOutlined,
+  ClearOutlined,
+  MoreOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import * as reportApi from '../../services/reportApi'
 import type { PreviewRow, PreviewActivityRow, PreviewFilters, PeriodType, ViewMode, ExportColumn } from '../../services/reportApi'
 
 const { Text, Title } = Typography
+
+export interface EditedRow {
+  id: string
+  edits: Record<string, string | number | null>
+}
 
 interface ReportPreviewModalProps {
   visible: boolean
@@ -41,7 +57,7 @@ interface ReportPreviewModalProps {
   availableColumns: ExportColumn[]
   notes?: string
   reportName?: string
-  onExport: (excludedIds: string[]) => void
+  onExport: (excludedIds: string[], editedRows: EditedRow[]) => void
   exportLoading: boolean
 }
 
@@ -102,6 +118,14 @@ function ReportPreviewModal({
   // Excluded activities (user can remove from export)
   const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set())
 
+  // Search and filter state
+  const [searchText, setSearchText] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string | null>(null)
+
+  // Editing state
+  const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null)
+  const [editedRows, setEditedRows] = useState<Map<string, Partial<PreviewActivityRow>>>(new Map())
+
   // Fetch preview data
   const fetchPreview = useCallback(async () => {
     setLoading(true)
@@ -141,6 +165,10 @@ function ReportPreviewModal({
   useEffect(() => {
     if (!visible) {
       setExcludedIds(new Set())
+      setSearchText('')
+      setStatusFilter(null)
+      setEditingCell(null)
+      setEditedRows(new Map())
     }
   }, [visible])
 
@@ -157,6 +185,126 @@ function ReportPreviewModal({
     })
   }
 
+  // Get row with edits applied
+  const getRowWithEdits = (row: PreviewActivityRow): PreviewActivityRow => {
+    const edits = editedRows.get(row.id)
+    if (!edits) return row
+    return { ...row, ...edits }
+  }
+
+  // Handle cell edit
+  const handleCellEdit = (id: string, field: string, value: string | number) => {
+    setEditedRows((prev) => {
+      const newMap = new Map(prev)
+      const existing = newMap.get(id) || {}
+      newMap.set(id, { ...existing, [field]: value })
+      return newMap
+    })
+    setEditingCell(null)
+  }
+
+  // Filter rows based on search and status
+  const filteredRows = useMemo(() => {
+    if (!searchText && !statusFilter) return rows
+
+    return rows.filter((row) => {
+      // Always keep category rows visible
+      if (row.type === 'category') return true
+
+      const activityRow = row as PreviewActivityRow
+      const rowWithEdits = getRowWithEdits(activityRow)
+
+      // Search filter
+      if (searchText) {
+        const searchLower = searchText.toLowerCase()
+        const matchesSearch =
+          rowWithEdits.nhiem_vu_trong_tam?.toLowerCase().includes(searchLower) ||
+          rowWithEdits.noi_dung_cu_the?.toLowerCase().includes(searchLower) ||
+          rowWithEdits.phuong_an_de_xuat?.toLowerCase().includes(searchLower) ||
+          rowWithEdits.implementation_content?.toLowerCase().includes(searchLower)
+        if (!matchesSearch) return false
+      }
+
+      // Status filter
+      if (statusFilter && rowWithEdits.status !== statusFilter) {
+        return false
+      }
+
+      return true
+    })
+  }, [rows, searchText, statusFilter, editedRows])
+
+  // Bulk actions
+  const selectAllVisible = () => {
+    // Remove from excluded (include in export)
+    const visibleActivityIds = filteredRows
+      .filter((r): r is PreviewActivityRow => r.type === 'activity')
+      .map((r) => r.id)
+    setExcludedIds((prev) => {
+      const newSet = new Set(prev)
+      visibleActivityIds.forEach((id) => newSet.delete(id))
+      return newSet
+    })
+  }
+
+  const deselectAllVisible = () => {
+    // Add to excluded (remove from export)
+    const visibleActivityIds = filteredRows
+      .filter((r): r is PreviewActivityRow => r.type === 'activity')
+      .map((r) => r.id)
+    setExcludedIds((prev) => {
+      const newSet = new Set(prev)
+      visibleActivityIds.forEach((id) => newSet.add(id))
+      return newSet
+    })
+  }
+
+  const clearExclusions = () => {
+    setExcludedIds(new Set())
+  }
+
+  const excludeByStatus = (status: string) => {
+    const idsWithStatus = rows
+      .filter((r): r is PreviewActivityRow => r.type === 'activity' && r.status === status)
+      .map((r) => r.id)
+    setExcludedIds((prev) => {
+      const newSet = new Set(prev)
+      idsWithStatus.forEach((id) => newSet.add(id))
+      return newSet
+    })
+  }
+
+  // Bulk action menu
+  const bulkActionMenuItems: MenuProps['items'] = [
+    {
+      key: 'exclude-draft',
+      label: 'Loại tất cả Nháp',
+      onClick: () => excludeByStatus('DRAFT'),
+    },
+    {
+      key: 'exclude-pending',
+      label: 'Loại tất cả Chờ duyệt',
+      onClick: () => excludeByStatus('PENDING_APPROVAL'),
+    },
+    {
+      key: 'exclude-cancelled',
+      label: 'Loại tất cả Đã hủy',
+      onClick: () => excludeByStatus('CANCELLED'),
+    },
+    {
+      key: 'exclude-postponed',
+      label: 'Loại tất cả Tạm hoãn',
+      onClick: () => excludeByStatus('POSTPONED'),
+    },
+    { type: 'divider' },
+    {
+      key: 'reset-edits',
+      label: 'Hoàn tác tất cả chỉnh sửa',
+      onClick: () => setEditedRows(new Map()),
+      disabled: editedRows.size === 0,
+    },
+  ]
+
   // Get period label
   const getPeriodLabel = () => {
     if (periodType === 'month' && month) {
@@ -172,6 +320,69 @@ function ReportPreviewModal({
   const formatCurrency = (value: number | null) => {
     if (!value) return ''
     return new Intl.NumberFormat('vi-VN').format(value)
+  }
+
+  // Editable cell renderer
+  const renderEditableCell = (
+    record: PreviewActivityRow,
+    field: keyof PreviewActivityRow,
+    displayValue: React.ReactNode,
+    inputType: 'text' | 'number' = 'text'
+  ) => {
+    const rowWithEdits = getRowWithEdits(record)
+    const currentValue = rowWithEdits[field] as string | number | null
+    const isEditing = editingCell?.id === record.id && editingCell?.field === field
+    const hasEdit = editedRows.has(record.id) && editedRows.get(record.id)?.[field] !== undefined
+
+    if (isEditing) {
+      return (
+        <Input
+          size="small"
+          type={inputType}
+          defaultValue={currentValue ?? ''}
+          autoFocus
+          onBlur={(e) => {
+            const val = inputType === 'number' ? Number(e.target.value) : e.target.value
+            if (val !== record[field]) {
+              handleCellEdit(record.id, field, val)
+            } else {
+              setEditingCell(null)
+            }
+          }}
+          onPressEnter={(e) => {
+            const val = inputType === 'number' ? Number((e.target as HTMLInputElement).value) : (e.target as HTMLInputElement).value
+            if (val !== record[field]) {
+              handleCellEdit(record.id, field, val)
+            } else {
+              setEditingCell(null)
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setEditingCell(null)
+            }
+          }}
+          style={{ width: '100%' }}
+        />
+      )
+    }
+
+    return (
+      <div
+        onClick={() => setEditingCell({ id: record.id, field })}
+        style={{
+          cursor: 'pointer',
+          padding: '2px 4px',
+          borderRadius: 2,
+          background: hasEdit ? '#e6f7ff' : 'transparent',
+          border: hasEdit ? '1px dashed #1890ff' : '1px solid transparent',
+          minHeight: 20,
+        }}
+        title="Click để chỉnh sửa"
+      >
+        {displayValue}
+      </div>
+    )
   }
 
   // Build table columns based on selectedColumns
@@ -215,7 +426,7 @@ function ReportPreviewModal({
             align: 'center',
             render: (_, record) => {
               if (record.type === 'category') return null
-              const row = record as PreviewActivityRow
+              const row = getRowWithEdits(record as PreviewActivityRow)
               return row.stt || ''
             },
           })
@@ -235,7 +446,12 @@ function ReportPreviewModal({
                 )
               }
               const row = record as PreviewActivityRow
-              return <Text style={{ fontSize: 12 }}>{row.nhiem_vu_trong_tam}</Text>
+              const rowWithEdits = getRowWithEdits(row)
+              return renderEditableCell(
+                row,
+                'nhiem_vu_trong_tam',
+                <Text style={{ fontSize: 12 }}>{rowWithEdits.nhiem_vu_trong_tam || '-'}</Text>
+              )
             },
           })
           break
@@ -245,11 +461,15 @@ function ReportPreviewModal({
             title: label,
             key: 'noi_dung_cu_the',
             width: 180,
-            ellipsis: true,
             render: (_, record) => {
               if (record.type === 'category') return null
               const row = record as PreviewActivityRow
-              return <Text style={{ fontSize: 12 }}>{row.noi_dung_cu_the || '-'}</Text>
+              const rowWithEdits = getRowWithEdits(row)
+              return renderEditableCell(
+                row,
+                'noi_dung_cu_the',
+                <Text style={{ fontSize: 12 }}>{rowWithEdits.noi_dung_cu_the || '-'}</Text>
+              )
             },
           })
           break
@@ -262,7 +482,12 @@ function ReportPreviewModal({
             render: (_, record) => {
               if (record.type === 'category') return null
               const row = record as PreviewActivityRow
-              return <Text style={{ fontSize: 12 }} strong>{row.phuong_an_de_xuat}</Text>
+              const rowWithEdits = getRowWithEdits(row)
+              return renderEditableCell(
+                row,
+                'phuong_an_de_xuat',
+                <Text style={{ fontSize: 12 }} strong>{rowWithEdits.phuong_an_de_xuat || '-'}</Text>
+              )
             },
           })
           break
@@ -275,7 +500,12 @@ function ReportPreviewModal({
             render: (_, record) => {
               if (record.type === 'category') return null
               const row = record as PreviewActivityRow
-              return <Text style={{ fontSize: 11 }}>{row.time_period || '-'}</Text>
+              const rowWithEdits = getRowWithEdits(row)
+              return renderEditableCell(
+                row,
+                'time_period',
+                <Text style={{ fontSize: 11 }}>{rowWithEdits.time_period || '-'}</Text>
+              )
             },
           })
           break
@@ -289,7 +519,13 @@ function ReportPreviewModal({
             render: (_, record) => {
               if (record.type === 'category') return null
               const row = record as PreviewActivityRow
-              return <Text style={{ fontSize: 11 }}>{formatCurrency(row.budget)}</Text>
+              const rowWithEdits = getRowWithEdits(row)
+              return renderEditableCell(
+                row,
+                'budget',
+                <Text style={{ fontSize: 11 }}>{formatCurrency(rowWithEdits.budget)}</Text>,
+                'number'
+              )
             },
           })
           break
@@ -299,11 +535,15 @@ function ReportPreviewModal({
             title: label,
             key: 'qualitative_target',
             width: 150,
-            ellipsis: true,
             render: (_, record) => {
               if (record.type === 'category') return null
               const row = record as PreviewActivityRow
-              return <Text style={{ fontSize: 11 }}>{row.qualitative_target || '-'}</Text>
+              const rowWithEdits = getRowWithEdits(row)
+              return renderEditableCell(
+                row,
+                'qualitative_target',
+                <Text style={{ fontSize: 11 }}>{rowWithEdits.qualitative_target || '-'}</Text>
+              )
             },
           })
           break
@@ -313,11 +553,15 @@ function ReportPreviewModal({
             title: label,
             key: 'quantitative_target',
             width: 150,
-            ellipsis: true,
             render: (_, record) => {
               if (record.type === 'category') return null
               const row = record as PreviewActivityRow
-              return <Text style={{ fontSize: 11 }}>{row.quantitative_target || '-'}</Text>
+              const rowWithEdits = getRowWithEdits(row)
+              return renderEditableCell(
+                row,
+                'quantitative_target',
+                <Text style={{ fontSize: 11 }}>{rowWithEdits.quantitative_target || '-'}</Text>
+              )
             },
           })
           break
@@ -327,11 +571,15 @@ function ReportPreviewModal({
             title: label,
             key: 'implementation_content',
             width: 180,
-            ellipsis: true,
             render: (_, record) => {
               if (record.type === 'category') return null
               const row = record as PreviewActivityRow
-              return <Text style={{ fontSize: 11 }}>{row.implementation_content || '-'}</Text>
+              const rowWithEdits = getRowWithEdits(row)
+              return renderEditableCell(
+                row,
+                'implementation_content',
+                <Text style={{ fontSize: 11 }}>{rowWithEdits.implementation_content || '-'}</Text>
+              )
             },
           })
           break
@@ -343,7 +591,7 @@ function ReportPreviewModal({
             width: 90,
             render: (_, record) => {
               if (record.type === 'category') return null
-              const row = record as PreviewActivityRow
+              const row = getRowWithEdits(record as PreviewActivityRow)
               return <Text style={{ fontSize: 11 }}>{row.updated_at || '-'}</Text>
             },
           })
@@ -369,7 +617,12 @@ function ReportPreviewModal({
             render: (_, record) => {
               if (record.type === 'category') return null
               const row = record as PreviewActivityRow
-              return <Text style={{ fontSize: 11 }}>{row.leader || '-'}</Text>
+              const rowWithEdits = getRowWithEdits(row)
+              return renderEditableCell(
+                row,
+                'leader',
+                <Text style={{ fontSize: 11 }}>{rowWithEdits.leader || '-'}</Text>
+              )
             },
           })
           break
@@ -381,7 +634,7 @@ function ReportPreviewModal({
             width: 100,
             render: (_, record) => {
               if (record.type === 'category') return null
-              const row = record as PreviewActivityRow
+              const row = getRowWithEdits(record as PreviewActivityRow)
               return <Text style={{ fontSize: 11 }}>{row.organization || '-'}</Text>
             },
           })
@@ -395,7 +648,12 @@ function ReportPreviewModal({
             render: (_, record) => {
               if (record.type === 'category') return null
               const row = record as PreviewActivityRow
-              return <Text style={{ fontSize: 11 }}>{row.partner_organizations || '-'}</Text>
+              const rowWithEdits = getRowWithEdits(row)
+              return renderEditableCell(
+                row,
+                'partner_organizations',
+                <Text style={{ fontSize: 11 }}>{rowWithEdits.partner_organizations || '-'}</Text>
+              )
             },
           })
           break
@@ -408,7 +666,12 @@ function ReportPreviewModal({
             render: (_, record) => {
               if (record.type === 'category') return null
               const row = record as PreviewActivityRow
-              return <Text style={{ fontSize: 11 }}>{row.completion_date || '-'}</Text>
+              const rowWithEdits = getRowWithEdits(row)
+              return renderEditableCell(
+                row,
+                'completion_date',
+                <Text style={{ fontSize: 11 }}>{rowWithEdits.completion_date || '-'}</Text>
+              )
             },
           })
           break
@@ -418,11 +681,15 @@ function ReportPreviewModal({
             title: label,
             key: 'result_evaluation',
             width: 180,
-            ellipsis: true,
             render: (_, record) => {
               if (record.type === 'category') return null
               const row = record as PreviewActivityRow
-              return <Text style={{ fontSize: 11 }}>{row.result_evaluation || '-'}</Text>
+              const rowWithEdits = getRowWithEdits(row)
+              return renderEditableCell(
+                row,
+                'result_evaluation',
+                <Text style={{ fontSize: 11 }}>{rowWithEdits.result_evaluation || '-'}</Text>
+              )
             },
           })
           break
@@ -437,7 +704,7 @@ function ReportPreviewModal({
       fixed: 'right',
       render: (_, record) => {
         if (record.type === 'category') return null
-        const row = record as PreviewActivityRow
+        const row = getRowWithEdits(record as PreviewActivityRow)
         const config = statusConfig[row.status] || { label: row.status, color: 'default' }
         return <Tag color={config.color} style={{ fontSize: 10 }}>{config.label}</Tag>
       },
@@ -498,7 +765,12 @@ function ReportPreviewModal({
               type="primary"
               icon={<DownloadOutlined />}
               loading={exportLoading}
-              onClick={() => onExport(Array.from(excludedIds))}
+              onClick={() => {
+                const editedRowsArray: EditedRow[] = Array.from(editedRows.entries()).map(
+                  ([id, edits]) => ({ id, edits })
+                )
+                onExport(Array.from(excludedIds), editedRowsArray)
+              }}
             >
               Xuất báo cáo Excel
             </Button>
@@ -579,10 +851,110 @@ function ReportPreviewModal({
         style={{ marginBottom: 16 }}
       />
 
+      {/* Toolbar */}
+      <div style={{
+        display: 'flex',
+        gap: 12,
+        alignItems: 'center',
+        marginBottom: 12,
+        padding: '8px 12px',
+        background: '#fafafa',
+        borderRadius: 6,
+        flexWrap: 'wrap',
+      }}>
+        {/* Search */}
+        <Input
+          placeholder="Tìm kiếm..."
+          prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          allowClear
+          style={{ width: 200 }}
+          size="small"
+        />
+
+        {/* Status Filter */}
+        <Select
+          placeholder="Lọc trạng thái"
+          value={statusFilter}
+          onChange={setStatusFilter}
+          allowClear
+          style={{ width: 150 }}
+          size="small"
+          options={Object.entries(statusConfig).map(([key, config]) => ({
+            value: key,
+            label: config.label,
+          }))}
+        />
+
+        <Divider type="vertical" style={{ height: 24 }} />
+
+        {/* Bulk Actions */}
+        <Tooltip title="Chọn tất cả (hiển thị)">
+          <Button
+            size="small"
+            icon={<CheckSquareOutlined />}
+            onClick={selectAllVisible}
+          >
+            Chọn tất cả
+          </Button>
+        </Tooltip>
+
+        <Tooltip title="Bỏ chọn tất cả (hiển thị)">
+          <Button
+            size="small"
+            icon={<CloseSquareOutlined />}
+            onClick={deselectAllVisible}
+          >
+            Bỏ chọn tất cả
+          </Button>
+        </Tooltip>
+
+        {excludedIds.size > 0 && (
+          <Tooltip title="Bỏ tất cả loại trừ">
+            <Button
+              size="small"
+              icon={<ClearOutlined />}
+              onClick={clearExclusions}
+              type="link"
+              danger
+            >
+              Xóa loại trừ ({excludedIds.size})
+            </Button>
+          </Tooltip>
+        )}
+
+        <Divider type="vertical" style={{ height: 24 }} />
+
+        {/* More Actions Dropdown */}
+        <Dropdown menu={{ items: bulkActionMenuItems }} trigger={['click']}>
+          <Button size="small" icon={<MoreOutlined />}>
+            Thao tác khác
+          </Button>
+        </Dropdown>
+
+        {/* Edit indicator */}
+        {editedRows.size > 0 && (
+          <>
+            <Divider type="vertical" style={{ height: 24 }} />
+            <Tag color="blue">
+              Đã chỉnh sửa {editedRows.size} dòng
+            </Tag>
+          </>
+        )}
+
+        {/* Filter indicator */}
+        {(searchText || statusFilter) && (
+          <Text type="secondary" style={{ marginLeft: 'auto', fontSize: 12 }}>
+            Đang hiển thị {filteredRows.filter(r => r.type === 'activity').length} / {activityRows.length} hoạt động
+          </Text>
+        )}
+      </div>
+
       {/* Preview Table */}
       <Table
         columns={buildColumns()}
-        dataSource={rows}
+        dataSource={filteredRows}
         rowKey={getRowKey}
         loading={loading}
         rowClassName={getRowClassName}
