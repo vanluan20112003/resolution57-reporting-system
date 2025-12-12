@@ -162,10 +162,9 @@
     margin-bottom: 12px;
   }
 
-  /* Avatar MUCH LARGER on mobile for better visibility */
+  /* Avatar size is now controlled by JS (avatarSize = 180px on mobile) */
+  /* These CSS rules ensure proper display */
   .org-avatar {
-    width: 180px !important;
-    height: 180px !important;
     font-size: 72px !important;
   }
 
@@ -173,18 +172,9 @@
     font-size: 72px !important;
   }
 
-  /* Make sure img inside avatar is also large */
-  .org-avatar img,
-  .org-avatar .ant-avatar-image img {
-    width: 180px !important;
-    height: 180px !important;
+  /* Make sure img inside avatar displays correctly */
+  .org-avatar img {
     object-fit: contain !important;
-  }
-
-  /* Avatar wrapper - ensure proper centering */
-  .org-avatar-wrapper .ant-avatar {
-    width: 180px !important;
-    height: 180px !important;
   }
 
   /* Avatar buttons */

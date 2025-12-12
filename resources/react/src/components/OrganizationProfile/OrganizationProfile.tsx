@@ -19,6 +19,7 @@ import {
   Select,
   Popconfirm,
   Tooltip,
+  Grid,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
@@ -60,8 +61,11 @@ import './OrganizationProfile.css'
 const { Title, Text, Paragraph } = Typography
 const { TextArea } = Input
 
+const { useBreakpoint } = Grid
+
 function OrganizationProfile() {
   const { user } = useAuth()
+  const screens = useBreakpoint()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -69,6 +73,9 @@ function OrganizationProfile() {
   const [isEditing, setIsEditing] = useState(false)
   const [form] = Form.useForm()
   const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  // Responsive avatar size: 180px on mobile, 100px on desktop
+  const avatarSize = screens.sm === false ? 180 : 100
   const [activeTab, setActiveTab] = useState('info')
 
   // Members state
@@ -717,7 +724,7 @@ function OrganizationProfile() {
           <div className="org-avatar-wrapper">
             <Spin spinning={uploadingAvatar}>
               <Avatar
-                size={100}
+                size={avatarSize}
                 src={organization.avatar_url}
                 icon={<BankOutlined />}
                 className="org-avatar"
