@@ -74,10 +74,10 @@ function OrganizationProfile() {
   const [form] = Form.useForm()
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
-  // Responsive avatar size: 200px on mobile (xs), 100px on desktop
+  // Responsive avatar size: 220px on mobile (xs), 100px on desktop
   // screens.xs is true when viewport < 576px, undefined initially
   const isMobile = screens.xs && !screens.sm
-  const avatarSize = isMobile ? 200 : 100
+  const avatarSize = isMobile ? 220 : 100
   const [activeTab, setActiveTab] = useState('info')
 
   // Members state
