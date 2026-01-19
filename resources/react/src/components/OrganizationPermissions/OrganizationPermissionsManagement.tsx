@@ -425,11 +425,20 @@ export function OrganizationPermissionsManagement() {
           >
             <Select
               showSearch
-              placeholder="Chọn phòng ban"
-              optionFilterProp="label"
+              placeholder="Tìm theo tên, mã hoặc tên viết tắt..."
+              filterOption={(input, option) => {
+                const org = organizations.find(o => o.id === option?.value)
+                if (!org) return false
+                const searchText = input.toLowerCase()
+                return (
+                  org.name.toLowerCase().includes(searchText) ||
+                  (org.short_name?.toLowerCase().includes(searchText) ?? false) ||
+                  (org.code?.toLowerCase().includes(searchText) ?? false)
+                )
+              }}
               options={organizations.map(org => ({
                 value: org.id,
-                label: org.name,
+                label: org.short_name ? `${org.name} (${org.short_name})` : org.name,
               }))}
             />
           </Form.Item>
@@ -466,11 +475,20 @@ export function OrganizationPermissionsManagement() {
               <Select
                 mode="multiple"
                 showSearch
-                placeholder="Chọn một hoặc nhiều phòng ban"
-                optionFilterProp="label"
+                placeholder="Tìm theo tên, mã hoặc tên viết tắt..."
+                filterOption={(input, option) => {
+                  const org = organizations.find(o => o.id === option?.value)
+                  if (!org) return false
+                  const searchText = input.toLowerCase()
+                  return (
+                    org.name.toLowerCase().includes(searchText) ||
+                    (org.short_name?.toLowerCase().includes(searchText) ?? false) ||
+                    (org.code?.toLowerCase().includes(searchText) ?? false)
+                  )
+                }}
                 options={organizations.map(org => ({
                   value: org.id,
-                  label: org.name,
+                  label: org.short_name ? `${org.name} (${org.short_name})` : org.name,
                 }))}
               />
             </Form.Item>
