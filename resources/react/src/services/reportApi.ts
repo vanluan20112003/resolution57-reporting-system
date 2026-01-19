@@ -334,7 +334,8 @@ export interface PreviewActivityRow {
   id: string
   stt: number | null
   nhiem_vu_trong_tam: string
-  noi_dung_cu_the: string
+  noi_dung_cu_the: string // KPI Tasks (nhiệm vụ con của KPI)
+  noi_dung_hoat_dong: string // Activity description
   phuong_an_de_xuat: string
   time_period: string
   budget: number | null
@@ -401,4 +402,196 @@ export const getReportPreview = async (filters: PreviewFilters = {}): Promise<Pr
   }
 
   return response.json()
+}
+
+// ===========================================
+// MULTI-ORGANIZATION REPORT APIs
+// ===========================================
+
+export interface AccessibleOrganization {
+  id: string
+  name: string
+  short_name?: string
+  code?: string
+  type?: string
+  can_export: boolean
+  can_view_details: boolean
+  can_view_files: boolean
+  can_view_budget: boolean
+}
+
+export interface AccessibleOrganizationsResponse {
+  success: boolean
+  data: {
+    organizations: AccessibleOrganization[]
+    own_organization: {
+      id: string
+      name: string
+      short_name?: string
+    }
+    has_all_access: boolean
+    total_count: number
+  }
+}
+
+export interface MultiOrgPreviewFilters {
+  organization_ids: string[]
+  periodType?: PeriodType
+  month?: number
+  quarter?: number
+  year?: number
+}
+
+export interface MultiOrgPreviewResponse {
+  success: boolean
+  data: {
+    rows: PreviewRow[]
+    summary: {
+      total: number
+      by_status: Record<string, number>
+      by_organization: Record<string, { name: string; count: number }>
+    }
+    organizations: {
+      id: string
+      name: string
+      short_name?: string
+    }[]
+    exporter_organization: {
+      id: string
+      name: string
+      short_name?: string
+    }
+  }
+}
+
+export interface MultiOrgExportOptions extends ExportOptions {
+  organizationIds: string[]
+}
+
+/**
+ * Get list of organizations the current user can export reports for
+ */
+export const getAccessibleOrganizations = async (): Promise<AccessibleOrganizationsResponse> => {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/reports/multi-org/accessible-organizations`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Không thể tải danh sách đơn vị có quyền xuất')
+  }
+
+  return response.json()
+}
+
+/**
+ * Get preview of activities for multi-organization report
+ */
+export const getMultiOrgReportPreview = async (filters: MultiOrgPreviewFilters): Promise<MultiOrgPreviewResponse> => {
+  const params = new URLSearchParams()
+
+  // Add organization IDs
+  if (filters.organization_ids && filters.organization_ids.length > 0) {
+    filters.organization_ids.forEach(id => params.append('organization_ids[]', id))
+  }
+
+  if (filters.periodType) params.append('period_type', filters.periodType)
+  if (filters.month) params.append('month', String(filters.month))
+  if (filters.quarter) params.append('quarter', String(filters.quarter))
+  if (filters.year) params.append('year', String(filters.year))
+
+  const queryString = params.toString()
+  const url = `${API_CONFIG.BASE_URL}/reports/multi-org/preview${queryString ? `?${queryString}` : ''}`
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Không thể tải xem trước báo cáo đa đơn vị')
+  }
+
+  return response.json()
+}
+
+/**
+ * Export multi-organization activity report - downloads Excel file
+ */
+export const exportMultiOrgReport = async (options: MultiOrgExportOptions): Promise<void> => {
+  const {
+    organizationIds,
+    periodType = 'month',
+    month,
+    quarter,
+    year,
+    viewMode = 'activities',
+    columns,
+    notes,
+    reportName,
+    excludedIds,
+    editedRows
+  } = options
+
+  const url = `${API_CONFIG.BASE_URL}/reports/multi-org/export`
+  const token = localStorage.getItem('access_token')
+
+  // Build request body
+  const body: Record<string, unknown> = {
+    organization_ids: organizationIds,
+    period_type: periodType,
+    view_mode: viewMode,
+  }
+  if (month) body.month = month
+  if (quarter) body.quarter = quarter
+  if (year) body.year = year
+  if (columns && columns.length > 0) body.columns = columns
+  if (notes) body.notes = notes
+  if (reportName) body.report_name = reportName
+  if (excludedIds && excludedIds.length > 0) body.excluded_ids = excludedIds
+  if (editedRows && editedRows.length > 0) body.edited_rows = editedRows
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    // Try to parse error message
+    const contentType = response.headers.get('content-type')
+    if (contentType && contentType.includes('application/json')) {
+      const errorData = await response.json()
+      throw new Error(errorData.message || 'Không thể xuất báo cáo đa đơn vị')
+    }
+    throw new Error('Không thể xuất báo cáo đa đơn vị')
+  }
+
+  // Get filename from Content-Disposition header
+  const contentDisposition = response.headers.get('content-disposition')
+  const viewModeLabel = viewMode === 'kpis' ? 'KPI' : 'HD'
+  let filename = `BaoCao_NQ57_DaDonVi_${viewModeLabel}_T${month}_${year}.xlsx`
+
+  if (contentDisposition) {
+    const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+    if (filenameMatch && filenameMatch[1]) {
+      filename = filenameMatch[1].replace(/['"]/g, '')
+    }
+  }
+
+  // Download the file
+  const blob = await response.blob()
+  const downloadUrl = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = downloadUrl
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  window.URL.revokeObjectURL(downloadUrl)
 }

@@ -19,6 +19,7 @@ import {
 } from '@ant-design/icons'
 import * as XLSX from 'xlsx'
 import mammoth from 'mammoth'
+import DOMPurify from 'dompurify'
 
 const { Text, Title } = Typography
 
@@ -316,7 +317,7 @@ const WordViewer = ({ url }: { url: string }) => {
         fontSize: 14,
         lineHeight: 1.6,
       }}
-      dangerouslySetInnerHTML={{ __html: html }}
+      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}
     />
   )
 }

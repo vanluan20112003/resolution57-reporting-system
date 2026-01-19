@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Card,
   Button,
@@ -20,6 +21,10 @@ import {
   Tooltip,
   Empty,
   Spin,
+  Descriptions,
+  Badge,
+  Divider,
+  Progress,
 } from 'antd'
 import {
   DownloadOutlined,
@@ -33,6 +38,15 @@ import {
   ClockCircleOutlined,
   ReloadOutlined,
   EyeOutlined,
+  UserOutlined,
+  FileDoneOutlined,
+  CloudDownloadOutlined,
+  TableOutlined,
+  BarChartOutlined,
+  ExclamationCircleOutlined,
+  FolderOutlined,
+  BankOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { useAuth } from '../../shared/hooks'
@@ -43,19 +57,61 @@ import type {
   ExportHistoryItem,
   ViewMode,
   PeriodType,
+  AccessibleOrganization,
 } from '../../services/reportApi'
 import ReportPreviewModal, { type EditedRow } from './ReportPreviewModal'
+import ReportBatchTab from './ReportBatchTab'
 import './ReportManagement.css'
 
 const { Title, Text, Paragraph } = Typography
 const { Option } = Select
 const { TextArea } = Input
 
+// Valid sub-tabs for reports page
+type ReportSubTab = 'export' | 'history' | 'batches'
+const VALID_SUB_TABS: ReportSubTab[] = ['export', 'history', 'batches']
+
 function ReportManagement() {
   const { user: currentUser } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [loading, setLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'export' | 'history'>('export')
+
+  // Get initial sub-tab from URL or localStorage
+  const getInitialSubTab = (): ReportSubTab => {
+    const urlSubTab = searchParams.get('subtab') as ReportSubTab
+    if (urlSubTab && VALID_SUB_TABS.includes(urlSubTab)) {
+      return urlSubTab
+    }
+    const savedSubTab = localStorage.getItem('reports_active_tab') as ReportSubTab
+    if (savedSubTab && VALID_SUB_TABS.includes(savedSubTab)) {
+      return savedSubTab
+    }
+    return 'export'
+  }
+
+  const [activeTab, setActiveTab] = useState<ReportSubTab>(getInitialSubTab)
+
+  // Handle tab change with URL and localStorage persistence
+  const handleTabChange = useCallback((key: string) => {
+    const newTab = key as ReportSubTab
+    setActiveTab(newTab)
+    // Update URL with subtab parameter while preserving other params
+    const newParams = new URLSearchParams(searchParams)
+    newParams.set('subtab', newTab)
+    setSearchParams(newParams, { replace: true })
+    // Save to localStorage
+    localStorage.setItem('reports_active_tab', newTab)
+  }, [searchParams, setSearchParams])
+
+  // Sync with URL changes (e.g., browser back/forward)
+  useEffect(() => {
+    const urlSubTab = searchParams.get('subtab') as ReportSubTab
+    if (urlSubTab && VALID_SUB_TABS.includes(urlSubTab) && urlSubTab !== activeTab) {
+      setActiveTab(urlSubTab)
+      localStorage.setItem('reports_active_tab', urlSubTab)
+    }
+  }, [searchParams])
 
   // Export form state
   const [periods, setPeriods] = useState<ReportPeriod[]>([])
@@ -70,8 +126,19 @@ function ReportManagement() {
   const [reportName, setReportName] = useState('')
   const [organization, setOrganization] = useState<{ id: string; name: string; short_name?: string } | null>(null)
 
+  // Multi-org export state
+  const [hasMultiOrgAccess, setHasMultiOrgAccess] = useState(false)
+  const [accessibleOrganizations, setAccessibleOrganizations] = useState<AccessibleOrganization[]>([])
+  const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<string[]>([])
+  const [isMultiOrgMode, setIsMultiOrgMode] = useState(false)
+  const [multiOrgLoading, setMultiOrgLoading] = useState(false)
+
   // Preview modal state
   const [previewVisible, setPreviewVisible] = useState(false)
+
+  // History detail modal state
+  const [historyDetailVisible, setHistoryDetailVisible] = useState(false)
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<ExportHistoryItem | null>(null)
 
   // Available years (last 5 years + current)
   const availableYears = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i)
@@ -121,6 +188,7 @@ function ReportManagement() {
     if (canExport) {
       fetchPeriods()
       fetchStats()
+      fetchAccessibleOrganizations()
     }
   }, [canExport])
 
@@ -175,6 +243,20 @@ function ReportManagement() {
     }
   }
 
+  const fetchAccessibleOrganizations = async () => {
+    try {
+      const response = await reportApi.getAccessibleOrganizations()
+      const orgs = response.data.organizations.filter(org => org.can_export)
+      setAccessibleOrganizations(orgs)
+      // Chỉ bật chế độ đa đơn vị nếu có nhiều hơn 1 đơn vị có quyền xuất
+      // (tức là có đơn vị khác ngoài đơn vị của mình)
+      setHasMultiOrgAccess(orgs.length > 1)
+    } catch (error: any) {
+      console.error('Failed to fetch accessible organizations:', error)
+      // Không hiển thị lỗi cho user - feature này optional
+    }
+  }
+
   const fetchHistory = async () => {
     setHistoryLoading(true)
     try {
@@ -214,21 +296,46 @@ function ReportManagement() {
       return
     }
 
+    // Validate multi-org mode
+    if (isMultiOrgMode && selectedOrganizationIds.length === 0) {
+      message.warning('Vui lòng chọn ít nhất một đơn vị để xuất báo cáo')
+      return
+    }
+
     setExportLoading(true)
     try {
-      await reportApi.exportActivityReport({
-        periodType,
-        month: periodType === 'month' ? selectedMonth || undefined : undefined,
-        quarter: periodType === 'quarter' ? selectedQuarter || undefined : undefined,
-        year: selectedYear,
-        viewMode,
-        columns: selectedColumns,
-        notes: notes || undefined,
-        reportName: reportName || undefined,
-        excludedIds: excludedIds.length > 0 ? excludedIds : undefined,
-        editedRows: editedRows.length > 0 ? editedRows : undefined,
-      })
-      message.success('Xuất báo cáo thành công!')
+      if (isMultiOrgMode && selectedOrganizationIds.length > 0) {
+        // Multi-org export
+        await reportApi.exportMultiOrgReport({
+          organizationIds: selectedOrganizationIds,
+          periodType,
+          month: periodType === 'month' ? selectedMonth || undefined : undefined,
+          quarter: periodType === 'quarter' ? selectedQuarter || undefined : undefined,
+          year: selectedYear,
+          viewMode,
+          columns: selectedColumns,
+          notes: notes || undefined,
+          reportName: reportName || undefined,
+          excludedIds: excludedIds.length > 0 ? excludedIds : undefined,
+          editedRows: editedRows.length > 0 ? editedRows : undefined,
+        })
+        message.success(`Xuất báo cáo ${selectedOrganizationIds.length} đơn vị thành công!`)
+      } else {
+        // Single org export (own organization)
+        await reportApi.exportActivityReport({
+          periodType,
+          month: periodType === 'month' ? selectedMonth || undefined : undefined,
+          quarter: periodType === 'quarter' ? selectedQuarter || undefined : undefined,
+          year: selectedYear,
+          viewMode,
+          columns: selectedColumns,
+          notes: notes || undefined,
+          reportName: reportName || undefined,
+          excludedIds: excludedIds.length > 0 ? excludedIds : undefined,
+          editedRows: editedRows.length > 0 ? editedRows : undefined,
+        })
+        message.success('Xuất báo cáo thành công!')
+      }
 
       // Close preview modal if open
       setPreviewVisible(false)
@@ -278,32 +385,42 @@ function ReportManagement() {
     setSelectedColumns(availableColumns.filter(c => c.default).map(c => c.key))
   }
 
+  // Helper to format file size
+  const formatFileSize = (bytes: number | null): string => {
+    if (!bytes) return '-'
+    if (bytes >= 1073741824) {
+      return (bytes / 1073741824).toFixed(2) + ' GB'
+    } else if (bytes >= 1048576) {
+      return (bytes / 1048576).toFixed(2) + ' MB'
+    } else if (bytes >= 1024) {
+      return (bytes / 1024).toFixed(2) + ' KB'
+    } else {
+      return bytes + ' bytes'
+    }
+  }
+
+  // View history detail
+  const handleViewHistoryDetail = (record: ExportHistoryItem) => {
+    setSelectedHistoryItem(record)
+    setHistoryDetailVisible(true)
+  }
+
   // History table columns
   const historyColumns: ColumnsType<ExportHistoryItem> = [
     {
       title: 'STT',
       key: 'index',
-      width: 60,
+      width: 50,
+      align: 'center',
       render: (_, __, index) => (historyPagination.current - 1) * historyPagination.pageSize + index + 1,
     },
     {
       title: 'Kỳ báo cáo',
       key: 'period',
-      width: 120,
+      width: 130,
       render: (_, record) => (
         <Tag icon={<CalendarOutlined />} color="blue">
-          Tháng {record.month}/{record.year}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Chế độ xem',
-      dataIndex: 'view_mode',
-      key: 'view_mode',
-      width: 130,
-      render: (mode: ViewMode) => (
-        <Tag color={mode === 'kpis' ? 'purple' : 'green'}>
-          {mode === 'kpis' ? 'Theo KPI' : 'Theo hoạt động'}
+          {record.month > 0 ? `Tháng ${record.month}/${record.year}` : `Năm ${record.year}`}
         </Tag>
       ),
     },
@@ -313,41 +430,51 @@ function ReportManagement() {
       key: 'file_name',
       ellipsis: true,
       render: (name: string, record) => (
-        <Space>
-          <FileExcelOutlined style={{ color: '#52c41a' }} />
-          <Text ellipsis style={{ maxWidth: 200 }}>{name}</Text>
-          {record.file_path && (
-            <Tooltip title="Tải lại file này">
-              <Button
-                type="link"
-                size="small"
-                icon={<DownloadOutlined />}
-                onClick={() => handleDownloadHistory(record.id, record.file_name)}
-                style={{ padding: 0 }}
-              />
-            </Tooltip>
-          )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <FileExcelOutlined style={{ color: '#52c41a', fontSize: 18 }} />
+          <div>
+            <Text ellipsis style={{ maxWidth: 180, display: 'block' }}>{name}</Text>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {formatFileSize(record.file_size)}
+            </Text>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Thông tin',
+      key: 'info',
+      width: 130,
+      render: (_, record) => (
+        <Space direction="vertical" size={0}>
+          <Tag color={record.view_mode === 'kpis' ? 'purple' : 'green'} style={{ marginBottom: 2 }}>
+            {record.view_mode === 'kpis' ? 'Theo KPI' : 'Theo hoạt động'}
+          </Tag>
+          <Badge
+            count={record.activity_count}
+            showZero
+            style={{ backgroundColor: '#1890ff' }}
+            overflowCount={999}
+          />
+          <Text type="secondary" style={{ fontSize: 10 }}>hoạt động</Text>
         </Space>
       ),
     },
     {
-      title: 'Số hoạt động',
-      dataIndex: 'activity_count',
-      key: 'activity_count',
-      width: 110,
-      align: 'center',
-      render: (count: number) => <Tag>{count}</Tag>,
-    },
-    {
       title: 'Người xuất',
       key: 'exporter',
-      width: 150,
+      width: 140,
       render: (_, record) => {
         if (record.exporter) {
           const fullName = [record.exporter.first_name, record.exporter.last_name]
             .filter(Boolean)
             .join(' ')
-          return fullName || record.exporter.email || '-'
+          return (
+            <Space size={4}>
+              <UserOutlined style={{ color: '#8c8c8c' }} />
+              <Text ellipsis style={{ maxWidth: 100 }}>{fullName || record.exporter.email || '-'}</Text>
+            </Space>
+          )
         }
         return '-'
       },
@@ -356,43 +483,77 @@ function ReportManagement() {
       title: 'Thời gian',
       dataIndex: 'exported_at',
       key: 'exported_at',
-      width: 150,
+      width: 130,
       render: (date: string) => {
         const d = new Date(date)
-        return d.toLocaleString('vi-VN', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
+        return (
+          <div>
+            <Text style={{ display: 'block' }}>
+              {d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+            </Text>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          </div>
+        )
       },
     },
     {
-      title: 'Ghi chú',
-      dataIndex: 'notes',
-      key: 'notes',
-      width: 200,
-      ellipsis: true,
-      render: (notes: string | null) => notes || '-',
+      title: 'Trạng thái',
+      dataIndex: 'status',
+      key: 'status',
+      width: 100,
+      render: (status: string, record) => {
+        const hasFile = !!record.file_path
+        if (status === 'completed' && hasFile) {
+          return <Tag color="success" icon={<CheckCircleOutlined />}>Có file</Tag>
+        } else if (status === 'completed') {
+          return <Tag color="warning" icon={<ExclamationCircleOutlined />}>Không file</Tag>
+        }
+        return <Tag color="default">{status}</Tag>
+      },
     },
     {
-      title: '',
+      title: 'Thao tác',
       key: 'actions',
-      width: 60,
+      width: 140,
+      fixed: 'right',
       render: (_, record) => (
-        canDeleteHistory && (
-          <Popconfirm
-            title="Xóa bản ghi này?"
-            description="Hành động này không thể hoàn tác"
-            onConfirm={() => handleDeleteHistory(record.id)}
-            okText="Xóa"
-            cancelText="Hủy"
-            okButtonProps={{ danger: true }}
-          >
-            <Button type="text" danger icon={<DeleteOutlined />} size="small" />
-          </Popconfirm>
-        )
+        <Space size={4}>
+          <Tooltip title="Xem chi tiết">
+            <Button
+              type="text"
+              icon={<EyeOutlined />}
+              size="small"
+              onClick={() => handleViewHistoryDetail(record)}
+            />
+          </Tooltip>
+          {record.file_path && (
+            <Tooltip title="Tải file">
+              <Button
+                type="text"
+                icon={<CloudDownloadOutlined />}
+                size="small"
+                style={{ color: '#52c41a' }}
+                onClick={() => handleDownloadHistory(record.id, record.file_name)}
+              />
+            </Tooltip>
+          )}
+          {canDeleteHistory && (
+            <Popconfirm
+              title="Xóa bản ghi này?"
+              description="File báo cáo sẽ bị xóa vĩnh viễn"
+              onConfirm={() => handleDeleteHistory(record.id)}
+              okText="Xóa"
+              cancelText="Hủy"
+              okButtonProps={{ danger: true }}
+            >
+              <Tooltip title="Xóa">
+                <Button type="text" danger icon={<DeleteOutlined />} size="small" />
+              </Tooltip>
+            </Popconfirm>
+          )}
+        </Space>
       ),
     },
   ]
@@ -468,7 +629,7 @@ function ReportManagement() {
 
       <Tabs
         activeKey={activeTab}
-        onChange={(key) => setActiveTab(key as 'export' | 'history')}
+        onChange={handleTabChange}
         items={[
           {
             key: 'export',
@@ -597,6 +758,92 @@ function ReportManagement() {
                           showCount
                         />
                       </div>
+
+                      {/* Multi-org export option - only show if user has multi-org access */}
+                      {hasMultiOrgAccess && (
+                        <div className="option-group" style={{ marginTop: 16 }}>
+                          <div style={{
+                            background: 'linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%)',
+                            padding: 16,
+                            borderRadius: 8,
+                            border: '1px solid #91d5ff'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+                              <GlobalOutlined style={{ color: '#1890ff', fontSize: 18, marginRight: 8 }} />
+                              <Text strong style={{ color: '#0050b3' }}>Xuất báo cáo đa đơn vị</Text>
+                              <Tooltip title="Bạn có quyền xem hoạt động của các đơn vị khác. Có thể xuất báo cáo tổng hợp nhiều đơn vị.">
+                                <InfoCircleOutlined style={{ color: '#1890ff', marginLeft: 8 }} />
+                              </Tooltip>
+                            </div>
+
+                            <Checkbox
+                              checked={isMultiOrgMode}
+                              onChange={(e) => {
+                                setIsMultiOrgMode(e.target.checked)
+                                if (!e.target.checked) {
+                                  setSelectedOrganizationIds([])
+                                }
+                              }}
+                              style={{ marginBottom: 12 }}
+                            >
+                              <Text>Xuất báo cáo cho nhiều đơn vị</Text>
+                            </Checkbox>
+
+                            {isMultiOrgMode && (
+                              <div style={{ marginTop: 8 }}>
+                                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+                                  Chọn các đơn vị cần xuất ({accessibleOrganizations.length} đơn vị có quyền):
+                                </Text>
+                                <Select
+                                  mode="multiple"
+                                  style={{ width: '100%' }}
+                                  placeholder="Chọn đơn vị..."
+                                  value={selectedOrganizationIds}
+                                  onChange={setSelectedOrganizationIds}
+                                  maxTagCount={3}
+                                  maxTagPlaceholder={(omittedValues) => `+${omittedValues.length} đơn vị khác`}
+                                  optionFilterProp="children"
+                                  filterOption={(input, option) =>
+                                    (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
+                                  }
+                                >
+                                  {accessibleOrganizations.map(org => (
+                                    <Option key={org.id} value={org.id}>
+                                      <Space>
+                                        <BankOutlined />
+                                        {org.short_name || org.name}
+                                      </Space>
+                                    </Option>
+                                  ))}
+                                </Select>
+                                <Space style={{ marginTop: 8 }}>
+                                  <Button
+                                    size="small"
+                                    type="link"
+                                    onClick={() => setSelectedOrganizationIds(accessibleOrganizations.map(o => o.id))}
+                                  >
+                                    Chọn tất cả
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    type="link"
+                                    onClick={() => setSelectedOrganizationIds([])}
+                                  >
+                                    Bỏ chọn
+                                  </Button>
+                                </Space>
+                                {selectedOrganizationIds.length > 0 && (
+                                  <div style={{ marginTop: 8 }}>
+                                    <Tag color="blue" icon={<BankOutlined />}>
+                                      {selectedOrganizationIds.length} đơn vị được chọn
+                                    </Tag>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </Col>
 
@@ -664,6 +911,17 @@ function ReportManagement() {
                   </Text>
                 </div>
               </Card>
+            ),
+          },
+          {
+            key: 'batches',
+            label: (
+              <span>
+                <FolderOutlined /> Đợt báo cáo
+              </span>
+            ),
+            children: (
+              <ReportBatchTab canDelete={canDeleteHistory} />
             ),
           },
           {
@@ -737,7 +995,204 @@ function ReportManagement() {
           handleExport(excludedIds)
         }}
         exportLoading={exportLoading}
+        // Multi-org props
+        isMultiOrgMode={isMultiOrgMode}
+        selectedOrganizationIds={selectedOrganizationIds}
+        accessibleOrganizations={accessibleOrganizations}
       />
+
+      {/* History Detail Modal */}
+      <Modal
+        title={
+          <Space>
+            <FileDoneOutlined style={{ color: '#52c41a' }} />
+            <span>Chi tiết báo cáo đã xuất</span>
+          </Space>
+        }
+        open={historyDetailVisible}
+        onCancel={() => {
+          setHistoryDetailVisible(false)
+          setSelectedHistoryItem(null)
+        }}
+        width={700}
+        centered
+        footer={
+          <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              <InfoCircleOutlined /> Đây là dữ liệu lịch sử, không thể chỉnh sửa
+            </Text>
+            <Space>
+              <Button onClick={() => setHistoryDetailVisible(false)}>Đóng</Button>
+              {selectedHistoryItem?.file_path && (
+                <Button
+                  type="primary"
+                  icon={<DownloadOutlined />}
+                  onClick={() => {
+                    if (selectedHistoryItem) {
+                      handleDownloadHistory(selectedHistoryItem.id, selectedHistoryItem.file_name)
+                    }
+                  }}
+                  style={{
+                    background: 'linear-gradient(135deg, #52c41a 0%, #95de64 100%)',
+                    border: 'none',
+                  }}
+                >
+                  Tải file báo cáo
+                </Button>
+              )}
+            </Space>
+          </Space>
+        }
+      >
+        {selectedHistoryItem && (
+          <div>
+            {/* File info card */}
+            <Card
+              size="small"
+              style={{
+                marginBottom: 16,
+                background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%)',
+                borderRadius: 8,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <FileExcelOutlined style={{ fontSize: 48, color: '#52c41a' }} />
+                <div style={{ flex: 1 }}>
+                  <Title level={5} style={{ margin: 0 }}>{selectedHistoryItem.file_name}</Title>
+                  <Space style={{ marginTop: 4 }}>
+                    <Tag color="blue" icon={<CalendarOutlined />}>
+                      {selectedHistoryItem.month > 0
+                        ? `Tháng ${selectedHistoryItem.month}/${selectedHistoryItem.year}`
+                        : `Năm ${selectedHistoryItem.year}`}
+                    </Tag>
+                    <Tag color={selectedHistoryItem.view_mode === 'kpis' ? 'purple' : 'green'}>
+                      {selectedHistoryItem.view_mode === 'kpis' ? 'Theo KPI' : 'Theo hoạt động'}
+                    </Tag>
+                    {selectedHistoryItem.file_path ? (
+                      <Tag color="success" icon={<CheckCircleOutlined />}>Có file</Tag>
+                    ) : (
+                      <Tag color="warning" icon={<ExclamationCircleOutlined />}>Không có file</Tag>
+                    )}
+                  </Space>
+                </div>
+              </div>
+            </Card>
+
+            {/* Statistics */}
+            <Row gutter={16} style={{ marginBottom: 16 }}>
+              <Col span={8}>
+                <Card size="small">
+                  <Statistic
+                    title="Số hoạt động"
+                    value={selectedHistoryItem.activity_count}
+                    prefix={<TableOutlined />}
+                    valueStyle={{ color: '#1890ff' }}
+                  />
+                </Card>
+              </Col>
+              <Col span={8}>
+                <Card size="small">
+                  <Statistic
+                    title="Kích thước file"
+                    value={formatFileSize(selectedHistoryItem.file_size)}
+                    prefix={<FileExcelOutlined />}
+                    valueStyle={{ color: '#52c41a', fontSize: 20 }}
+                  />
+                </Card>
+              </Col>
+              <Col span={8}>
+                <Card size="small">
+                  <Statistic
+                    title="Số cột xuất"
+                    value={selectedHistoryItem.selected_columns?.length || '-'}
+                    prefix={<BarChartOutlined />}
+                    valueStyle={{ color: '#722ed1' }}
+                  />
+                </Card>
+              </Col>
+            </Row>
+
+            {/* Details */}
+            <Card title="Thông tin chi tiết" size="small">
+              <Descriptions column={2} size="small">
+                <Descriptions.Item label="Thời gian xuất">
+                  {new Date(selectedHistoryItem.exported_at).toLocaleString('vi-VN', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                  })}
+                </Descriptions.Item>
+                <Descriptions.Item label="Người xuất">
+                  {selectedHistoryItem.exporter
+                    ? `${selectedHistoryItem.exporter.first_name || ''} ${selectedHistoryItem.exporter.last_name || ''}`.trim() ||
+                      selectedHistoryItem.exporter.email
+                    : '-'}
+                </Descriptions.Item>
+                <Descriptions.Item label="Loại báo cáo">
+                  {selectedHistoryItem.report_type === 'activity' ? 'Báo cáo hoạt động' : selectedHistoryItem.report_type}
+                </Descriptions.Item>
+                <Descriptions.Item label="Trạng thái">
+                  <Tag color={selectedHistoryItem.status === 'completed' ? 'success' : 'processing'}>
+                    {selectedHistoryItem.status === 'completed' ? 'Hoàn thành' : selectedHistoryItem.status}
+                  </Tag>
+                </Descriptions.Item>
+              </Descriptions>
+
+              {selectedHistoryItem.notes && (
+                <>
+                  <Divider style={{ margin: '12px 0' }} />
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>Ghi chú:</Text>
+                    <div style={{ marginTop: 4, padding: '8px 12px', background: '#f5f5f5', borderRadius: 4 }}>
+                      <Text>{selectedHistoryItem.notes}</Text>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {selectedHistoryItem.selected_columns && selectedHistoryItem.selected_columns.length > 0 && (
+                <>
+                  <Divider style={{ margin: '12px 0' }} />
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>Các cột đã xuất:</Text>
+                    <div style={{ marginTop: 8 }}>
+                      {selectedHistoryItem.selected_columns.map((col, idx) => (
+                        <Tag key={idx} style={{ marginBottom: 4 }}>{col}</Tag>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </Card>
+
+            {!selectedHistoryItem.file_path && (
+              <div
+                style={{
+                  marginTop: 16,
+                  padding: 16,
+                  background: '#fffbe6',
+                  border: '1px solid #ffe58f',
+                  borderRadius: 8,
+                }}
+              >
+                <Space>
+                  <ExclamationCircleOutlined style={{ color: '#faad14', fontSize: 18 }} />
+                  <div>
+                    <Text strong style={{ color: '#d48806' }}>File không khả dụng</Text>
+                    <br />
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      File báo cáo này không được lưu lại hoặc đã bị xóa. Bạn có thể xuất lại báo cáo với cùng thông số.
+                    </Text>
+                  </div>
+                </Space>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

@@ -2971,13 +2971,35 @@ class ActivityController extends Controller
             'activity_id' => $id,
         ]);
 
+        // Allowed MIME types for security
+        $allowedMimes = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'image/jpeg',
+            'image/png',
+            'image/gif',
+            'image/webp',
+            'text/plain',
+            'text/csv',
+            'video/mp4',
+            'video/webm',
+            'audio/mpeg',
+            'audio/wav',
+        ];
+
         $validator = Validator::make($request->all(), [
-            'file' => 'required|file|max:51200', // 50MB max
+            'file' => 'required|file|max:51200|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,gif,webp,txt,csv,mp4,webm,mp3,wav', // 50MB max
             'file_type_id' => 'nullable|uuid|exists:file_types,id',
             'description' => 'nullable|string|max:500',
         ], [
             'file.required' => 'Vui lòng chọn tập tin để tải lên',
             'file.max' => 'Tập tin không được vượt quá 50MB',
+            'file.mimes' => 'Loại tập tin không được phép. Chỉ chấp nhận: PDF, Word, Excel, PowerPoint, hình ảnh, văn bản, video, audio',
         ]);
 
         if ($validator->fails()) {
@@ -3025,6 +3047,20 @@ class ActivityController extends Controller
             $extension = $file->getClientOriginalExtension();
             $mimeType = $file->getMimeType();
             $fileSize = $file->getSize();
+
+            // Security: Validate actual MIME type (not just extension)
+            if (!\in_array($mimeType, $allowedMimes, true)) {
+                Log::warning('File upload rejected: Invalid MIME type', [
+                    'activity_id' => $id,
+                    'file_name' => $originalName,
+                    'mime_type' => $mimeType,
+                    'user_id' => $user->id,
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Loại tập tin không được phép',
+                ], 422);
+            }
 
             // Generate unique filename
             $fileName = pathinfo($originalName, PATHINFO_FILENAME);
