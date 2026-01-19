@@ -230,8 +230,8 @@ const MaintenancePage: React.FC<MaintenancePageProps> = ({ status, onBypassSucce
           <div className="contact-section">
             <Text className="contact-text">
               Cần hỗ trợ gấp? Liên hệ{' '}
-              <a href="mailto:support@vnuhcm.edu.vn" className="contact-link">
-                <MailOutlined /> support@vnuhcm.edu.vn
+              <a href="mailto:nq57@vnuhcm.edu.vn" className="contact-link">
+                <MailOutlined /> nq57@vnuhcm.edu.vn
               </a>
             </Text>
           </div>
