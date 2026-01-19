@@ -98,7 +98,7 @@ function UserManagement() {
 
   // Visible columns state
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
-    'email', 'name', 'role', 'status', 'is_vnuhcm', 'last_login_at', 'created_at', 'actions'
+    'email', 'name', 'organization', 'role', 'status', 'is_vnuhcm', 'last_login_at', 'created_at', 'actions'
   ])
 
   // Check if current user can manage users
@@ -185,9 +185,11 @@ function UserManagement() {
         label: 'Đơn vị',
         type: 'select',
         span: 6,
+        showSearch: true,
+        placeholder: 'Tìm và chọn đơn vị...',
         options: organizations.map((org) => ({
           value: org.id,
-          label: org.short_name || org.name,
+          label: org.short_name ? `${org.short_name} - ${org.name}` : org.name,
         })),
       },
       {
@@ -402,6 +404,7 @@ function UserManagement() {
   const toggleableColumns: ToggleableColumn[] = useMemo(() => [
     { key: 'email', title: 'Email', fixed: true },
     { key: 'name', title: 'Họ và tên', defaultVisible: true },
+    { key: 'organization', title: 'Đơn vị', defaultVisible: true },
     { key: 'role', title: 'Vai trò', defaultVisible: true },
     { key: 'status', title: 'Trạng thái', defaultVisible: true },
     { key: 'is_vnuhcm', title: 'VNUHCM', defaultVisible: true },
@@ -431,6 +434,29 @@ function UserManagement() {
         return nameA.localeCompare(nameB)
       },
       render: (_, record) => `${record.first_name} ${record.last_name}`,
+    },
+    {
+      title: 'Đơn vị',
+      key: 'organization',
+      width: isMobile ? 120 : 180,
+      ellipsis: true,
+      sorter: (a, b) => {
+        const orgA = a.organization?.short_name || a.organization?.name || ''
+        const orgB = b.organization?.short_name || b.organization?.name || ''
+        return orgA.localeCompare(orgB)
+      },
+      render: (_, record) => {
+        if (!record.organization) {
+          return <Text type="secondary" style={{ fontSize: 12 }}>Chưa gán</Text>
+        }
+        return (
+          <Tooltip title={record.organization.name}>
+            <Tag color="blue" icon={<TeamOutlined />}>
+              {record.organization.short_name || record.organization.name}
+            </Tag>
+          </Tooltip>
+        )
+      },
     },
     {
       title: 'Vai trò',

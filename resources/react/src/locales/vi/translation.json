@@ -84,6 +84,8 @@
     "pendingApprovalDescription": "Phê duyệt hoạt động",
     "organizationProfile": "Quản lý phòng ban",
     "organizationProfileDescription": "Quản lý thông tin đơn vị",
+    "accessibleActivities": "Xem hoạt động phòng ban khác",
+    "accessibleActivitiesDescription": "Xem hoạt động của các phòng ban khác (cần cấp quyền)",
     "reportsMenu": "Báo cáo & KPI",
     "reportsDescription": "Báo cáo và phân tích",
     "reports": "Báo cáo",
@@ -102,12 +104,16 @@
     "organizationManagementDescription": "Quản lý các đơn vị trong ĐHQG",
     "activityConfig": "Cấu hình hoạt động",
     "activityConfigDescription": "Quản lý loại hoạt động và lĩnh vực hoạt động",
+    "organizationPermissions": "Phân quyền phòng ban",
+    "organizationPermissionsDescription": "Cấp quyền xem hoạt động cho phòng ban",
     "fileTypes": "Loại tập tin",
     "fileTypesDescription": "Quản lý các loại tập tin cho hoạt động",
     "systemAdmin": "Quản trị hệ thống",
     "systemAdminDescription": "Cấu hình và quản trị hệ thống",
     "profile": "Thông tin cá nhân",
     "profileDescription": "Quản lý thông tin cá nhân",
+    "documentLibrary": "Kho tài liệu",
+    "documentLibraryDescription": "Quản lý và chia sẻ tài liệu",
     "collapse": "Thu gọn",
     "underDevelopment": "Đang phát triển"
   },
@@ -228,5 +234,71 @@
     "saveError": "Có lỗi xảy ra",
     "accessDenied": "Bạn không có quyền truy cập",
     "accessDeniedMessage": "Chỉ OPERATOR và ADMIN mới có quyền quản lý loại tập tin"
+  },
+  "maintenance": {
+    "title": "Quản lý chế độ bảo trì",
+    "subtitle": "Cấu hình và quản lý chế độ bảo trì hệ thống",
+    "status": {
+      "title": "Trạng thái bảo trì",
+      "enabled": "Đang bật",
+      "disabled": "Đang tắt",
+      "enableButton": "Bật bảo trì",
+      "disableButton": "Tắt bảo trì"
+    },
+    "settings": {
+      "title": "Cài đặt thông báo",
+      "pageTitle": "Tiêu đề trang",
+      "pageTitlePlaceholder": "Ví dụ: Hệ thống đang bảo trì",
+      "message": "Nội dung thông báo",
+      "messagePlaceholder": "Ví dụ: Chúng tôi đang nâng cấp hệ thống...",
+      "notificationType": "Loại thông báo",
+      "notificationTypeInfo": "Thông tin",
+      "notificationTypeWarning": "Cảnh báo",
+      "notificationTypeError": "Quan trọng",
+      "estimatedEndTime": "Thời gian hoàn thành dự kiến",
+      "showCountdown": "Hiển thị đồng hồ đếm ngược",
+      "allowAdminAccess": "Cho phép Admin truy cập khi bảo trì",
+      "allowedIps": "IP được phép truy cập",
+      "allowedIpsPlaceholder": "Nhập IP và nhấn Enter...",
+      "saveSettings": "Lưu cài đặt"
+    },
+    "bypass": {
+      "title": "Bypass URL",
+      "secretKey": "Secret Key",
+      "bypassUrl": "URL Bypass",
+      "regenerateKey": "Tạo mới Secret Key",
+      "regenerateConfirm": "Tạo mới Secret Key sẽ vô hiệu hóa tất cả URL bypass cũ. Bạn có chắc chắn?",
+      "copySuccess": "Đã sao chép vào clipboard",
+      "copyError": "Không thể sao chép"
+    },
+    "logs": {
+      "title": "Lịch sử thay đổi",
+      "viewLogs": "Xem lịch sử",
+      "action": "Hành động",
+      "user": "Người thực hiện",
+      "time": "Thời gian",
+      "changes": "Thay đổi",
+      "ipAddress": "Địa chỉ IP",
+      "noLogs": "Chưa có lịch sử"
+    },
+    "actions": {
+      "enabled": "Bật bảo trì",
+      "disabled": "Tắt bảo trì",
+      "settings_updated": "Cập nhật cài đặt",
+      "key_regenerated": "Tạo mới Secret Key"
+    },
+    "preview": {
+      "title": "Xem trước trang bảo trì",
+      "button": "Xem trước"
+    },
+    "messages": {
+      "enableSuccess": "Đã bật chế độ bảo trì",
+      "disableSuccess": "Đã tắt chế độ bảo trì",
+      "updateSuccess": "Đã cập nhật cài đặt bảo trì",
+      "regenerateSuccess": "Đã tạo mới Secret Key",
+      "error": "Có lỗi xảy ra"
+    },
+    "accessDenied": "Bạn không có quyền truy cập",
+    "accessDeniedMessage": "Chỉ ADMIN mới có quyền quản lý chế độ bảo trì"
   }
 }

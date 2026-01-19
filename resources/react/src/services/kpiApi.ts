@@ -24,6 +24,23 @@ export interface KpiCategory {
   updated_at: string
 }
 
+export interface KpiTask {
+  id: string
+  kpi_id: string
+  code?: string
+  title: string
+  description?: string
+  target_value?: string
+  unit?: string
+  order_number: number
+  is_active: boolean
+  created_by?: string
+  updated_by?: string
+  created_at: string
+  updated_at: string
+  kpi?: Kpi
+}
+
 export interface Kpi {
   id: string
   source: 'CENTRAL' | 'VNU'
@@ -41,6 +58,7 @@ export interface Kpi {
     email: string
     full_name: string
   }
+  tasks?: KpiTask[]
   created_at: string
   updated_at: string
 }
@@ -344,6 +362,198 @@ export const deleteKpiCategory = async (id: string): Promise<{ success: boolean;
   if (!response.ok) {
     const errorData = await response.json()
     throw new Error(errorData.message || 'Failed to delete KPI category')
+  }
+
+  return response.json()
+}
+
+// ==================== KPI Task Management API ====================
+
+export interface KpiTaskListResponse {
+  success: boolean
+  data: KpiTask[]
+  kpi: {
+    id: string
+    title: string
+    code?: string
+  }
+}
+
+export interface KpiTaskResponse {
+  success: boolean
+  data: KpiTask
+  message?: string
+}
+
+export interface CreateKpiTaskRequest {
+  code?: string
+  title: string
+  description?: string
+  target_value?: string
+  unit?: string
+  order_number?: number
+  is_active?: boolean
+}
+
+export interface UpdateKpiTaskRequest {
+  code?: string
+  title?: string
+  description?: string
+  target_value?: string
+  unit?: string
+  order_number?: number
+  is_active?: boolean
+}
+
+export interface BatchKpiTaskRequest {
+  tasks: Array<{
+    id?: string
+    code?: string
+    title: string
+    description?: string
+    target_value?: string
+    unit?: string
+    order_number?: number
+    is_active?: boolean
+    _delete?: boolean
+  }>
+}
+
+export interface BatchKpiTaskResponse {
+  success: boolean
+  data: KpiTask[]
+  results: {
+    created: number
+    updated: number
+    deleted: number
+  }
+  message?: string
+}
+
+/**
+ * Get all tasks for a KPI
+ */
+export const getKpiTasks = async (kpiId: string, filters?: { is_active?: boolean; search?: string }): Promise<KpiTaskListResponse> => {
+  const params = new URLSearchParams()
+
+  if (filters?.is_active !== undefined) params.append('is_active', String(filters.is_active))
+  if (filters?.search) params.append('search', filters.search)
+
+  const queryString = params.toString()
+  const url = `${API_CONFIG.BASE_URL}/kpis/${kpiId}/tasks${queryString ? `?${queryString}` : ''}`
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch KPI tasks: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * Get a single KPI task by ID
+ */
+export const getKpiTaskById = async (kpiId: string, taskId: string): Promise<KpiTaskResponse> => {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/kpis/${kpiId}/tasks/${taskId}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch KPI task: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * Create a new KPI task
+ */
+export const createKpiTask = async (kpiId: string, data: CreateKpiTaskRequest): Promise<KpiTaskResponse> => {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/kpis/${kpiId}/tasks`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Failed to create KPI task')
+  }
+
+  return response.json()
+}
+
+/**
+ * Update an existing KPI task
+ */
+export const updateKpiTask = async (kpiId: string, taskId: string, data: UpdateKpiTaskRequest): Promise<KpiTaskResponse> => {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/kpis/${kpiId}/tasks/${taskId}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Failed to update KPI task')
+  }
+
+  return response.json()
+}
+
+/**
+ * Delete a KPI task
+ */
+export const deleteKpiTask = async (kpiId: string, taskId: string): Promise<{ success: boolean; message: string }> => {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/kpis/${kpiId}/tasks/${taskId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Failed to delete KPI task')
+  }
+
+  return response.json()
+}
+
+/**
+ * Batch create/update/delete KPI tasks
+ */
+export const batchUpdateKpiTasks = async (kpiId: string, data: BatchKpiTaskRequest): Promise<BatchKpiTaskResponse> => {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/kpis/${kpiId}/tasks/batch`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Failed to batch update KPI tasks')
+  }
+
+  return response.json()
+}
+
+/**
+ * Reorder KPI tasks
+ */
+export const reorderKpiTasks = async (kpiId: string, taskIds: string[]): Promise<KpiTaskListResponse> => {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/kpis/${kpiId}/tasks/reorder`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ task_ids: taskIds }),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Failed to reorder KPI tasks')
   }
 
   return response.json()

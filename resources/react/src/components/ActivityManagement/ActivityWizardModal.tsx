@@ -50,7 +50,6 @@ import {
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import * as activityApi from '../../services/activityApi'
-import { getMyOrganizationMembers, type OrganizationMember } from '../../services/organizationApi'
 import { useAuth } from '../../shared/hooks'
 import type {
   Activity,
@@ -92,11 +91,6 @@ function ActivityWizardModal({
   const [form] = Form.useForm()
   const [selectedKpiIds, setSelectedKpiIds] = useState<string[]>([])
   const [leaderNames, setLeaderNames] = useState<string[]>([])
-
-  // Staff assignment state (for MANAGER+)
-  const [staffList, setStaffList] = useState<OrganizationMember[]>([])
-  const [selectedStaffId, setSelectedStaffId] = useState<string | undefined>(undefined)
-  const [loadingStaff, setLoadingStaff] = useState(false)
   const { user: currentUser } = useAuth()
 
   // Collaborating organizations state (đơn vị phối hợp)
@@ -133,25 +127,6 @@ function ActivityWizardModal({
   const watchStartDate = Form.useWatch('start_date', form)
   const watchEndDate = Form.useWatch('end_date', form)
 
-  // Fetch staff list for assignment (MANAGER+ only)
-  const fetchStaffList = async () => {
-    if (!currentUser || !['MANAGER', 'OPERATOR', 'ADMIN'].includes(currentUser.role)) {
-      return
-    }
-    setLoadingStaff(true)
-    try {
-      const response = await getMyOrganizationMembers({
-        role: 'STAFF', // Only fetch STAFF users
-        per_page: 100,
-      })
-      setStaffList(response.data)
-    } catch (error) {
-      console.error('Failed to fetch staff list:', error)
-    } finally {
-      setLoadingStaff(false)
-    }
-  }
-
   // Reset state when modal opens/closes
   useEffect(() => {
     if (visible) {
@@ -166,8 +141,6 @@ function ActivityWizardModal({
       setOrganizationsList([])
       setSelectedOrganizationId(undefined)
       setSelectedGroups([])
-      setStaffList([])
-      setSelectedStaffId(undefined)
       setSelectedCollaboratingOrgIds([])
 
       if (activity) {
@@ -175,7 +148,6 @@ function ActivityWizardModal({
         const kpiIds = activity.kpis?.map(k => k.id) || []
         setSelectedKpiIds(kpiIds)
         setLeaderNames(activity.leader_names || [])
-        setSelectedStaffId(activity.assigned_to || undefined)
         // Set collaborating organizations if editing
         const collabOrgIds = activity.collaborating_organizations?.map(org => org.id) || []
         setSelectedCollaboratingOrgIds(collabOrgIds)
@@ -206,17 +178,14 @@ function ActivityWizardModal({
         // Creating new activity
         setSelectedKpiIds([])
         setLeaderNames([])
-        setSelectedStaffId(undefined)
         setFiles([])
         form.resetFields()
       }
 
       // Fetch file types
       fetchFileTypes()
-      // Fetch staff list for MANAGER+
-      fetchStaffList()
     }
-  }, [visible, activity, currentUser])
+  }, [visible, activity])
 
   // Fetch activity files
   const fetchActivityFiles = async (activityId: string) => {
@@ -434,16 +403,18 @@ function ActivityWizardModal({
         location: values.location,
         external_url: values.external_url,
         leader_names: leaderNames.length > 0 ? leaderNames : undefined,
-        assigned_to: selectedStaffId || null, // Staff assigned to manage this activity
         kpi_ids: selectedKpiIds,
         collaborating_organization_ids: selectedCollaboratingOrgIds.length > 0 ? selectedCollaboratingOrgIds : undefined,
       }
 
       let savedAct: Activity
 
-      if (activity) {
+      // Check if we already have a saved activity (from previous step navigation) or editing existing
+      const existingActivityId = savedActivity?.id || activity?.id
+
+      if (existingActivityId) {
         // Update existing activity
-        const response = await activityApi.updateActivity(activity.id, {
+        const response = await activityApi.updateActivity(existingActivityId, {
           ...requestData,
           completion_percentage: values.completion_percentage,
           result_summary: values.result_summary,
@@ -692,59 +663,22 @@ function ActivityWizardModal({
             </div>
           )}
 
-          {/* Leader Names & Staff Assignment */}
-          <Row gutter={12}>
-            <Col span={currentUser && ['MANAGER', 'OPERATOR', 'ADMIN'].includes(currentUser.role) ? 16 : 24}>
-              <Form.Item label="Người chủ trì" style={{ marginBottom: 12 }}>
-                <Select
-                  mode="tags"
-                  style={{ width: '100%' }}
-                  placeholder="Nhập tên người chủ trì và nhấn Enter để thêm"
-                  value={leaderNames}
-                  onChange={setLeaderNames}
-                  tokenSeparators={[',']}
-                  notFoundContent={null}
-                  suffixIcon={<TeamOutlined />}
-                />
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  Nhập tên và nhấn Enter hoặc dấu phẩy (,) để thêm nhiều người chủ trì
-                </Text>
-              </Form.Item>
-            </Col>
-            {/* Staff Assignment - Only for MANAGER+ */}
-            {currentUser && ['MANAGER', 'OPERATOR', 'ADMIN'].includes(currentUser.role) && (
-              <Col span={8}>
-                <Form.Item
-                  label="Nhân viên phụ trách"
-                  style={{ marginBottom: 12 }}
-                  tooltip="Chọn nhân viên được phân công quản lý hoạt động này"
-                >
-                  <Select
-                    style={{ width: '100%' }}
-                    placeholder="Chọn nhân viên"
-                    value={selectedStaffId}
-                    onChange={setSelectedStaffId}
-                    loading={loadingStaff}
-                    allowClear
-                    showSearch
-                    optionFilterProp="children"
-                    filterOption={(input, option) =>
-                      (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-                    }
-                  >
-                    {staffList.map((staff) => (
-                      <Option key={staff.id} value={staff.id}>
-                        {staff.first_name} {staff.last_name} ({staff.email})
-                      </Option>
-                    ))}
-                  </Select>
-                  <Text type="secondary" style={{ fontSize: 11 }}>
-                    Nhân viên này sẽ có quyền chỉnh sửa hoạt động
-                  </Text>
-                </Form.Item>
-              </Col>
-            )}
-          </Row>
+          {/* Leader Names */}
+          <Form.Item label="Người chủ trì" style={{ marginBottom: 12 }}>
+            <Select
+              mode="tags"
+              style={{ width: '100%' }}
+              placeholder="Nhập tên người chủ trì và nhấn Enter để thêm"
+              value={leaderNames}
+              onChange={setLeaderNames}
+              tokenSeparators={[',']}
+              notFoundContent={null}
+              suffixIcon={<TeamOutlined />}
+            />
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              Nhập tên và nhấn Enter hoặc dấu phẩy (,) để thêm nhiều người chủ trì
+            </Text>
+          </Form.Item>
 
           {/* Đơn vị phối hợp */}
           <Form.Item
@@ -760,19 +694,20 @@ function ActivityWizardModal({
               onChange={setSelectedCollaboratingOrgIds}
               allowClear
               showSearch
-              optionFilterProp="children"
-              filterOption={(input, option) =>
-                (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-              }
+              optionFilterProp="label"
+              filterOption={(input, option) => {
+                const label = option?.label as string || ''
+                return label.toLowerCase().includes(input.toLowerCase())
+              }}
               maxTagCount={3}
               maxTagPlaceholder={(omittedValues) => `+${omittedValues.length} đơn vị khác`}
-            >
-              {formData?.organizations?.map((org) => (
-                <Option key={org.id} value={org.id}>
-                  {org.short_name || org.name}
-                </Option>
-              ))}
-            </Select>
+              options={formData?.organizations?.map((org) => ({
+                value: org.id,
+                label: org.short_name && org.name && org.short_name !== org.name
+                  ? `${org.short_name} - ${org.name}`
+                  : (org.name || org.short_name),
+              }))}
+            />
             <Text type="secondary" style={{ fontSize: 11 }}>
               Có thể chọn nhiều đơn vị phối hợp
             </Text>
@@ -879,7 +814,7 @@ function ActivityWizardModal({
 
         {/* Right Column - KPIs */}
         <Col span={8}>
-          <div style={{ background: '#fafafa', borderRadius: 8, padding: 12, height: '100%', minHeight: 400 }}>
+          <div style={{ background: '#fafafa', borderRadius: 8, padding: 16, height: '100%', minHeight: 500 }}>
             <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>
               <GlobalOutlined style={{ marginRight: 6 }} />
               Chỉ tiêu KPI liên quan
@@ -900,7 +835,7 @@ function ActivityWizardModal({
                     </span>
                   ),
                   children: (
-                    <div style={{ maxHeight: 280, overflowY: 'auto', paddingRight: 4 }}>
+                    <div style={{ maxHeight: 420, overflowY: 'auto', paddingRight: 4 }}>
                       {formData?.kpis.central?.length === 0 ? (
                         <Text type="secondary">Chưa có KPI Trung ương</Text>
                       ) : (
@@ -912,12 +847,12 @@ function ActivityWizardModal({
                           }}
                           style={{ width: '100%' }}
                         >
-                          <Space direction="vertical" style={{ width: '100%' }} size={4}>
+                          <Space direction="vertical" style={{ width: '100%' }} size={8}>
                             {formData?.kpis.central?.map((kpi) => (
                               <Checkbox key={kpi.id} value={kpi.id} style={{ marginLeft: 0 }}>
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                   {kpi.code && <Text code style={{ fontSize: 11 }}>{kpi.code}</Text>}
-                                  <Text style={{ fontSize: 12 }}>{kpi.title}</Text>
+                                  <Text style={{ fontSize: 13, lineHeight: 1.4 }}>{kpi.title}</Text>
                                 </div>
                               </Checkbox>
                             ))}
@@ -935,7 +870,7 @@ function ActivityWizardModal({
                     </span>
                   ),
                   children: (
-                    <div style={{ maxHeight: 280, overflowY: 'auto', paddingRight: 4 }}>
+                    <div style={{ maxHeight: 420, overflowY: 'auto', paddingRight: 4 }}>
                       {formData?.kpis.vnu?.length === 0 ? (
                         <Text type="secondary">Chưa có KPI ĐHQG-HCM</Text>
                       ) : (
@@ -947,12 +882,12 @@ function ActivityWizardModal({
                           }}
                           style={{ width: '100%' }}
                         >
-                          <Space direction="vertical" style={{ width: '100%' }} size={4}>
+                          <Space direction="vertical" style={{ width: '100%' }} size={8}>
                             {formData?.kpis.vnu?.map((kpi) => (
                               <Checkbox key={kpi.id} value={kpi.id} style={{ marginLeft: 0 }}>
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                   {kpi.code && <Text code style={{ fontSize: 11 }}>{kpi.code}</Text>}
-                                  <Text style={{ fontSize: 12 }}>{kpi.title}</Text>
+                                  <Text style={{ fontSize: 13, lineHeight: 1.4 }}>{kpi.title}</Text>
                                 </div>
                               </Checkbox>
                             ))}

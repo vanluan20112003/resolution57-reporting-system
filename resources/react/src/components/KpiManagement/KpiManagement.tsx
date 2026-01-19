@@ -17,6 +17,9 @@ import {
   Row,
   Col,
   Popconfirm,
+  Divider,
+  List,
+  Tooltip,
 } from 'antd'
 import {
   EditOutlined,
@@ -27,11 +30,13 @@ import {
   BankOutlined,
   GlobalOutlined,
   FolderOutlined,
+  OrderedListOutlined,
+  MinusCircleOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { useAuth } from '../../shared/hooks'
 import * as kpiApi from '../../services/kpiApi'
-import type { Kpi, KpiCategory, CreateKpiRequest, UpdateKpiRequest } from '../../services/kpiApi'
+import type { Kpi, KpiCategory, KpiTask, CreateKpiRequest, UpdateKpiRequest } from '../../services/kpiApi'
 import AdvancedFilter, { FilterField, FilterValues } from '../../shared/components/AdvancedFilter'
 import ColumnToggle, { ToggleableColumn } from '../../shared/components/ColumnToggle'
 import { ImportExcelModal } from '../../shared/components/ImportExcelModal'
@@ -55,6 +60,8 @@ function KpiManagement() {
   const [importModalVisible, setImportModalVisible] = useState(false)
   const [selectedKpi, setSelectedKpi] = useState<Kpi | null>(null)
   const [categories, setCategories] = useState<KpiCategory[]>([])
+  const [kpiTasks, setKpiTasks] = useState<Array<Partial<KpiTask> & { _tempId?: string; _delete?: boolean }>>([])
+  const [tasksLoading, setTasksLoading] = useState(false)
   const [form] = Form.useForm()
   const { user: currentUser } = useAuth()
 
@@ -182,15 +189,62 @@ function KpiManagement() {
 
   const handleAdd = () => {
     setSelectedKpi(null)
+    setKpiTasks([])
     form.resetFields()
     form.setFieldsValue({ source: activeTab, is_active: true })
     setEditModalVisible(true)
   }
 
-  const handleEdit = (kpi: Kpi) => {
+  const handleEdit = async (kpi: Kpi) => {
     setSelectedKpi(kpi)
     form.setFieldsValue(kpi)
     setEditModalVisible(true)
+
+    // Load tasks for this KPI
+    setTasksLoading(true)
+    try {
+      const response = await kpiApi.getKpiTasks(kpi.id)
+      setKpiTasks(response.data || [])
+    } catch (error) {
+      console.error('Failed to load KPI tasks:', error)
+      setKpiTasks([])
+    } finally {
+      setTasksLoading(false)
+    }
+  }
+
+  // KPI Tasks management functions
+  const handleAddTask = () => {
+    const newTask: Partial<KpiTask> & { _tempId: string } = {
+      _tempId: `temp_${Date.now()}`,
+      title: '',
+      code: '',
+      description: '',
+      target_value: '',
+      unit: '',
+      order_number: kpiTasks.filter(t => !t._delete).length + 1,
+      is_active: true,
+    }
+    setKpiTasks([...kpiTasks, newTask])
+  }
+
+  const handleUpdateTask = (index: number, field: string, value: any) => {
+    const updatedTasks = [...kpiTasks]
+    updatedTasks[index] = { ...updatedTasks[index], [field]: value }
+    setKpiTasks(updatedTasks)
+  }
+
+  const handleRemoveTask = (index: number) => {
+    const task = kpiTasks[index]
+    if (task.id) {
+      // Mark existing task for deletion
+      const updatedTasks = [...kpiTasks]
+      updatedTasks[index] = { ...task, _delete: true }
+      setKpiTasks(updatedTasks)
+    } else {
+      // Remove new task directly
+      setKpiTasks(kpiTasks.filter((_, i) => i !== index))
+    }
   }
 
   const handleDelete = async (id: string) => {
@@ -209,19 +263,55 @@ function KpiManagement() {
   const handleModalOk = async () => {
     try {
       const values = await form.validateFields()
+
+      // Validate tasks - check if any task has empty title
+      const activeTasks = kpiTasks.filter(t => !t._delete)
+      const invalidTask = activeTasks.find(t => !t.title?.trim())
+      if (invalidTask) {
+        message.error('Vui lòng nhập tiêu đề cho tất cả nhiệm vụ')
+        return
+      }
+
       setActionLoading(true)
+
+      let kpiId: string
 
       if (selectedKpi) {
         // Update existing KPI
         await kpiApi.updateKpi(selectedKpi.id, values as UpdateKpiRequest)
+        kpiId = selectedKpi.id
         message.success('Đã cập nhật KPI thành công')
       } else {
         // Create new KPI
-        await kpiApi.createKpi(values as CreateKpiRequest)
+        const response = await kpiApi.createKpi(values as CreateKpiRequest)
+        kpiId = response.data.id
         message.success('Đã tạo KPI thành công')
       }
 
+      // Save tasks if any
+      if (kpiTasks.length > 0) {
+        const tasksToSave = kpiTasks.map((task, index) => ({
+          id: task.id,
+          code: task.code || '',
+          title: task.title || '',
+          description: task.description || '',
+          target_value: task.target_value || '',
+          unit: task.unit || '',
+          order_number: index + 1,
+          is_active: task.is_active ?? true,
+          _delete: task._delete,
+        }))
+
+        try {
+          await kpiApi.batchUpdateKpiTasks(kpiId, { tasks: tasksToSave })
+        } catch (taskError: any) {
+          console.error('Failed to save tasks:', taskError)
+          message.warning('KPI đã được lưu, nhưng có lỗi khi lưu nhiệm vụ')
+        }
+      }
+
       setEditModalVisible(false)
+      setKpiTasks([])
       form.resetFields()
       fetchKpis()
     } catch (error: any) {
@@ -238,6 +328,7 @@ function KpiManagement() {
   const handleModalCancel = () => {
     setEditModalVisible(false)
     setSelectedKpi(null)
+    setKpiTasks([])
     form.resetFields()
   }
 
@@ -503,9 +594,10 @@ function KpiManagement() {
         onOk={handleModalOk}
         onCancel={handleModalCancel}
         confirmLoading={actionLoading}
-        width={700}
+        width={900}
         okText={selectedKpi ? 'Cập nhật' : 'Tạo mới'}
         cancelText="Hủy"
+        styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
       >
         <Form form={form} layout="vertical" initialValues={{ is_active: true }}>
           <Row gutter={16}>
@@ -538,7 +630,7 @@ function KpiManagement() {
           </Form.Item>
 
           <Form.Item name="description" label="Mô tả">
-            <TextArea rows={4} placeholder="Nhập mô tả chi tiết" />
+            <TextArea rows={3} placeholder="Nhập mô tả chi tiết" />
           </Form.Item>
 
           <Row gutter={16}>
@@ -564,6 +656,122 @@ function KpiManagement() {
           <Form.Item name="is_active" label="Trạng thái" valuePropName="checked">
             <Switch checkedChildren="Hoạt động" unCheckedChildren="Tắt" />
           </Form.Item>
+
+          {/* KPI Tasks Section */}
+          <Divider orientation="left">
+            <Space>
+              <OrderedListOutlined />
+              <span>Nhiệm vụ con ({kpiTasks.filter(t => !t._delete).length})</span>
+            </Space>
+          </Divider>
+
+          <div style={{ marginBottom: 16 }}>
+            <Text type="secondary">
+              Thêm các nhiệm vụ nhỏ để theo dõi tiến độ thực hiện KPI này
+            </Text>
+          </div>
+
+          {tasksLoading ? (
+            <div style={{ textAlign: 'center', padding: 20 }}>
+              <Text type="secondary">Đang tải nhiệm vụ...</Text>
+            </div>
+          ) : (
+            <>
+              {kpiTasks.filter(t => !t._delete).length > 0 && (
+                <List
+                  dataSource={kpiTasks.map((task, index) => ({ ...task, _index: index }))}
+                  renderItem={(task) => {
+                    if (task._delete) return null
+                    const index = task._index
+                    return (
+                      <List.Item
+                        style={{
+                          padding: '12px',
+                          marginBottom: 8,
+                          backgroundColor: '#fafafa',
+                          borderRadius: 8,
+                          border: '1px solid #f0f0f0',
+                        }}
+                      >
+                        <div style={{ width: '100%' }}>
+                          <Row gutter={[12, 8]} align="middle">
+                            <Col xs={24} md={6}>
+                              <Input
+                                placeholder="Mã nhiệm vụ"
+                                value={task.code || ''}
+                                onChange={(e) => handleUpdateTask(index, 'code', e.target.value)}
+                                size="small"
+                              />
+                            </Col>
+                            <Col xs={24} md={14}>
+                              <Input
+                                placeholder="Tiêu đề nhiệm vụ *"
+                                value={task.title || ''}
+                                onChange={(e) => handleUpdateTask(index, 'title', e.target.value)}
+                                size="small"
+                                status={!task.title?.trim() ? 'error' : undefined}
+                              />
+                            </Col>
+                            <Col xs={24} md={4} style={{ textAlign: 'right' }}>
+                              <Tooltip title="Xóa nhiệm vụ">
+                                <Button
+                                  type="text"
+                                  danger
+                                  icon={<MinusCircleOutlined />}
+                                  onClick={() => handleRemoveTask(index)}
+                                  size="small"
+                                />
+                              </Tooltip>
+                            </Col>
+                          </Row>
+                          <Row gutter={[12, 8]} style={{ marginTop: 8 }}>
+                            <Col xs={24} md={12}>
+                              <Input
+                                placeholder="Giá trị mục tiêu"
+                                value={task.target_value || ''}
+                                onChange={(e) => handleUpdateTask(index, 'target_value', e.target.value)}
+                                size="small"
+                                addonBefore="Mục tiêu"
+                              />
+                            </Col>
+                            <Col xs={24} md={12}>
+                              <Input
+                                placeholder="Đơn vị đo lường"
+                                value={task.unit || ''}
+                                onChange={(e) => handleUpdateTask(index, 'unit', e.target.value)}
+                                size="small"
+                                addonBefore="Đơn vị"
+                              />
+                            </Col>
+                          </Row>
+                          <Row style={{ marginTop: 8 }}>
+                            <Col span={24}>
+                              <Input.TextArea
+                                placeholder="Mô tả chi tiết (tùy chọn)"
+                                value={task.description || ''}
+                                onChange={(e) => handleUpdateTask(index, 'description', e.target.value)}
+                                rows={2}
+                                size="small"
+                              />
+                            </Col>
+                          </Row>
+                        </div>
+                      </List.Item>
+                    )
+                  }}
+                />
+              )}
+
+              <Button
+                type="dashed"
+                onClick={handleAddTask}
+                icon={<PlusOutlined />}
+                style={{ width: '100%', marginTop: 8 }}
+              >
+                Thêm nhiệm vụ mới
+              </Button>
+            </>
+          )}
         </Form>
       </Modal>
 

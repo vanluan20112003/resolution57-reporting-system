@@ -13,6 +13,9 @@ import {
   AppstoreOutlined,
   FlagOutlined,
   BankOutlined,
+  SafetyOutlined,
+  GlobalOutlined,
+  FolderOpenOutlined,
 } from '@ant-design/icons'
 import { UserRole } from './roles'
 import type { MenuProps } from 'antd'
@@ -26,6 +29,7 @@ export interface MenuItem {
   roles: UserRole[] // Roles that can see this menu item
   children?: MenuItem[] // For submenu items
   requiresOrganization?: boolean // If true, only show if user has organization_id
+  requiresAccessPermission?: boolean // If true, only show if user has cross-organization view permission
   // Legacy fields for backward compatibility (will be removed)
   label?: string
   description?: string
@@ -87,6 +91,16 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
         tab: 'organization-profile',
         roles: [UserRole.GUEST, UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
         requiresOrganization: true,
+      },
+      {
+        key: 'accessible-activities',
+        icon: <GlobalOutlined />,
+        labelKey: 'menu.accessibleActivities',
+        descriptionKey: 'menu.accessibleActivitiesDescription',
+        tab: 'accessible-activities',
+        roles: [UserRole.STAFF, UserRole.MANAGER],
+        requiresOrganization: true,
+        requiresAccessPermission: true, // Only show if user has cross-organization permission
       },
     ],
   },
@@ -167,6 +181,14 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
         roles: [UserRole.OPERATOR, UserRole.ADMIN],
       },
       {
+        key: 'organization-permissions',
+        icon: <SafetyOutlined />,
+        labelKey: 'menu.organizationPermissions',
+        descriptionKey: 'menu.organizationPermissionsDescription',
+        tab: 'organization-permissions',
+        roles: [UserRole.OPERATOR, UserRole.ADMIN],
+      },
+      {
         key: 'system',
         icon: <SettingOutlined />,
         labelKey: 'menu.systemAdmin',
@@ -175,6 +197,14 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
         roles: [UserRole.ADMIN],
       },
     ],
+  },
+  {
+    key: 'document-library',
+    icon: <FolderOpenOutlined />,
+    labelKey: 'menu.documentLibrary',
+    descriptionKey: 'menu.documentLibraryDescription',
+    tab: 'document-library',
+    roles: [UserRole.GUEST, UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
   },
   {
     key: 'profile',
@@ -198,13 +228,15 @@ export type TranslateFunction = (key: string, options?: Record<string, unknown>)
  * @param organizationName - User's organization name (optional) - used to customize menu labels
  * @param t - Translation function from useTranslation hook
  * @param organizationAvatarUrl - Organization's avatar URL (optional) - used for submenu icon
+ * @param hasAccessPermission - Whether user has cross-organization view permission (optional)
  */
 export const getMenuItemsForRole = (
   role: UserRole | string,
   organizationId?: string | null,
   organizationName?: string | null,
   t?: TranslateFunction,
-  organizationAvatarUrl?: string | null
+  organizationAvatarUrl?: string | null,
+  hasAccessPermission?: boolean
 ): MenuProps['items'] => {
   const filterByRoleAndOrg = (items: MenuItem[]): MenuProps['items'] => {
     return items
@@ -215,6 +247,10 @@ export const getMenuItemsForRole = (
         }
         // Check organization requirement
         if (item.requiresOrganization && !organizationId) {
+          return false
+        }
+        // Check access permission requirement
+        if (item.requiresAccessPermission && !hasAccessPermission) {
           return false
         }
         return true

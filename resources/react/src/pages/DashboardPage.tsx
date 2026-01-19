@@ -6,6 +6,7 @@ import { MenuOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/
 import { useTranslation } from 'react-i18next'
 import type { MenuProps } from 'antd'
 import { getBadgeCounts, BadgeCounts } from '../services/activityApi'
+import { getAccessibleOrganizations } from '../services/organizationPermissionsApi'
 import ResolutionList from '../components/Dashboard/ResolutionList'
 import ActivityList from '../components/Dashboard/ActivityList'
 import AllActivitiesList from '../components/Dashboard/AllActivitiesList'
@@ -18,6 +19,10 @@ import { ActivityManagement } from '../components/ActivityManagement'
 import { UserProfile } from '../components/UserProfile'
 import OrganizationProfile from '../components/OrganizationProfile'
 import { ReportManagement } from '../components/ReportManagement'
+import { OrganizationPermissionsManagement } from '../components/OrganizationPermissions'
+import AccessibleActivitiesList from '../components/Dashboard/AccessibleActivitiesList'
+import DocumentLibraryPage from './DocumentLibraryPage'
+import MaintenanceSettings from '../components/AdminSettings/MaintenanceSettings'
 import { UserDropdown } from '../features/user'
 import { useAuth } from '../shared/hooks'
 import { ImpersonationBanner } from '../shared/components'
@@ -53,6 +58,7 @@ function DashboardPage() {
   const [collapsed, setCollapsed] = useState<boolean>(getInitialCollapsed())
   const { user, isLoading } = useAuth()
   const [badgeCounts, setBadgeCounts] = useState<BadgeCounts>({ pending_approval: 0, draft: 0, needs_action: 0 })
+  const [hasAccessPermission, setHasAccessPermission] = useState<boolean>(false)
 
   // Fetch badge counts
   const fetchBadgeCounts = useCallback(async () => {
@@ -66,11 +72,32 @@ function DashboardPage() {
     }
   }, [])
 
+  // Fetch access permission for cross-organization viewing
+  const fetchAccessPermission = useCallback(async () => {
+    try {
+      // Only check for STAFF and MANAGER roles
+      if (!user || !['STAFF', 'MANAGER'].includes(user.role)) {
+        setHasAccessPermission(false)
+        return
+      }
+      const response = await getAccessibleOrganizations()
+      if (response.success) {
+        // User has access permission if permissions_count > 0
+        // The API already checks allowed_roles on the backend
+        setHasAccessPermission(response.data.permissions_count > 0)
+      }
+    } catch (error) {
+      console.error('Failed to fetch access permission:', error)
+      setHasAccessPermission(false)
+    }
+  }, [user])
+
   // Fetch badge counts on mount and every 30 seconds
   // Also listen for custom event to refresh badges
   useEffect(() => {
     if (user) {
       fetchBadgeCounts()
+      fetchAccessPermission()
       const interval = setInterval(fetchBadgeCounts, 30000)
 
       // Listen for custom event from ActivityManagement
@@ -84,7 +111,7 @@ function DashboardPage() {
         window.removeEventListener('activity-status-changed', handleActivityChange)
       }
     }
-  }, [user, fetchBadgeCounts])
+  }, [user, fetchBadgeCounts, fetchAccessPermission])
 
   // Save collapsed state to localStorage whenever it changes
   useEffect(() => {
@@ -114,7 +141,7 @@ function DashboardPage() {
   // Build menu items based on user role and organization
   const menuItems: MenuProps['items'] = useMemo(() => {
     if (!user) return []
-    const items = getMenuItemsForRole(user.role, user.organization_id, user.organization_name, t, user.organization_avatar_url)
+    const items = getMenuItemsForRole(user.role, user.organization_id, user.organization_name, t, user.organization_avatar_url, hasAccessPermission)
 
     // Add badges to menu items
     const addBadgesToItems = (menuList: MenuProps['items']): MenuProps['items'] => {
@@ -173,7 +200,7 @@ function DashboardPage() {
     }
 
     return addBadgesToItems(items)
-  }, [user, badgeCounts, t])
+  }, [user, badgeCounts, t, hasAccessPermission])
 
   // Detect mobile view
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth <= 768)
@@ -298,16 +325,20 @@ function DashboardPage() {
       case 'organization-profile':
         return <OrganizationProfile />
 
+      case 'accessible-activities':
+        return <AccessibleActivitiesList />
+
+      case 'organization-permissions':
+        return <OrganizationPermissionsManagement />
+
       case 'system':
-        return (
-          <div className="empty-content">
-            <Title level={3}>{t('menu.systemAdmin')}</Title>
-            <Text type="secondary">{t('menu.systemAdminDescription')} - {t('menu.underDevelopment')}</Text>
-          </div>
-        )
+        return <MaintenanceSettings />
 
       case 'profile':
         return <UserProfile />
+
+      case 'document-library':
+        return <DocumentLibraryPage />
 
       default:
         return (

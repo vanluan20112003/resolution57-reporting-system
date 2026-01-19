@@ -38,7 +38,6 @@ class Activity extends Model
         'location',
         'external_url',
         'created_by',
-        'assigned_to', // Staff assigned to manage this activity
         'approved_by',
         'approved_at',
         'updated_by',
@@ -84,20 +83,6 @@ class Activity extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
-    }
-
-    public function assignedTo(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'assigned_to');
-    }
-
-    /**
-     * Get the user assigned to manage this activity (with different name to avoid JSON conflict)
-     * Used for eager loading with a distinct key from the assigned_to column
-     */
-    public function assignedUser(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'assigned_to');
     }
 
     public function approver(): BelongsTo
@@ -156,7 +141,18 @@ class Activity extends Model
     public function collaboratingOrganizations(): BelongsToMany
     {
         return $this->belongsToMany(Organization::class, 'activity_collaborators')
+            ->using(ActivityCollaborator::class)
             ->withPivot('notes')
+            ->withTimestamps();
+    }
+
+    /**
+     * Đợt báo cáo (report batches)
+     */
+    public function reportBatches(): BelongsToMany
+    {
+        return $this->belongsToMany(ReportBatch::class, 'report_batch_activities')
+            ->withPivot(['order_number', 'notes'])
             ->withTimestamps();
     }
 

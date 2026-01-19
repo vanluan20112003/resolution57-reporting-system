@@ -35,14 +35,16 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
     protected $editedRowsMap = []; // Map of activity ID => edited fields from preview
 
     // Available columns configuration - matching template structure
-    // Nhiệm vụ trọng tâm = Category + KPIs combined
-    // Nội dung cụ thể = Activity description
+    // Nhiệm vụ trọng tâm = KPI title
+    // Nội dung cụ thể = KPI Tasks (nhiệm vụ con của KPI)
+    // Nội dung hoạt động = Activity description (cột mới)
     // Phương án đề xuất = Activity title
     public static $availableColumns = [
         'activities' => [
             'stt' => ['label' => 'STT', 'width' => 6],
             'nhiem_vu_trong_tam' => ['label' => 'Nhiệm vụ trọng tâm', 'width' => 60],
             'noi_dung_cu_the' => ['label' => 'Nội dung cụ thể', 'width' => 50],
+            'noi_dung_hoat_dong' => ['label' => 'Nội dung hoạt động', 'width' => 45],
             'phuong_an_de_xuat' => ['label' => 'Phương án đề xuất (Chương trình/đề án)', 'width' => 50],
             'time_period' => ['label' => 'Thời gian thực hiện', 'width' => 20],
             'budget' => ['label' => 'Dự toán', 'width' => 18],
@@ -61,6 +63,7 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
             'stt' => ['label' => 'STT', 'width' => 6],
             'nhiem_vu_trong_tam' => ['label' => 'Nhiệm vụ trọng tâm', 'width' => 60],
             'noi_dung_cu_the' => ['label' => 'Nội dung cụ thể', 'width' => 50],
+            'noi_dung_hoat_dong' => ['label' => 'Nội dung hoạt động', 'width' => 45],
             'phuong_an_de_xuat' => ['label' => 'Phương án đề xuất (Chương trình/đề án)', 'width' => 50],
             'time_period' => ['label' => 'Thời gian thực hiện', 'width' => 20],
             'budget' => ['label' => 'Dự toán', 'width' => 18],
@@ -80,13 +83,13 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
     // Default columns for each view mode
     public static $defaultColumns = [
         'activities' => [
-            'stt', 'nhiem_vu_trong_tam', 'noi_dung_cu_the', 'phuong_an_de_xuat',
+            'stt', 'nhiem_vu_trong_tam', 'noi_dung_cu_the', 'noi_dung_hoat_dong', 'phuong_an_de_xuat',
             'time_period', 'budget', 'qualitative_target', 'quantitative_target',
             'implementation_content', 'updated_at', 'evidence_link', 'leader',
             'organization', 'partner_organizations', 'completion_date', 'result_evaluation'
         ],
         'kpis' => [
-            'stt', 'nhiem_vu_trong_tam', 'noi_dung_cu_the', 'phuong_an_de_xuat',
+            'stt', 'nhiem_vu_trong_tam', 'noi_dung_cu_the', 'noi_dung_hoat_dong', 'phuong_an_de_xuat',
             'time_period', 'budget', 'qualitative_target', 'quantitative_target',
             'implementation_content', 'updated_at', 'evidence_link', 'leader',
             'organization', 'partner_organizations', 'completion_date', 'result_evaluation'
@@ -183,8 +186,10 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
             'leadOrganization',
             'collaboratingOrganizations',
             'kpis.kpiCategory',
+            'kpis.tasks' => function($query) {
+                $query->where('is_active', true)->orderBy('order_number');
+            },
             'creator',
-            'assignedUser',
         ])
         ->where('lead_organization_id', $this->organizationId);
 
@@ -257,13 +262,17 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
         $rows[] = $headerRow1;
         $rows[] = $headerRow2;
 
-        $currentRow = 7; // After header rows
+        $currentRow = 6; // After header rows (1: title, 2: subtitle, 3: empty, 4-5: headers, 6: first data row)
 
-        // Get KPI Categories
+        // Get KPI Categories with KPIs and their tasks
         $categories = KpiCategory::where('is_active', true)
             ->orderBy('display_order')
             ->with(['kpis' => function($query) {
-                $query->where('is_active', true)->orderBy('order_number');
+                $query->where('is_active', true)
+                    ->orderBy('order_number')
+                    ->with(['tasks' => function($q) {
+                        $q->where('is_active', true)->orderBy('order_number');
+                    }]);
             }])
             ->get();
 
@@ -352,7 +361,8 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
     /**
      * Build activity row with KPI info (first activity under a KPI)
      * nhiem_vu_trong_tam = KPI title
-     * noi_dung_cu_the = Activity description
+     * noi_dung_cu_the = KPI Tasks (nhiệm vụ con của KPI)
+     * noi_dung_hoat_dong = Activity description
      * phuong_an_de_xuat = Activity title
      */
     protected function buildActivityRowWithKpi($kpiIndex, $kpi, $activity, $cols): array
@@ -367,10 +377,6 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
             $leaderNames = \is_array($activity->leader_names)
                 ? implode(', ', $activity->leader_names)
                 : ($activity->leader_names ?? '');
-            if (empty($leaderNames) && $activity->assignedUser) {
-                $leaderNames = $activity->assignedUser->full_name ??
-                    ($activity->assignedUser->last_name . ' ' . $activity->assignedUser->first_name);
-            }
 
             // Time period (can be edited)
             $timePeriod = $this->getEditedValue($activityId, 'time_period', null);
@@ -392,6 +398,9 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
             $kpiText = $this->getEditedValue($activityId, 'nhiem_vu_trong_tam', $kpiText);
         }
 
+        // KPI Tasks (nhiệm vụ con) - format as list
+        $kpiTasksText = $this->getKpiTasksText($kpi);
+
         $row = [];
         foreach ($cols as $col) {
             switch ($col) {
@@ -403,8 +412,12 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     $row[] = $kpiText;
                     break;
                 case 'noi_dung_cu_the':
+                    // KPI Tasks (nhiệm vụ con của KPI) - can be edited
+                    $row[] = $this->getEditedValue($activityId, 'noi_dung_cu_the', $kpiTasksText);
+                    break;
+                case 'noi_dung_hoat_dong':
                     // Activity description (can be edited)
-                    $row[] = $activity ? $this->getEditedValue($activityId, 'noi_dung_cu_the', $activity->description ?? '') : '';
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'noi_dung_hoat_dong', $activity->description ?? '') : '';
                     break;
                 case 'phuong_an_de_xuat':
                     // Activity title (can be edited)
@@ -464,6 +477,26 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
     }
 
     /**
+     * Get KPI Tasks formatted text for cell
+     * Simple numbered list format with line breaks
+     */
+    protected function getKpiTasksText($kpi): string
+    {
+        if (!$kpi || !$kpi->tasks || $kpi->tasks->isEmpty()) {
+            return '';
+        }
+
+        $lines = [];
+        $index = 1;
+        foreach ($kpi->tasks as $task) {
+            $lines[] = "{$index}. {$task->title}";
+            $index++;
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
      * Build activity row only (additional activities under same KPI, no KPI info)
      */
     protected function buildActivityRowOnly($activity, $cols): array
@@ -473,10 +506,6 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
         $leaderNames = \is_array($activity->leader_names)
             ? implode(', ', $activity->leader_names)
             : ($activity->leader_names ?? '');
-        if (empty($leaderNames) && $activity->assignedUser) {
-            $leaderNames = $activity->assignedUser->full_name ??
-                ($activity->assignedUser->last_name . ' ' . $activity->assignedUser->first_name);
-        }
 
         // Time period (can be edited)
         $timePeriod = $this->getEditedValue($activityId, 'time_period', null);
@@ -501,7 +530,10 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     $row[] = ''; // KPI already shown in previous row
                     break;
                 case 'noi_dung_cu_the':
-                    $row[] = $this->getEditedValue($activityId, 'noi_dung_cu_the', $activity->description ?? '');
+                    $row[] = ''; // KPI Tasks already shown in first row
+                    break;
+                case 'noi_dung_hoat_dong':
+                    $row[] = $this->getEditedValue($activityId, 'noi_dung_hoat_dong', $activity->description ?? '');
                     break;
                 case 'phuong_an_de_xuat':
                     $row[] = $this->getEditedValue($activityId, 'phuong_an_de_xuat', $activity->title);
@@ -603,13 +635,17 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
         $rows[] = $headerRow1;
         $rows[] = $headerRow2;
 
-        $currentRow = 7; // After header rows
+        $currentRow = 6; // After header rows (1: title, 2: subtitle, 3: empty, 4-5: headers, 6: first data row)
 
-        // Get KPI Categories
+        // Get KPI Categories with KPIs and their tasks
         $categories = KpiCategory::where('is_active', true)
             ->orderBy('display_order')
             ->with(['kpis' => function($query) {
-                $query->where('is_active', true)->orderBy('order_number');
+                $query->where('is_active', true)
+                    ->orderBy('order_number')
+                    ->with(['tasks' => function($q) {
+                        $q->where('is_active', true)->orderBy('order_number');
+                    }]);
             }])
             ->get();
 
@@ -710,7 +746,8 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
     /**
      * Build KPI row with optional first activity (for KPI view mode)
      * nhiem_vu_trong_tam = KPI title only (Category shown in separate header row)
-     * noi_dung_cu_the = Activity description
+     * noi_dung_cu_the = KPI Tasks (nhiệm vụ con của KPI)
+     * noi_dung_hoat_dong = Activity description
      * phuong_an_de_xuat = Activity title
      */
     protected function buildKpiRow($kpiIndex, $categoryName, $kpi, $activity, $cols): array
@@ -726,10 +763,6 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
             $leaderNames = \is_array($activity->leader_names)
                 ? implode(', ', $activity->leader_names)
                 : ($activity->leader_names ?? '');
-            if (empty($leaderNames) && $activity->assignedUser) {
-                $leaderNames = $activity->assignedUser->full_name ??
-                    ($activity->assignedUser->last_name . ' ' . $activity->assignedUser->first_name);
-            }
 
             // Time period (can be edited)
             $timePeriod = $this->getEditedValue($activityId, 'time_period', null);
@@ -753,6 +786,9 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
             $kpiText = $this->getEditedValue($activityId, 'nhiem_vu_trong_tam', $kpiText);
         }
 
+        // KPI Tasks (nhiệm vụ con) - format as list
+        $kpiTasksText = $this->getKpiTasksText($kpi);
+
         $row = [];
         foreach ($cols as $col) {
             switch ($col) {
@@ -764,8 +800,12 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     $row[] = $kpiText;
                     break;
                 case 'noi_dung_cu_the':
+                    // KPI Tasks (nhiệm vụ con của KPI) - can be edited
+                    $row[] = $this->getEditedValue($activityId, 'noi_dung_cu_the', $kpiTasksText);
+                    break;
+                case 'noi_dung_hoat_dong':
                     // Activity description (can be edited)
-                    $row[] = $activity ? $this->getEditedValue($activityId, 'noi_dung_cu_the', $activity->description ?? '') : '';
+                    $row[] = $activity ? $this->getEditedValue($activityId, 'noi_dung_hoat_dong', $activity->description ?? '') : '';
                     break;
                 case 'phuong_an_de_xuat':
                     // Activity title (can be edited)
@@ -833,10 +873,6 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
         $leaderNames = \is_array($activity->leader_names)
             ? implode(', ', $activity->leader_names)
             : ($activity->leader_names ?? '');
-        if (empty($leaderNames) && $activity->assignedUser) {
-            $leaderNames = $activity->assignedUser->full_name ??
-                ($activity->assignedUser->last_name . ' ' . $activity->assignedUser->first_name);
-        }
 
         // Time period (can be edited)
         $timePeriod = $this->getEditedValue($activityId, 'time_period', null);
@@ -861,8 +897,11 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     $row[] = ''; // Already shown in KPI row
                     break;
                 case 'noi_dung_cu_the':
+                    $row[] = ''; // KPI Tasks already shown in first row
+                    break;
+                case 'noi_dung_hoat_dong':
                     // Activity description (can be edited)
-                    $row[] = $this->getEditedValue($activityId, 'noi_dung_cu_the', $activity->description ?? '');
+                    $row[] = $this->getEditedValue($activityId, 'noi_dung_hoat_dong', $activity->description ?? '');
                     break;
                 case 'phuong_an_de_xuat':
                     // Activity title (can be edited)
@@ -1004,13 +1043,13 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
     public function registerEvents(): array
     {
         $categoryRows = $this->categoryRows;
-        $kpiRows = $this->kpiRows;
         $colCount = \count($this->selectedColumns);
         $lastCol = \chr(\ord('A') + $colCount - 1);
         $viewMode = $this->viewMode;
+        $selectedColumns = $this->selectedColumns;
 
         return [
-            AfterSheet::class => function (AfterSheet $event) use ($categoryRows, $kpiRows, $lastCol, $viewMode) {
+            AfterSheet::class => function (AfterSheet $event) use ($categoryRows, $lastCol, $viewMode, $selectedColumns) {
                 $sheet = $event->sheet->getDelegate();
                 $highestRow = $sheet->getHighestRow();
 
@@ -1020,7 +1059,7 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
 
                 // Merge header cells for "Mục tiêu" (columns G-H in default layout)
                 // Find the qualitative_target column index
-                $selectedCols = array_values($this->selectedColumns ?? self::$defaultColumns[$viewMode]);
+                $selectedCols = array_values($selectedColumns ?? self::$defaultColumns[$viewMode]);
                 $qualIndex = array_search('qualitative_target', $selectedCols);
                 $quantIndex = array_search('quantitative_target', $selectedCols);
 
@@ -1031,25 +1070,17 @@ class ActivityReportExport implements FromArray, WithStyles, WithColumnWidths, W
                     $sheet->mergeCells("{$qualCol}4:{$quantCol}4");
                 }
 
-                // Apply borders to data area
+                // Apply borders to data area (no background color for data rows)
                 $sheet->getStyle("A4:{$lastCol}{$highestRow}")->applyFromArray([
                     'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
                     'alignment' => ['vertical' => Alignment::VERTICAL_TOP, 'wrapText' => true],
                 ]);
 
-                // Style category rows
+                // Style category rows ONLY (I, II, III... headers get blue background)
                 foreach ($categoryRows as $row) {
                     $sheet->getStyle("A{$row}:{$lastCol}{$row}")->applyFromArray([
                         'font' => ['bold' => true, 'size' => 11],
                         'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'BDD7EE']],
-                    ]);
-                }
-
-                // Style KPI rows
-                foreach ($kpiRows as $row) {
-                    $sheet->getStyle("A{$row}:{$lastCol}{$row}")->applyFromArray([
-                        'font' => ['bold' => false],
-                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F2F2F2']],
                     ]);
                 }
 

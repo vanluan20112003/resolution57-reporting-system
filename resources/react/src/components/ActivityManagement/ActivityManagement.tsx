@@ -43,7 +43,6 @@ import {
   PauseCircleOutlined,
   StopOutlined,
   UndoOutlined,
-  UserSwitchOutlined,
   FileExcelOutlined,
   DownloadOutlined,
 } from '@ant-design/icons'
@@ -52,7 +51,6 @@ import dayjs from 'dayjs'
 import { useAuth } from '../../shared/hooks'
 import * as activityApi from '../../services/activityApi'
 import * as reportApi from '../../services/reportApi'
-import { getMyOrganizationMembers, OrganizationMember } from '../../services/organizationApi'
 import type {
   Activity,
   ActivityStatus,
@@ -106,14 +104,6 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelActivityId, setCancelActivityId] = useState<string | null>(null)
-
-  // Assign staff modal state
-  const [assignModalVisible, setAssignModalVisible] = useState(false)
-  const [assigningActivity, setAssigningActivity] = useState<Activity | null>(null)
-  const [staffList, setStaffList] = useState<OrganizationMember[]>([])
-  const [selectedStaffId, setSelectedStaffId] = useState<string | undefined>(undefined)
-  const [loadingStaff, setLoadingStaff] = useState(false)
-  const [assigningStaff, setAssigningStaff] = useState(false)
 
   // Export report modal state
   const [exportModalVisible, setExportModalVisible] = useState(false)
@@ -446,56 +436,6 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     }
   }
 
-  // Open assign staff modal
-  const handleOpenAssignModal = async (activity: Activity) => {
-    setAssigningActivity(activity)
-    setSelectedStaffId(activity.assigned_to || undefined)
-    setAssignModalVisible(true)
-
-    // Fetch staff list
-    setLoadingStaff(true)
-    try {
-      const response = await getMyOrganizationMembers({ role: 'STAFF', per_page: 100 })
-      setStaffList(response.data)
-    } catch (error: any) {
-      message.error('Không thể tải danh sách nhân viên')
-    } finally {
-      setLoadingStaff(false)
-    }
-  }
-
-  // Handle assign staff
-  const handleAssignStaff = async () => {
-    if (!assigningActivity) return
-
-    setAssigningStaff(true)
-    try {
-      await activityApi.updateActivity(assigningActivity.id, {
-        assigned_to: selectedStaffId || null,
-      })
-      message.success(selectedStaffId ? 'Đã phân công nhân viên phụ trách' : 'Đã bỏ phân công nhân viên')
-      setAssignModalVisible(false)
-      setAssigningActivity(null)
-      setSelectedStaffId(undefined)
-      fetchActivities()
-    } catch (error: any) {
-      message.error(error.message || 'Không thể phân công nhân viên')
-    } finally {
-      setAssigningStaff(false)
-    }
-  }
-
-  // Close assign modal
-  const handleCloseAssignModal = () => {
-    setAssignModalVisible(false)
-    setAssigningActivity(null)
-    setSelectedStaffId(undefined)
-    setStaffList([])
-  }
-
-  // Check if can assign staff (MANAGER+ only)
-  const canAssignStaff = canApprove
-
   // Handle uncancel activity (ADMIN only)
   const handleUncancel = async (id: string) => {
     setActionLoading(true)
@@ -512,20 +452,14 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   }
 
   // Check if activity can be postponed/cancelled
-  // STAFF can only postpone/cancel their own activities
-  // MANAGER, OPERATOR, ADMIN can postpone/cancel any activity in their scope
+  // All staff in the same organization have equal permissions
   // Note: is_locked does NOT prevent postpone/cancel - this allows fixing mistakes
   const canPostponeOrCancel = (activity: Activity): boolean => {
     const allowedStatuses: ActivityStatus[] = ['APPROVED', 'IN_PROGRESS', 'COMPLETED']
     if (!allowedStatuses.includes(activity.status)) return false
 
-    // STAFF can only postpone/cancel their own activities
-    if (currentUser?.role === 'STAFF') {
-      return activity.created_by === currentUser?.id
-    }
-
-    // MANAGER, OPERATOR, ADMIN can postpone/cancel
-    return canApprove
+    // All staff in the organization can postpone/cancel activities
+    return ['STAFF', 'MANAGER', 'OPERATOR', 'ADMIN'].includes(currentUser?.role || '')
   }
 
   // Check if activity can be uncancelled (ADMIN only)
@@ -643,21 +577,18 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   }
 
   // Check if activity can be edited (not approved yet or not locked)
-  // STAFF can only edit their own activities
+  // All staff in the same organization have equal permissions
   const canEditActivity = (activity: Activity): boolean => {
     if (activity.is_locked) return false
     // Only DRAFT and PENDING_APPROVAL can be fully edited
     if (!['DRAFT', 'PENDING_APPROVAL'].includes(activity.status)) return false
-    // STAFF can only edit their own activities
-    if (currentUser?.role === 'STAFF' && activity.created_by !== currentUser?.id) return false
     return true
   }
 
   // Check if activity can be deleted
+  // All staff in the same organization have equal permissions
   const canDeleteActivity = (activity: Activity): boolean => {
     if (!['DRAFT', 'PENDING_APPROVAL'].includes(activity.status)) return false
-    // STAFF can only delete their own activities
-    if (currentUser?.role === 'STAFF' && activity.created_by !== currentUser?.id) return false
     return true
   }
 
@@ -960,18 +891,6 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                 icon={<FileSearchOutlined />}
                 onClick={() => handleOpenApprovalWizard(record)}
                 style={{ color: '#1890ff' }}
-              />
-            </Tooltip>
-          )}
-          {/* Assign Staff button - for MANAGER+ only, not locked */}
-          {canAssignStaff && !record.is_locked && (
-            <Tooltip title={record.assigned_to ? 'Đổi nhân viên phụ trách' : 'Phân công nhân viên'}>
-              <Button
-                type="link"
-                size="small"
-                icon={<UserSwitchOutlined />}
-                onClick={() => handleOpenAssignModal(record)}
-                style={{ color: record.assigned_to ? '#52c41a' : '#722ed1' }}
               />
             </Tooltip>
           )}
@@ -1626,74 +1545,6 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
         onClose={handleWizardClose}
         onSuccess={handleWizardSuccess}
       />
-
-      {/* Assign Staff Modal */}
-      <Modal
-        title={
-          <Space>
-            <UserSwitchOutlined style={{ color: '#722ed1' }} />
-            <span>Phân công nhân viên phụ trách</span>
-          </Space>
-        }
-        open={assignModalVisible}
-        onOk={handleAssignStaff}
-        onCancel={handleCloseAssignModal}
-        okText="Xác nhận"
-        cancelText="Hủy"
-        confirmLoading={assigningStaff}
-        centered
-        width={500}
-      >
-        {assigningActivity && (
-          <>
-            <div style={{ marginBottom: 16 }}>
-              <Text type="secondary">Hoạt động:</Text>
-              <div style={{ marginTop: 4 }}>
-                <Text strong>{assigningActivity.title}</Text>
-              </div>
-              <div style={{ marginTop: 4 }}>
-                <Text code>{assigningActivity.code}</Text>
-              </div>
-            </div>
-
-            <Form layout="vertical">
-              <Form.Item
-                label="Chọn nhân viên phụ trách"
-                help="Nhân viên được phân công sẽ có quyền chỉnh sửa hoạt động này"
-              >
-                <Select
-                  value={selectedStaffId}
-                  onChange={setSelectedStaffId}
-                  placeholder="Chọn nhân viên..."
-                  loading={loadingStaff}
-                  allowClear
-                  showSearch
-                  optionFilterProp="children"
-                  filterOption={(input, option) =>
-                    (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-                  }
-                  style={{ width: '100%' }}
-                >
-                  {staffList.map((staff) => (
-                    <Option key={staff.id} value={staff.id}>
-                      {staff.last_name} {staff.first_name} ({staff.email})
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Form>
-
-            {assigningActivity.assigned_to && !selectedStaffId && (
-              <Alert
-                type="info"
-                message="Bỏ chọn nhân viên sẽ xóa phân công hiện tại"
-                style={{ marginTop: 8 }}
-                showIcon
-              />
-            )}
-          </>
-        )}
-      </Modal>
 
       {/* Export Report Modal */}
       <Modal

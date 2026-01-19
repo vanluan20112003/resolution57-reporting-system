@@ -228,5 +228,71 @@
     "saveError": "An error occurred",
     "accessDenied": "Access Denied",
     "accessDeniedMessage": "Only OPERATOR and ADMIN can manage file types"
+  },
+  "maintenance": {
+    "title": "Maintenance Mode Management",
+    "subtitle": "Configure and manage system maintenance mode",
+    "status": {
+      "title": "Maintenance Status",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "enableButton": "Enable Maintenance",
+      "disableButton": "Disable Maintenance"
+    },
+    "settings": {
+      "title": "Notification Settings",
+      "pageTitle": "Page Title",
+      "pageTitlePlaceholder": "E.g.: System Under Maintenance",
+      "message": "Notification Message",
+      "messagePlaceholder": "E.g.: We are upgrading the system...",
+      "notificationType": "Notification Type",
+      "notificationTypeInfo": "Information",
+      "notificationTypeWarning": "Warning",
+      "notificationTypeError": "Critical",
+      "estimatedEndTime": "Estimated Completion Time",
+      "showCountdown": "Show Countdown Timer",
+      "allowAdminAccess": "Allow Admin Access During Maintenance",
+      "allowedIps": "Allowed IP Addresses",
+      "allowedIpsPlaceholder": "Enter IP and press Enter...",
+      "saveSettings": "Save Settings"
+    },
+    "bypass": {
+      "title": "Bypass URL",
+      "secretKey": "Secret Key",
+      "bypassUrl": "Bypass URL",
+      "regenerateKey": "Regenerate Secret Key",
+      "regenerateConfirm": "Regenerating the Secret Key will invalidate all existing bypass URLs. Are you sure?",
+      "copySuccess": "Copied to clipboard",
+      "copyError": "Failed to copy"
+    },
+    "logs": {
+      "title": "Change History",
+      "viewLogs": "View History",
+      "action": "Action",
+      "user": "User",
+      "time": "Time",
+      "changes": "Changes",
+      "ipAddress": "IP Address",
+      "noLogs": "No history available"
+    },
+    "actions": {
+      "enabled": "Enabled Maintenance",
+      "disabled": "Disabled Maintenance",
+      "settings_updated": "Updated Settings",
+      "key_regenerated": "Regenerated Secret Key"
+    },
+    "preview": {
+      "title": "Preview Maintenance Page",
+      "button": "Preview"
+    },
+    "messages": {
+      "enableSuccess": "Maintenance mode enabled",
+      "disableSuccess": "Maintenance mode disabled",
+      "updateSuccess": "Maintenance settings updated",
+      "regenerateSuccess": "Secret Key regenerated",
+      "error": "An error occurred"
+    },
+    "accessDenied": "Access Denied",
+    "accessDeniedMessage": "Only ADMIN can manage maintenance mode"
   }
 }

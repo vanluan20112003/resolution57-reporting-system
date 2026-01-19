@@ -57,6 +57,7 @@ import {
   PauseCircleOutlined,
   StopOutlined,
   ShareAltOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import * as activityApi from '../../services/activityApi'
@@ -75,6 +76,7 @@ import type {
 import ActivityFilesStep, { PendingFile } from './ActivityFilesStep'
 import ActivityCompletionModal from './ActivityCompletionModal'
 import ShareLinksManager from './ShareLinksManager'
+import ActivityLogTimeline from './ActivityLogTimeline'
 import { needsCompletionAction } from '../../services/activityApi'
 
 const { Title, Text, Paragraph } = Typography
@@ -814,16 +816,6 @@ function ActivityDetailModal({
                   </Tag>
                 ))}
               </Space>
-            ) : '-'}
-          </Descriptions.Item>
-          <Descriptions.Item label="Nhân viên phụ trách">
-            {activity.assigned_user ? (
-              <Tag icon={<UserOutlined />} color="green">
-                {activity.assigned_user.last_name} {activity.assigned_user.first_name}
-                <Text type="secondary" style={{ marginLeft: 4, fontSize: 12 }}>
-                  ({activity.assigned_user.email})
-                </Text>
-              </Tag>
             ) : '-'}
           </Descriptions.Item>
           <Descriptions.Item label="Đơn vị phối hợp" span={2}>
@@ -1913,6 +1905,21 @@ function ActivityDetailModal({
               </Badge>
             ),
             children: renderParticipantsTab(),
+          },
+          {
+            key: 'history',
+            label: (
+              <span>
+                <HistoryOutlined />
+                Lịch sử
+              </span>
+            ),
+            children: activity ? (
+              <ActivityLogTimeline
+                activityId={activity.id}
+                visible={activeTab === 'history'}
+              />
+            ) : null,
           },
         ]}
       />

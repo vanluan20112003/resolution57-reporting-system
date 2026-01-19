@@ -51,6 +51,35 @@ class OrganizationController extends Controller
         return true;
     }
 
+    /**
+     * Get simple list of organizations for all authenticated users (for filters/dropdowns)
+     * Only returns id, name, short_name - no permission required
+     */
+    public function listSimple(Request $request)
+    {
+        try {
+            $organizations = Organization::select('id', 'name', 'short_name', 'code')
+                ->where('status', 'active')
+                ->orderBy('display_order')
+                ->orderBy('name')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $organizations,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch simple organizations list', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch organizations',
+            ], 500);
+        }
+    }
+
     function index(Request $request){
         Log::info('=== Organization Management: Fetch Organizations ===', [
             'requester_id' => $request->user()->id,

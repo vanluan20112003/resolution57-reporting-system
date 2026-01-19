@@ -22,6 +22,11 @@ export interface User {
   status: 'active' | 'inactive' | 'locked'
   is_vnuhcm: boolean
   organization_id?: string
+  organization?: {
+    id: string
+    name: string
+    short_name?: string
+  }
   last_login_at?: string
   created_at: string
   updated_at: string

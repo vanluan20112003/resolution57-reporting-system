@@ -13,6 +13,7 @@ use App\Models\Organization;
 use App\Models\Kpi;
 use App\Models\Notification;
 use App\Models\User;
+use App\Services\ActivityLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -78,13 +79,66 @@ class ActivityController extends Controller
 
         // STAFF and MANAGER can access all activities from their organization
         if (in_array($role, ['STAFF', 'MANAGER'])) {
-            if (!$isOwnOrg) {
-                return ['allowed' => false, 'reason' => 'Hoạt động này không thuộc đơn vị của bạn.'];
+            if ($isOwnOrg) {
+                return ['allowed' => true, 'reason' => ''];
             }
-            return ['allowed' => true, 'reason' => ''];
+
+            // Check if user has cross-organization permission to view this activity
+            $hasPermission = $this->hasOrganizationAccessPermission($user, $activity->lead_organization_id);
+            if ($hasPermission) {
+                // Only allow viewing approved/completed activities from other organizations
+                $approvedStatuses = [self::STATUS_APPROVED, self::STATUS_IN_PROGRESS, self::STATUS_POSTPONED, self::STATUS_COMPLETED, self::STATUS_CANCELLED];
+                if (in_array($activity->status, $approvedStatuses)) {
+                    return ['allowed' => true, 'reason' => ''];
+                }
+                return ['allowed' => false, 'reason' => 'Bạn chỉ có thể xem các hoạt động đã được phê duyệt từ đơn vị khác.'];
+            }
+
+            return ['allowed' => false, 'reason' => 'Hoạt động này không thuộc đơn vị của bạn và bạn chưa được cấp quyền xem.'];
         }
 
         return ['allowed' => false, 'reason' => 'Bạn không có quyền truy cập hoạt động này.'];
+    }
+
+    /**
+     * Check if user has permission to view activities from another organization
+     * via OrganizationAccessPermission
+     */
+    private function hasOrganizationAccessPermission($user, string $targetOrganizationId): bool
+    {
+        // User must have an organization
+        if (!$user->organization_id) {
+            return false;
+        }
+
+        // Get all active and valid permissions for user's organization
+        $permissions = \App\Models\OrganizationAccessPermission::with('viewScope')
+            ->where('organization_id', $user->organization_id)
+            ->active()
+            ->valid()
+            ->get();
+
+        foreach ($permissions as $permission) {
+            // Check if user's role is allowed
+            if (!$permission->isRoleAllowed($user->role)) {
+                continue;
+            }
+
+            $scope = $permission->viewScope;
+
+            // ALL_ORGANIZATIONS scope - can view any organization
+            if ($scope && $scope->name === 'ALL_ORGANIZATIONS') {
+                return true;
+            }
+
+            // Check if target organization is in the accessible list
+            $accessibleOrgIds = $permission->getAccessibleOrganizationIds();
+            if (in_array($targetOrganizationId, $accessibleOrgIds)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -268,9 +322,8 @@ class ActivityController extends Controller
                 ->with([
                     'activityType:id,name',
                     'activityField:id,name',
-                    'leadOrganization:id,name,short_name',
+                    'leadOrganization:id,name,short_name,code,avatar',
                     'creator:id,email,first_name,last_name',
-                    'assignedUser:id,email,first_name,last_name',
                     'collaboratingOrganizations:id,name,short_name',
                 ]);
 
@@ -482,7 +535,6 @@ class ActivityController extends Controller
             'external_url' => 'nullable|url|max:1000',
             'leader_names' => 'nullable|array',
             'leader_names.*' => 'string|max:255',
-            'assigned_to' => 'nullable|uuid|exists:nq57_users,id',
             'kpi_ids' => 'nullable|array',
             'kpi_ids.*' => 'uuid|exists:kpis,id',
         ], [
@@ -528,27 +580,6 @@ class ActivityController extends Controller
             // Use provided code or generate one
             $code = $request->code ?: $this->generateActivityCode();
 
-            // Handle assigned_to - only MANAGER+ can assign staff
-            $assignedTo = null;
-            if ($request->has('assigned_to') && $request->assigned_to) {
-                // Only MANAGER+ can assign staff
-                if (!in_array($user->role, ['MANAGER', 'OPERATOR', 'ADMIN'])) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Chỉ Quản lý trở lên mới có thể phân công nhân viên phụ trách hoạt động.',
-                    ], 403);
-                }
-                // Validate assigned staff belongs to same organization
-                $assignedUser = User::find($request->assigned_to);
-                if (!$assignedUser || $assignedUser->organization_id !== $organizationId) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Nhân viên được phân công phải thuộc cùng phòng ban với hoạt động.',
-                    ], 422);
-                }
-                $assignedTo = $request->assigned_to;
-            }
-
             $activity = Activity::create([
                 'code' => $code,
                 'title' => $request->title,
@@ -561,7 +592,6 @@ class ActivityController extends Controller
                 'status' => self::STATUS_DRAFT,
                 'lead_organization_id' => $organizationId,
                 'leader_names' => $request->leader_names,
-                'assigned_to' => $assignedTo,
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'budget' => $request->budget,
@@ -596,6 +626,9 @@ class ActivityController extends Controller
                 "is_read" => false,
                 "priority" => "normal"
             ]);
+
+            // Log activity creation
+            ActivityLogService::logCreated($activity, $request);
 
             DB::commit();
 
@@ -653,7 +686,6 @@ class ActivityController extends Controller
                 'activityField:id,name',
                 'leadOrganization:id,name,short_name',
                 'creator:id,email,first_name,last_name',
-                'assignedUser:id,email,first_name,last_name',
                 'approver:id,email,first_name,last_name',
                 'kpis:id,source,code,title',
                 'collaboratingOrganizations:id,name,short_name',
@@ -735,9 +767,15 @@ class ActivityController extends Controller
             $activity = Activity::findOrFail($id);
             $user = $request->user();
 
-            // Store old result_summary to check if this is the first time updating result
+            // Store old values for logging
             $oldResultSummary = $activity->result_summary;
             $oldStatus = $activity->status;
+            $oldValues = $activity->only([
+                'title', 'description', 'focus_content', 'qualitative_target', 'quantitative_target',
+                'activity_type_id', 'activity_field_id', 'status', 'start_date', 'end_date',
+                'actual_start_date', 'actual_end_date', 'budget', 'budget_source', 'location',
+                'external_url', 'leader_names', 'completion_percentage', 'result_summary', 'difficulties',
+            ]);
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
@@ -748,17 +786,8 @@ class ActivityController extends Controller
                 ], 403);
             }
 
-            // STAFF can only edit activities they created OR were assigned to
-            if ($user->role === 'STAFF') {
-                $isCreator = $activity->created_by === $user->id;
-                $isAssigned = $activity->assigned_to === $user->id;
-                if (!$isCreator && !$isAssigned) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Bạn chỉ có thể chỉnh sửa hoạt động do chính mình tạo hoặc được phân công.',
-                    ], 403);
-                }
-            }
+            // All STAFF in the same organization have equal permissions on activities
+            // No need to check creator or assignment - organization membership is sufficient
 
             // Define allowed fields for locked/approved activities
             $completionAllowedFields = ['completion_percentage', 'result_summary', 'difficulties', 'actual_start_date', 'actual_end_date', 'status'];
@@ -829,27 +858,7 @@ class ActivityController extends Controller
                 'difficulties' => 'nullable|string',
                 'kpi_ids' => 'nullable|array',
                 'kpi_ids.*' => 'uuid|exists:kpis,id',
-                'assigned_to' => 'nullable|uuid|exists:nq57_users,id',
             ]);
-
-            // Only MANAGER+ can assign staff to activities
-            if ($request->has('assigned_to') && !in_array($user->role, ['MANAGER', 'OPERATOR', 'ADMIN'])) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Chỉ Quản lý trở lên mới có thể phân công nhân viên phụ trách hoạt động.',
-                ], 403);
-            }
-
-            // Validate assigned staff belongs to same organization
-            if ($request->has('assigned_to') && $request->assigned_to) {
-                $assignedUser = \App\Models\User::find($request->assigned_to);
-                if (!$assignedUser || $assignedUser->organization_id !== $activity->lead_organization_id) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Nhân viên được phân công phải thuộc cùng phòng ban với hoạt động.',
-                    ], 422);
-                }
-            }
 
             if ($validator->fails()) {
                 Log::warning('Activity update validation failed', [
@@ -890,7 +899,6 @@ class ActivityController extends Controller
                 'completion_percentage',
                 'result_summary',
                 'difficulties',
-                'assigned_to',
             ]));
 
             $activity->updated_by = $request->user()->id;
@@ -978,6 +986,15 @@ class ActivityController extends Controller
                 'activity_id' => $activity->id,
                 'activity_code' => $activity->code,
             ]);
+
+            // Log activity update
+            $newValues = $activity->only([
+                'title', 'description', 'focus_content', 'qualitative_target', 'quantitative_target',
+                'activity_type_id', 'activity_field_id', 'status', 'start_date', 'end_date',
+                'actual_start_date', 'actual_end_date', 'budget', 'budget_source', 'location',
+                'external_url', 'leader_names', 'completion_percentage', 'result_summary', 'difficulties',
+            ]);
+            ActivityLogService::logUpdated($activity, $oldValues, $newValues, $request);
 
             if($activity->status === self::STATUS_PENDING_APPROVAL){
                 $orgManagers = User::where("organization_id", $activity->lead_organization_id)->where("role", "MANAGER")->get();
@@ -1133,6 +1150,9 @@ class ActivityController extends Controller
             $activityCode = $activity->code;
             $activityTitle = $activity->title;
 
+            // Log activity deletion before deleting (because we need activity_id for foreign key)
+            ActivityLogService::logDeleted($activity, $request);
+
             // Delete related data
             $activity->kpis()->detach();
             $activity->delete();
@@ -1231,6 +1251,9 @@ class ActivityController extends Controller
             $this->autoUpdateCompletionPercentage($activity, self::STATUS_PENDING_APPROVAL);
             $activity->updated_by = $request->user()->id;
             $activity->save();
+
+            // Log submit for approval
+            ActivityLogService::logSubmitted($activity, $request);
 
             Log::info('Activity submitted for approval', [
                 'activity_id' => $activity->id,
@@ -1507,6 +1530,10 @@ class ActivityController extends Controller
 
             // Apply computed status for response
             $this->applyComputedStatus($activity);
+
+            // Log approval and lock
+            ActivityLogService::logApproved($activity, $request);
+            ActivityLogService::logLocked($activity, $request);
 
             Log::info('Activity approved and locked', [
                 'activity_id' => $activity->id,
@@ -1801,6 +1828,9 @@ class ActivityController extends Controller
                 // Get organization info before deleting
                 $leadOrg = $activity->leadOrganization;
 
+                // Log rejection before deleting
+                ActivityLogService::logRejected($activity, $request, $reason);
+
                 // Delete the activity
                 $activityCode = $activity->code;
                 $activity->kpis()->detach();
@@ -1877,6 +1907,9 @@ class ActivityController extends Controller
                 $this->autoUpdateCompletionPercentage($activity, self::STATUS_DRAFT);
                 $activity->updated_by = $user->id;
                 $activity->save();
+
+                // Log rejection
+                ActivityLogService::logRejected($activity, $request, $reason);
 
                 $activity->load([
                     'activityType:id,name',
@@ -2057,6 +2090,9 @@ class ActivityController extends Controller
                 'creator:id,email,first_name,last_name',
                 'approver:id,email,first_name,last_name'
             ]);
+
+            // Log postpone action
+            ActivityLogService::logPostponed($activity, $request);
 
             Log::info('Activity postponed', [
                 'activity_id' => $activity->id,
@@ -2246,6 +2282,9 @@ class ActivityController extends Controller
 
             // Apply computed status for response
             $this->applyComputedStatus($activity);
+
+            // Log cancel action
+            ActivityLogService::logCancelled($activity, $request, $reason);
 
             Log::info('Activity cancelled', [
                 'activity_id' => $activity->id,
@@ -2628,6 +2667,9 @@ class ActivityController extends Controller
                 'locker:id,email,first_name,last_name',
             ]);
 
+            // Log lock action
+            ActivityLogService::logLocked($activity, $request);
+
             Log::info('Activity locked successfully', [
                 'activity_id' => $activity->id,
                 'activity_code' => $activity->code,
@@ -2718,18 +2760,12 @@ class ActivityController extends Controller
                 $counts['pending_approval'] = $pendingQuery->count();
             }
 
-            // STAFF sees count of their own draft activities (created or assigned), others see their organization's
+            // All users see count of draft activities in their organization
             if (in_array($role, ['STAFF', 'MANAGER', 'OPERATOR', 'ADMIN'])) {
                 $query = Activity::where('status', self::STATUS_DRAFT);
 
-                // STAFF only sees their own drafts (created or assigned)
-                if ($role === 'STAFF') {
-                    $query->where(function ($q) use ($user) {
-                        $q->where('created_by', $user->id)
-                          ->orWhere('assigned_to', $user->id);
-                    });
-                } elseif ($user->organization_id) {
-                    // MANAGER/OPERATOR/ADMIN with organization sees all drafts in their organization
+                // All staff in organization can see organization's drafts
+                if ($user->organization_id) {
                     $query->where('lead_organization_id', $user->organization_id);
                 }
 
@@ -2746,14 +2782,8 @@ class ActivityController extends Controller
                           ->orWhere('result_summary', '');
                     });
 
-                // STAFF only sees their own activities (created or assigned)
-                if ($role === 'STAFF') {
-                    $needsActionQuery->where(function ($q) use ($user) {
-                        $q->where('created_by', $user->id)
-                          ->orWhere('assigned_to', $user->id);
-                    });
-                } elseif ($user->organization_id) {
-                    // MANAGER/OPERATOR/ADMIN with organization sees all activities in their organization
+                // All staff in organization can see organization's activities needing action
+                if ($user->organization_id) {
                     $needsActionQuery->where('lead_organization_id', $user->organization_id);
                 }
 
@@ -2814,6 +2844,9 @@ class ActivityController extends Controller
             $activity->locked_at = null;
             $activity->locked_by = null;
             $activity->save();
+
+            // Log unlock action
+            ActivityLogService::logUnlocked($activity, $request);
 
             Log::info('Activity unlocked successfully', [
                 'activity_id' => $activity->id,
@@ -5193,6 +5226,192 @@ class ActivityController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể xử lý điểm danh',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get activities from accessible organizations based on permissions
+     * Only STAFF/MANAGER with granted permissions can access this
+     */
+    public function getAccessibleActivities(Request $request): JsonResponse
+    {
+        Log::info('=== Activity Management: Fetch Accessible Activities ===', [
+            'requester_id' => $request->user()->id,
+            'requester_email' => $request->user()->email,
+            'requester_role' => $request->user()->role,
+        ]);
+
+        try {
+            $user = $request->user();
+
+            // Only STAFF and MANAGER can use this endpoint
+            if (!in_array($user->role, ['STAFF', 'MANAGER'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Chỉ nhân viên hoặc quản lý mới có thể truy cập chức năng này'
+                ], 403);
+            }
+
+            if (!$user->organization_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bạn chưa thuộc đơn vị nào'
+                ], 400);
+            }
+
+            // Get accessible organization IDs based on permissions
+            $permissions = \App\Models\OrganizationAccessPermission::with('viewScope')
+                ->where('organization_id', $user->organization_id)
+                ->active()
+                ->valid()
+                ->get();
+
+            $accessibleOrgIds = [];
+            $canViewAll = false;
+
+            foreach ($permissions as $permission) {
+                // Check if user's role is allowed
+                if (!$permission->isRoleAllowed($user->role)) {
+                    continue;
+                }
+
+                $scope = $permission->viewScope;
+
+                if ($scope->name === 'ALL_ORGANIZATIONS') {
+                    $canViewAll = true;
+                    break; // No need to check other permissions
+                }
+
+                $orgIds = $permission->getAccessibleOrganizationIds();
+                $accessibleOrgIds = array_merge($accessibleOrgIds, $orgIds);
+            }
+
+            // If no permissions found and not view all
+            if (!$canViewAll && empty($accessibleOrgIds)) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Bạn chưa được cấp quyền xem hoạt động của phòng ban khác',
+                    'data' => [],
+                    'pagination' => [
+                        'total' => 0,
+                        'per_page' => 15,
+                        'current_page' => 1,
+                        'last_page' => 1,
+                        'from' => null,
+                        'to' => null,
+                    ],
+                ]);
+            }
+
+            $accessibleOrgIds = array_unique($accessibleOrgIds);
+
+            // Build query
+            $query = Activity::query()
+                ->with([
+                    'activityType:id,name',
+                    'activityField:id,name',
+                    'leadOrganization:id,name,short_name,code,avatar',
+                    'creator:id,email,first_name,last_name',
+                    'collaboratingOrganizations:id,name,short_name',
+                ]);
+
+            // Filter by accessible organizations
+            if (!$canViewAll) {
+                $query->whereIn('lead_organization_id', $accessibleOrgIds);
+            }
+
+            // Exclude user's own organization activities (they can see those in their regular view)
+            $query->where('lead_organization_id', '!=', $user->organization_id);
+
+            // Only show approved/completed activities (not DRAFT, PENDING_APPROVAL, REJECTED)
+            $query->whereIn('status', [
+                self::STATUS_APPROVED,
+                self::STATUS_IN_PROGRESS,
+                self::STATUS_COMPLETED,
+                self::STATUS_POSTPONED,
+                self::STATUS_CANCELLED,
+            ]);
+
+            // Filter by organization if provided
+            if ($request->has('organization_id') && $request->organization_id) {
+                $query->where('lead_organization_id', $request->organization_id);
+            }
+
+            // Filter by activity type
+            if ($request->has('activity_type_id') && $request->activity_type_id) {
+                $query->where('activity_type_id', $request->activity_type_id);
+            }
+
+            // Filter by activity field
+            if ($request->has('activity_field_id') && $request->activity_field_id) {
+                $query->where('activity_field_id', $request->activity_field_id);
+            }
+
+            // Filter by status
+            if ($request->has('status') && $request->status) {
+                $query->where('status', $request->status);
+            }
+
+            // Search by code or title
+            if ($request->has('search') && $request->search) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('code', 'like', '%' . $search . '%')
+                      ->orWhere('title', 'like', '%' . $search . '%');
+                });
+            }
+
+            // Filter by date range
+            if ($request->has('date_from') && $request->date_from) {
+                $query->where('start_date', '>=', $request->date_from);
+            }
+            if ($request->has('date_to') && $request->date_to) {
+                $query->where('end_date', '<=', $request->date_to);
+            }
+
+            // Order by start_date desc
+            $query->orderBy('start_date', 'desc');
+
+            // Pagination
+            $perPage = $request->input('per_page', 15);
+            $activities = $query->paginate($perPage);
+
+            // Apply computed status to all activities
+            $this->applyComputedStatusToCollection($activities->items());
+
+            Log::info('Accessible activities fetch successful', [
+                'total' => $activities->total(),
+                'can_view_all' => $canViewAll,
+                'accessible_orgs_count' => count($accessibleOrgIds),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $activities->items(),
+                'pagination' => [
+                    'total' => $activities->total(),
+                    'per_page' => $activities->perPage(),
+                    'current_page' => $activities->currentPage(),
+                    'last_page' => $activities->lastPage(),
+                    'from' => $activities->firstItem(),
+                    'to' => $activities->lastItem(),
+                ],
+                'meta' => [
+                    'can_view_all' => $canViewAll,
+                    'accessible_organizations_count' => $canViewAll ? 'all' : count($accessibleOrgIds),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Accessible activities fetch failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể tải danh sách hoạt động',
                 'error' => $e->getMessage(),
             ], 500);
         }

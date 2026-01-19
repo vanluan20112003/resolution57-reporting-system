@@ -47,6 +47,22 @@ class Kpi extends Model
         return $this->hasMany(ActivityKpi::class);
     }
 
+    /**
+     * Get all tasks (sub-KPIs) for this KPI
+     */
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(KpiTask::class, 'kpi_id')->ordered();
+    }
+
+    /**
+     * Get only active tasks
+     */
+    public function activeTasks(): HasMany
+    {
+        return $this->hasMany(KpiTask::class, 'kpi_id')->active()->ordered();
+    }
+
     public function activities(): BelongsToMany
     {
         return $this->belongsToMany(Activity::class, 'activity_kpis')

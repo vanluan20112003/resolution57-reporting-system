@@ -108,6 +108,22 @@ class Organization extends Model
     }
 
     /**
+     * Get access permissions granted to this organization.
+     */
+    public function accessPermissions(): HasMany
+    {
+        return $this->hasMany(OrganizationAccessPermission::class, 'organization_id');
+    }
+
+    /**
+     * Get access permissions targeting this organization.
+     */
+    public function targetedByPermissions(): HasMany
+    {
+        return $this->hasMany(OrganizationAccessPermission::class, 'target_organization_id');
+    }
+
+    /**
      * Scope a query to only include active organizations.
      */
     public function scopeActive($query)

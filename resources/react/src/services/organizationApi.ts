@@ -113,6 +113,40 @@ export const getOrganizationList = async (filters: {
   return data
 }
 
+/**
+ * Simple organization interface for filters/dropdowns
+ */
+export interface SimpleOrganization {
+  id: string
+  name: string
+  short_name: string | null
+  code: string
+}
+
+export interface SimpleOrganizationListResponse {
+  success: boolean
+  data: SimpleOrganization[]
+}
+
+/**
+ * Get simple list of organizations (for all authenticated users)
+ * Used for filters and dropdowns where full organization data is not needed
+ */
+export const getOrganizationListSimple = async (): Promise<SimpleOrganizationListResponse> => {
+  const response = await fetch(
+    `${API_CONFIG.BASE_URL}/organizations/list-simple`,
+    {
+      method: "GET",
+      headers: getAuthHeaders()
+    }
+  )
+  if (!response.ok) {
+    throw new Error("Failed to fetch organization list")
+  }
+  const data = await response.json()
+  return data
+}
+
 export const createOrganization = async (
   organization: CreateOrganizationRequest
 ): Promise<OrganizationResponse> => {

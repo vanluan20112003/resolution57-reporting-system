@@ -27,7 +27,7 @@ class UserController extends Controller
 
         try {
             // Permission check handled by middleware
-            $query = User::query();
+            $query = User::query()->with(['organization:id,name,short_name']);
 
             // Filter by role
             if ($request->has('role')) {
