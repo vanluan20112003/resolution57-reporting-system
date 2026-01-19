@@ -8,11 +8,13 @@ class DatabaseSeeder extends Seeder
 {
     /**
      * Seed the application's database.
+     *
+     * Note: Only system structure data (KPIs) should be seeded here.
+     * Test data seeders have been removed.
      */
     public function run(): void
     {
         $this->call([
-            UserSeeder::class,
             KpiSeeder::class,
         ]);
     }
