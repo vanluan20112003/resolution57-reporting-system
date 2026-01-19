@@ -181,7 +181,11 @@ export function OrganizationPermissionsManagement() {
   }
 
   const selectedScope = Form.useWatch('view_scope_id', form)
+  const selectedOrgId = Form.useWatch('organization_id', form)
   const requiresTargetOrg = viewScopes.find(s => s.id === selectedScope)?.requires_specific_orgs
+
+  // Lọc ra các phòng ban có thể chọn làm target (không bao gồm phòng ban đang được cấp quyền)
+  const availableTargetOrganizations = organizations.filter(org => org.id !== selectedOrgId)
 
   const columns: ColumnsType<Permission> = [
     {
@@ -431,6 +435,14 @@ export function OrganizationPermissionsManagement() {
                 value: org.id,
                 label: org.name,
               }))}
+              onChange={(newOrgId) => {
+                // Khi thay đổi phòng ban được cấp quyền, lọc bỏ phòng ban đó khỏi target nếu đã chọn
+                const currentTargets = form.getFieldValue('target_organization_ids') || []
+                const filteredTargets = currentTargets.filter((id: string) => id !== newOrgId)
+                if (filteredTargets.length !== currentTargets.length) {
+                  form.setFieldValue('target_organization_ids', filteredTargets)
+                }
+              }}
             />
           </Form.Item>
 
@@ -462,13 +474,15 @@ export function OrganizationPermissionsManagement() {
               name="target_organization_ids"
               label="Phòng ban được phép xem"
               rules={[{ required: true, message: 'Vui lòng chọn ít nhất một phòng ban' }]}
+              extra={selectedOrgId ? undefined : 'Vui lòng chọn phòng ban được cấp quyền trước'}
             >
               <Select
                 mode="multiple"
                 showSearch
                 placeholder="Chọn một hoặc nhiều phòng ban"
                 optionFilterProp="label"
-                options={organizations.map(org => ({
+                disabled={!selectedOrgId}
+                options={availableTargetOrganizations.map(org => ({
                   value: org.id,
                   label: org.name,
                 }))}
