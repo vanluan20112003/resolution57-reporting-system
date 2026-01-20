@@ -21,6 +21,7 @@ const MaintenancePage: React.FC<MaintenancePageProps> = ({ status, onBypassSucce
   const [bypassLoading, setBypassLoading] = useState(false)
   const [showBypassInput, setShowBypassInput] = useState(false)
   const [countdown, setCountdown] = useState({ hours: 0, minutes: 0, seconds: 0 })
+  const [hasReloaded, setHasReloaded] = useState(false)
 
   // Calculate countdown
   useEffect(() => {
@@ -31,8 +32,13 @@ const MaintenancePage: React.FC<MaintenancePageProps> = ({ status, onBypassSucce
       const now = Date.now()
       const diff = Math.max(0, endTime - now)
 
-      if (diff === 0) {
-        window.location.reload()
+      // Chỉ reload một lần khi countdown kết thúc
+      if (diff === 0 && !hasReloaded) {
+        setHasReloaded(true)
+        // Đợi 1 giây rồi reload để tránh reload loop
+        setTimeout(() => {
+          window.location.reload()
+        }, 1000)
         return
       }
 
@@ -46,15 +52,23 @@ const MaintenancePage: React.FC<MaintenancePageProps> = ({ status, onBypassSucce
     calculateCountdown()
     const interval = setInterval(calculateCountdown, 1000)
     return () => clearInterval(interval)
-  }, [status.show_countdown, status.estimated_end_time])
+  }, [status.show_countdown, status.estimated_end_time, hasReloaded])
 
-  // Auto refresh every 60 seconds
+  // Auto refresh every 2 minutes (only if countdown not active or has ended)
   useEffect(() => {
+    // Không tự động reload nếu đang có countdown chạy
+    if (status.show_countdown && status.estimated_end_time) {
+      const endTime = new Date(status.estimated_end_time).getTime()
+      if (endTime > Date.now()) {
+        return // Countdown đang chạy, không cần auto refresh
+      }
+    }
+
     const interval = setInterval(() => {
       window.location.reload()
-    }, 60000)
+    }, 120000) // 2 phút thay vì 1 phút
     return () => clearInterval(interval)
-  }, [])
+  }, [status.show_countdown, status.estimated_end_time])
 
   const handleBypass = async () => {
     if (!bypassKey.trim()) {
