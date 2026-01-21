@@ -134,14 +134,29 @@ class OrganizationAccessPermissionController extends Controller
                 ]);
             }
 
-            // Only MANAGER and STAFF can use extended permissions
+            // ADMIN và OPERATOR có quyền xem tất cả phòng ban
+            if (in_array($user->role, ['ADMIN', 'OPERATOR'])) {
+                $allOrgIds = Organization::where('status', 'active')->pluck('id')->toArray();
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'own_organization_id' => $user->organization_id,
+                        'accessible_organization_ids' => $allOrgIds,
+                        'can_view_all' => true,
+                        'permissions_count' => 1 // Always has permission for ADMIN/OPERATOR
+                    ]
+                ]);
+            }
+
+            // Only MANAGER and STAFF can use extended permissions from database
             if (!in_array($user->role, ['MANAGER', 'STAFF'])) {
                 return response()->json([
                     'success' => true,
                     'data' => [
                         'own_organization_id' => $user->organization_id,
                         'accessible_organization_ids' => [$user->organization_id],
-                        'can_view_all' => false
+                        'can_view_all' => false,
+                        'permissions_count' => 0
                     ]
                 ]);
             }
