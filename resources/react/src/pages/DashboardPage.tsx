@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import type { MenuProps } from 'antd'
 import { getBadgeCounts, BadgeCounts } from '../services/activityApi'
 import { getAccessibleOrganizations } from '../services/organizationPermissionsApi'
+import { getCollaboratorSummary } from '../services/reportBatchApi'
 import ResolutionList from '../components/Dashboard/ResolutionList'
 import ActivityList from '../components/Dashboard/ActivityList'
 import AllActivitiesList from '../components/Dashboard/AllActivitiesList'
@@ -59,6 +60,7 @@ function DashboardPage() {
   const { user, isLoading } = useAuth()
   const [badgeCounts, setBadgeCounts] = useState<BadgeCounts>({ pending_approval: 0, draft: 0, needs_action: 0 })
   const [hasAccessPermission, setHasAccessPermission] = useState<boolean>(false)
+  const [reportBadgeCount, setReportBadgeCount] = useState<number>(0)
 
   // Fetch badge counts
   const fetchBadgeCounts = useCallback(async () => {
@@ -92,13 +94,36 @@ function DashboardPage() {
     }
   }, [user])
 
+  // Fetch report badge count (pending + overdue batches for collaborator)
+  const fetchReportBadgeCount = useCallback(async () => {
+    try {
+      // Only fetch for roles that can see reports menu
+      if (!user || !['STAFF', 'MANAGER', 'OPERATOR', 'ADMIN'].includes(user.role)) {
+        setReportBadgeCount(0)
+        return
+      }
+      const response = await getCollaboratorSummary()
+      if (response.success) {
+        const count = (response.data.pending || 0) + (response.data.overdue || 0)
+        setReportBadgeCount(count)
+      }
+    } catch (error) {
+      console.error('Failed to fetch report badge count:', error)
+      setReportBadgeCount(0)
+    }
+  }, [user])
+
   // Fetch badge counts on mount and every 30 seconds
   // Also listen for custom event to refresh badges
   useEffect(() => {
     if (user) {
       fetchBadgeCounts()
       fetchAccessPermission()
-      const interval = setInterval(fetchBadgeCounts, 30000)
+      fetchReportBadgeCount()
+      const interval = setInterval(() => {
+        fetchBadgeCounts()
+        fetchReportBadgeCount()
+      }, 30000)
 
       // Listen for custom event from ActivityManagement
       const handleActivityChange = () => {
@@ -111,7 +136,7 @@ function DashboardPage() {
         window.removeEventListener('activity-status-changed', handleActivityChange)
       }
     }
-  }, [user, fetchBadgeCounts, fetchAccessPermission])
+  }, [user, fetchBadgeCounts, fetchAccessPermission, fetchReportBadgeCount])
 
   // Save collapsed state to localStorage whenever it changes
   useEffect(() => {
@@ -190,6 +215,30 @@ function DashboardPage() {
           }
         }
 
+        // Add badge for "Báo cáo" submenu - pending report batches
+        if (item.key === 'reports') {
+          if (reportBadgeCount > 0) {
+            newItem.label = (
+              <span className="menu-label-with-badge">
+                <span className="menu-label-text">{item.label}</span>
+                <Badge count={reportBadgeCount} size="small" style={{ backgroundColor: '#ff4d4f' }} />
+              </span>
+            )
+          }
+        }
+
+        // Add badge for "Báo cáo & KPI" parent menu - show when submenu not expanded
+        if (item.key === 'reports-menu') {
+          if (reportBadgeCount > 0) {
+            newItem.label = (
+              <span className="menu-label-with-badge">
+                <span className="menu-label-text">{item.label}</span>
+                <Badge count={reportBadgeCount} size="small" style={{ backgroundColor: '#ff4d4f', marginLeft: 8 }} />
+              </span>
+            )
+          }
+        }
+
         // Recursively process children
         if (item.children) {
           newItem.children = addBadgesToItems(item.children)
@@ -200,7 +249,7 @@ function DashboardPage() {
     }
 
     return addBadgesToItems(items)
-  }, [user, badgeCounts, t, hasAccessPermission])
+  }, [user, badgeCounts, reportBadgeCount, t, hasAccessPermission])
 
   // Detect mobile view
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth <= 768)
