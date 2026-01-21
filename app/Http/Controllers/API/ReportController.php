@@ -788,15 +788,60 @@ class ReportController extends Controller
     public function getAccessibleOrganizations(Request $request): JsonResponse
     {
         $user = $request->user();
+        $accessibleOrgs = [];
+        $hasAllAccess = false;
 
+        // ADMIN và OPERATOR có quyền xem tất cả phòng ban
+        if (in_array($user->role, ['ADMIN', 'OPERATOR'])) {
+            $hasAllAccess = true;
+            $allOrgs = Organization::where('status', 'active')
+                ->orderBy('name')
+                ->get();
+
+            foreach ($allOrgs as $org) {
+                $accessibleOrgs[] = [
+                    'id' => $org->id,
+                    'name' => $org->name,
+                    'short_name' => $org->short_name,
+                    'is_own' => $org->id === $user->organization_id,
+                    'can_export' => true,
+                    'can_view_details' => true,
+                    'can_view_files' => true,
+                    'can_view_budget' => true,
+                ];
+            }
+
+            // Sort: own org first, then by name
+            usort($accessibleOrgs, function ($a, $b) {
+                if ($a['is_own'] !== $b['is_own']) {
+                    return $a['is_own'] ? -1 : 1;
+                }
+                return strcmp($a['name'], $b['name']);
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'organizations' => $accessibleOrgs,
+                    'own_organization' => $user->organization ? [
+                        'id' => $user->organization->id,
+                        'name' => $user->organization->name,
+                        'short_name' => $user->organization->short_name,
+                    ] : null,
+                    'has_all_access' => true,
+                    'total_count' => count($accessibleOrgs),
+                    'can_export_multi' => count($accessibleOrgs) > 1,
+                ],
+            ]);
+        }
+
+        // Các role khác (MANAGER, STAFF, USER) cần có organization_id
         if (!$user->organization_id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn chưa được phân công vào đơn vị nào',
             ], 400);
         }
-
-        $accessibleOrgs = [];
 
         // Always include own organization
         $ownOrg = $user->organization;
@@ -1385,6 +1430,13 @@ class ReportController extends Controller
      */
     private function getExportableOrganizationIds($user): array
     {
+        // ADMIN và OPERATOR có quyền xuất tất cả phòng ban
+        if (in_array($user->role, ['ADMIN', 'OPERATOR'])) {
+            return Organization::where('status', 'active')
+                ->pluck('id')
+                ->toArray();
+        }
+
         $orgIds = [];
 
         // Always include own organization
