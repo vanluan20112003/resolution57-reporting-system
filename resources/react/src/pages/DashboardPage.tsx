@@ -75,8 +75,8 @@ function DashboardPage() {
   // Fetch access permission for cross-organization viewing
   const fetchAccessPermission = useCallback(async () => {
     try {
-      // Only check for STAFF and MANAGER roles
-      if (!user || !['STAFF', 'MANAGER'].includes(user.role)) {
+      // Check for roles that can have cross-organization access
+      if (!user || !['STAFF', 'MANAGER', 'OPERATOR', 'ADMIN'].includes(user.role)) {
         setHasAccessPermission(false)
         return
       }
