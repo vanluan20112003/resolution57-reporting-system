@@ -98,7 +98,7 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
         labelKey: 'menu.accessibleActivities',
         descriptionKey: 'menu.accessibleActivitiesDescription',
         tab: 'accessible-activities',
-        roles: [UserRole.STAFF, UserRole.MANAGER],
+        roles: [UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
         requiresOrganization: true,
         requiresAccessPermission: true, // Only show if user has cross-organization permission
       },
