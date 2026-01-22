@@ -1024,6 +1024,14 @@ Route::prefix('v1')->group(function () {
             Route::get('/{id}/export/history', [ReportBatchController::class, 'exportHistory']);
             Route::get('/{id}/export/{exportId}/download', [ReportBatchController::class, 'downloadExport'])
                 ->name('api.reports.batches.download');
+
+            // Batch files
+            Route::get('/{id}/files', [ReportBatchController::class, 'getFiles']);
+            Route::post('/{id}/files/owner', [ReportBatchController::class, 'uploadOwnerFile']);
+            Route::post('/{id}/files/collaborator', [ReportBatchController::class, 'uploadCollaboratorFile']);
+            Route::get('/{id}/files/{fileId}/download', [ReportBatchController::class, 'downloadFile'])
+                ->name('api.reports.batches.files.download');
+            Route::delete('/{id}/files/{fileId}', [ReportBatchController::class, 'deleteFile']);
         });
     });
 

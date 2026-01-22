@@ -72,6 +72,23 @@ class ReportBatch extends Model
         return $this->hasMany(BatchCollaboratorResponse::class, 'report_batch_id');
     }
 
+    public function files(): HasMany
+    {
+        return $this->hasMany(ReportBatchFile::class, 'report_batch_id');
+    }
+
+    public function ownerFile(): HasMany
+    {
+        return $this->hasMany(ReportBatchFile::class, 'report_batch_id')
+            ->where('file_source', ReportBatchFile::SOURCE_OWNER);
+    }
+
+    public function collaboratorFiles(): HasMany
+    {
+        return $this->hasMany(ReportBatchFile::class, 'report_batch_id')
+            ->where('file_source', ReportBatchFile::SOURCE_COLLABORATOR);
+    }
+
     // Scopes
     public function scopeByOrganization($query, $organizationId)
     {

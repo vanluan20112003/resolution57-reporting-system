@@ -743,3 +743,178 @@ export const downloadBatchExport = async (batchId: string, exportId: string): Pr
 
   return response.blob()
 }
+
+// ===== BATCH FILES API =====
+
+export interface BatchFile {
+  id: string
+  file_name: string
+  file_path: string
+  file_type: string | null
+  file_size: number
+  file_size_formatted: string
+  title: string | null
+  description: string | null
+  file_source: 'owner' | 'collaborator'
+  organization: {
+    id: string
+    name: string
+    short_name?: string
+  } | null
+  uploader: {
+    id: string
+    name: string
+    email: string
+  } | null
+  created_at: string
+}
+
+export interface CollaboratorFileGroup {
+  organization: {
+    id: string
+    name: string
+    short_name?: string
+  }
+  files: BatchFile[]
+}
+
+export interface BatchFilesResponse {
+  success: boolean
+  data: {
+    owner_files: BatchFile[]
+    collaborator_files: CollaboratorFileGroup[]
+    total_files: number
+  }
+}
+
+export interface UploadFileResponse {
+  success: boolean
+  message: string
+  data: {
+    id: string
+    file_name: string
+    file_size: number
+    file_size_formatted: string
+  }
+}
+
+/**
+ * Get files for a batch
+ */
+export const getBatchFiles = async (batchId: string): Promise<BatchFilesResponse> => {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/reports/batches/${batchId}/files`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Không thể tải danh sách file')
+  }
+
+  return response.json()
+}
+
+/**
+ * Upload owner file (single file, replaces existing)
+ */
+export const uploadOwnerFile = async (
+  batchId: string,
+  file: File,
+  title?: string,
+  description?: string
+): Promise<UploadFileResponse> => {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (title) formData.append('title', title)
+  if (description) formData.append('description', description)
+
+  const response = await fetch(`${API_CONFIG.BASE_URL}/reports/batches/${batchId}/files/owner`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+    },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Không thể upload file')
+  }
+
+  return response.json()
+}
+
+/**
+ * Upload collaborator file (multiple files allowed)
+ */
+export const uploadCollaboratorFile = async (
+  batchId: string,
+  file: File,
+  title?: string,
+  description?: string
+): Promise<UploadFileResponse> => {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (title) formData.append('title', title)
+  if (description) formData.append('description', description)
+
+  const response = await fetch(`${API_CONFIG.BASE_URL}/reports/batches/${batchId}/files/collaborator`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+    },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Không thể upload file')
+  }
+
+  return response.json()
+}
+
+/**
+ * Download batch file
+ */
+export const downloadBatchFile = async (batchId: string, fileId: string, fileName: string): Promise<void> => {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/reports/batches/${batchId}/files/${fileId}/download`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+    },
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Không thể tải file')
+  }
+
+  const blob = await response.blob()
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  document.body.appendChild(a)
+  a.click()
+  window.URL.revokeObjectURL(url)
+  document.body.removeChild(a)
+}
+
+/**
+ * Delete batch file
+ */
+export const deleteBatchFile = async (batchId: string, fileId: string): Promise<{ success: boolean; message: string }> => {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/reports/batches/${batchId}/files/${fileId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Không thể xóa file')
+  }
+
+  return response.json()
+}

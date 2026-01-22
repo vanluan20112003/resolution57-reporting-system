@@ -40,6 +40,7 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import * as reportBatchApi from '../../services/reportBatchApi'
+import BatchFilesSection from './BatchFilesSection'
 import type {
   CollaboratorBatch,
   CollaboratorSummary,
@@ -535,13 +536,21 @@ function CollaboratorReportView() {
                     )}
 
                     {detailBatch.notes && (
-                      <div>
+                      <div style={{ marginBottom: 12 }}>
                         <Text type="secondary" style={{ fontSize: 12 }}>Ghi chú</Text>
                         <div style={{ marginTop: 4, padding: '8px', background: '#fff', borderRadius: 4, fontSize: 12 }}>
                           {detailBatch.notes}
                         </div>
                       </div>
                     )}
+
+                    {/* Batch Files Section */}
+                    <BatchFilesSection
+                      batchId={detailBatch.id}
+                      isOwner={false}
+                      isCollaborator={true}
+                      canEdit={!detailBatch.is_overdue}
+                    />
                   </div>
                 </Col>
 

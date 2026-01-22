@@ -69,6 +69,7 @@ import type {
   ExportPreviewStatistics,
 } from '../../services/reportBatchApi'
 import CollaboratorReportView from './CollaboratorReportView'
+import BatchFilesSection from './BatchFilesSection'
 
 const { Title, Text, Paragraph } = Typography
 const { TextArea } = Input
@@ -1459,13 +1460,23 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
 
                   {/* Notes */}
                   {detailBatch.notes && (
-                    <div style={{ marginBottom: 0 }}>
+                    <div style={{ marginBottom: 16 }}>
                       <Text type="secondary" style={{ fontSize: 12 }}>Ghi chú</Text>
                       <div style={{ marginTop: 4, padding: '8px 12px', background: '#fff', borderRadius: 4, border: '1px solid #f0f0f0' }}>
                         <Text>{detailBatch.notes}</Text>
                       </div>
                     </div>
                   )}
+
+                  {/* Batch Files Section */}
+                  <div style={{ marginTop: 8 }}>
+                    <BatchFilesSection
+                      batchId={detailBatch.id}
+                      isOwner={true}
+                      isCollaborator={false}
+                      canEdit={detailBatch.status !== 'completed'}
+                    />
+                  </div>
                 </div>
               </Col>
 

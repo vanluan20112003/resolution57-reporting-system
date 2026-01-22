@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\ReportBatch;
+use App\Models\ReportBatchFile;
 use App\Models\Activity;
 use App\Models\KpiCategory;
 use App\Models\BatchCollaboratorResponse;
@@ -1350,6 +1351,324 @@ class ReportBatchController extends Controller
                     'download_url' => route('api.reports.batches.download', ['id' => $id, 'exportId' => $export->id]),
                 ];
             }),
+        ]);
+    }
+
+    /**
+     * Get files for a batch
+     */
+    public function getFiles(Request $request, string $id): JsonResponse
+    {
+        $user = $request->user();
+
+        // Find batch (by owner or collaborator)
+        $batch = ReportBatch::with(['files.organization:id,name,short_name', 'files.uploader:id,first_name,last_name,email'])
+            ->find($id);
+
+        if (!$batch) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy đợt báo cáo',
+            ], 404);
+        }
+
+        // Check access permission
+        $isOwner = $batch->organization_id === $user->organization_id;
+        $isCollaborator = $batch->activities()
+            ->whereHas('collaboratingOrganizations', function ($q) use ($user) {
+                $q->where('organizations.id', $user->organization_id);
+            })->exists();
+        $isAdmin = in_array($user->role, ['ADMIN', 'OPERATOR']);
+
+        if (!$isOwner && !$isCollaborator && !$isAdmin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền xem đợt báo cáo này',
+            ], 403);
+        }
+
+        $files = $batch->files->map(function ($file) {
+            return [
+                'id' => $file->id,
+                'file_name' => $file->file_name,
+                'file_path' => $file->file_path,
+                'file_type' => $file->file_type,
+                'file_size' => $file->file_size,
+                'file_size_formatted' => $file->file_size_formatted,
+                'title' => $file->title,
+                'description' => $file->description,
+                'file_source' => $file->file_source,
+                'organization' => $file->organization ? [
+                    'id' => $file->organization->id,
+                    'name' => $file->organization->name,
+                    'short_name' => $file->organization->short_name,
+                ] : null,
+                'uploader' => $file->uploader ? [
+                    'id' => $file->uploader->id,
+                    'name' => trim(($file->uploader->first_name ?? '') . ' ' . ($file->uploader->last_name ?? '')),
+                    'email' => $file->uploader->email,
+                ] : null,
+                'created_at' => $file->created_at,
+            ];
+        });
+
+        // Group by organization
+        $ownerFiles = $files->where('file_source', 'owner')->values();
+        $collaboratorFiles = $files->where('file_source', 'collaborator')
+            ->groupBy('organization.id')
+            ->map(function ($orgFiles, $orgId) {
+                $firstFile = $orgFiles->first();
+                return [
+                    'organization' => $firstFile['organization'],
+                    'files' => $orgFiles->values(),
+                ];
+            })->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'owner_files' => $ownerFiles,
+                'collaborator_files' => $collaboratorFiles,
+                'total_files' => $files->count(),
+            ],
+        ]);
+    }
+
+    /**
+     * Upload file for batch (owner only - single file)
+     */
+    public function uploadOwnerFile(Request $request, string $id): JsonResponse
+    {
+        $user = $request->user();
+
+        $batch = ReportBatch::byOrganization($user->organization_id)->find($id);
+
+        if (!$batch) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy đợt báo cáo',
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'file' => 'required|file|max:51200', // 50MB max
+            'title' => 'nullable|string|max:255',
+            'description' => 'nullable|string|max:1000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dữ liệu không hợp lệ',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Delete existing owner file if any
+        $existingFile = ReportBatchFile::byBatch($id)->ownerFiles()->first();
+        if ($existingFile) {
+            Storage::disk('local')->delete($existingFile->file_path);
+            $existingFile->delete();
+        }
+
+        // Upload new file
+        $file = $request->file('file');
+        $fileName = $file->getClientOriginalName();
+        $filePath = $file->store('report_batch_files/' . $id, 'local');
+
+        $batchFile = ReportBatchFile::create([
+            'report_batch_id' => $id,
+            'organization_id' => $user->organization_id,
+            'uploaded_by' => $user->id,
+            'file_name' => $fileName,
+            'file_path' => $filePath,
+            'file_type' => $file->getMimeType(),
+            'file_size' => $file->getSize(),
+            'title' => $request->input('title'),
+            'description' => $request->input('description'),
+            'file_source' => ReportBatchFile::SOURCE_OWNER,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Upload file thành công',
+            'data' => [
+                'id' => $batchFile->id,
+                'file_name' => $batchFile->file_name,
+                'file_size' => $batchFile->file_size,
+                'file_size_formatted' => $batchFile->file_size_formatted,
+            ],
+        ]);
+    }
+
+    /**
+     * Upload file for batch (collaborator - multiple files allowed)
+     */
+    public function uploadCollaboratorFile(Request $request, string $id): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user->organization_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn chưa được phân công vào đơn vị nào',
+            ], 400);
+        }
+
+        $batch = ReportBatch::find($id);
+
+        if (!$batch) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy đợt báo cáo',
+            ], 404);
+        }
+
+        // Check if user's organization is a collaborator
+        $isCollaborator = $batch->activities()
+            ->whereHas('collaboratingOrganizations', function ($q) use ($user) {
+                $q->where('organizations.id', $user->organization_id);
+            })->exists();
+
+        if (!$isCollaborator) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Đơn vị của bạn không phải là đơn vị phối hợp trong đợt báo cáo này',
+            ], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'file' => 'required|file|max:51200', // 50MB max
+            'title' => 'nullable|string|max:255',
+            'description' => 'nullable|string|max:1000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dữ liệu không hợp lệ',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Upload file (multiple files allowed for collaborator)
+        $file = $request->file('file');
+        $fileName = $file->getClientOriginalName();
+        $filePath = $file->store('report_batch_files/' . $id . '/collaborators/' . $user->organization_id, 'local');
+
+        $batchFile = ReportBatchFile::create([
+            'report_batch_id' => $id,
+            'organization_id' => $user->organization_id,
+            'uploaded_by' => $user->id,
+            'file_name' => $fileName,
+            'file_path' => $filePath,
+            'file_type' => $file->getMimeType(),
+            'file_size' => $file->getSize(),
+            'title' => $request->input('title'),
+            'description' => $request->input('description'),
+            'file_source' => ReportBatchFile::SOURCE_COLLABORATOR,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Upload file thành công',
+            'data' => [
+                'id' => $batchFile->id,
+                'file_name' => $batchFile->file_name,
+                'file_size' => $batchFile->file_size,
+                'file_size_formatted' => $batchFile->file_size_formatted,
+            ],
+        ]);
+    }
+
+    /**
+     * Download batch file
+     */
+    public function downloadFile(Request $request, string $id, string $fileId): \Symfony\Component\HttpFoundation\StreamedResponse|JsonResponse
+    {
+        $user = $request->user();
+
+        $batch = ReportBatch::find($id);
+
+        if (!$batch) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy đợt báo cáo',
+            ], 404);
+        }
+
+        $file = ReportBatchFile::where('report_batch_id', $id)->find($fileId);
+
+        if (!$file) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy file',
+            ], 404);
+        }
+
+        // Check access permission
+        $isOwner = $batch->organization_id === $user->organization_id;
+        $isCollaborator = $batch->activities()
+            ->whereHas('collaboratingOrganizations', function ($q) use ($user) {
+                $q->where('organizations.id', $user->organization_id);
+            })->exists();
+        $isAdmin = in_array($user->role, ['ADMIN', 'OPERATOR']);
+
+        if (!$isOwner && !$isCollaborator && !$isAdmin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền tải file này',
+            ], 403);
+        }
+
+        if (!Storage::disk('local')->exists($file->file_path)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'File không tồn tại trên hệ thống',
+            ], 404);
+        }
+
+        return Storage::disk('local')->download($file->file_path, $file->file_name);
+    }
+
+    /**
+     * Delete batch file
+     */
+    public function deleteFile(Request $request, string $id, string $fileId): JsonResponse
+    {
+        $user = $request->user();
+
+        $file = ReportBatchFile::where('report_batch_id', $id)->find($fileId);
+
+        if (!$file) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy file',
+            ], 404);
+        }
+
+        // Check permission: only uploader, batch owner, or admin can delete
+        $batch = ReportBatch::find($id);
+        $isUploader = $file->uploaded_by === $user->id;
+        $isOwner = $batch && $batch->organization_id === $user->organization_id;
+        $isAdmin = in_array($user->role, ['ADMIN', 'OPERATOR']);
+
+        if (!$isUploader && !$isOwner && !$isAdmin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền xóa file này',
+            ], 403);
+        }
+
+        // Delete file from storage
+        Storage::disk('local')->delete($file->file_path);
+
+        // Delete record
+        $file->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Xóa file thành công',
         ]);
     }
 }
