@@ -24,6 +24,7 @@ import {
   Spin,
   Segmented,
   Popover,
+  Upload,
 } from 'antd'
 import {
   PlusOutlined,
@@ -48,8 +49,10 @@ import {
   DownloadOutlined,
   FileExcelOutlined,
   HistoryOutlined,
+  UploadOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
+import type { UploadFile } from 'antd/es/upload/interface'
 import dayjs from 'dayjs'
 import * as reportBatchApi from '../../services/reportBatchApi'
 import type {
@@ -197,6 +200,11 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
   const [formLoading, setFormLoading] = useState(false)
   const [editingBatch, setEditingBatch] = useState<ReportBatch | null>(null)
   const [form] = Form.useForm()
+
+  // File upload state for owner document
+  const [ownerFileList, setOwnerFileList] = useState<UploadFile[]>([])
+  const [documentTitle, setDocumentTitle] = useState('')
+  const [uploadingFile, setUploadingFile] = useState(false)
 
   // Detail modal state
   const [detailVisible, setDetailVisible] = useState(false)
@@ -358,6 +366,8 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
         deadline: values.deadline?.format('YYYY-MM-DD HH:mm:ss'),
       }
 
+      let batchId: string
+
       if (editingBatch) {
         // Update (status is now calculated from dates, not editable)
         const updateData: UpdateBatchData = {
@@ -365,6 +375,7 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
           activity_ids: selectedActivityIds,
         }
         await reportBatchApi.updateReportBatch(editingBatch.id, updateData)
+        batchId = editingBatch.id
         message.success('Đã cập nhật đợt báo cáo')
       } else {
         // Create
@@ -372,14 +383,34 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
           ...data,
           activity_ids: selectedActivityIds,
         }
-        await reportBatchApi.createReportBatch(createData)
+        const response = await reportBatchApi.createReportBatch(createData)
+        batchId = response.data.id
         message.success('Đã tạo đợt báo cáo')
+      }
+
+      // Upload owner file if selected
+      if (ownerFileList.length > 0 && ownerFileList[0].originFileObj) {
+        try {
+          setUploadingFile(true)
+          await reportBatchApi.uploadOwnerFile(
+            batchId,
+            ownerFileList[0].originFileObj as File,
+            documentTitle.trim() || undefined
+          )
+          message.success('Đã upload văn bản giao nhiệm vụ')
+        } catch (uploadError: any) {
+          message.warning(uploadError.message || 'Không thể upload file, vui lòng thử lại sau')
+        } finally {
+          setUploadingFile(false)
+        }
       }
 
       setFormVisible(false)
       form.resetFields()
       setEditingBatch(null)
       setSelectedActivityIds([])
+      setOwnerFileList([])
+      setDocumentTitle('')
       fetchBatches()
     } catch (error: any) {
       message.error(error.message || 'Không thể lưu đợt báo cáo')
@@ -813,6 +844,8 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
           form.resetFields()
           setSelectedActivityIds([])
           setActivitySearchText('')
+          setOwnerFileList([])
+          setDocumentTitle('')
         }}
         width={1200}
         centered
@@ -926,10 +959,39 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
                 <Form.Item
                   name="notes"
                   label="Ghi chú"
-                  style={{ marginBottom: 0 }}
                 >
                   <TextArea rows={2} placeholder="Ghi chú thêm..." maxLength={2000} />
                 </Form.Item>
+
+                {/* Văn bản giao nhiệm vụ */}
+                <Divider style={{ margin: '12px 0' }} />
+                <div>
+                  <Text strong style={{ display: 'block', marginBottom: 8 }}>
+                    <UploadOutlined style={{ marginRight: 4 }} />
+                    Văn bản giao nhiệm vụ
+                  </Text>
+                  <Input
+                    placeholder="Tên văn bản giao nhiệm vụ"
+                    value={documentTitle}
+                    onChange={(e) => setDocumentTitle(e.target.value)}
+                    style={{ marginBottom: 8 }}
+                  />
+                  <Upload
+                    beforeUpload={() => false}
+                    fileList={ownerFileList}
+                    onChange={({ fileList }) => setOwnerFileList(fileList.slice(-1))}
+                    maxCount={1}
+                  >
+                    <Button icon={<UploadOutlined />} size="small">
+                      Chọn file
+                    </Button>
+                  </Upload>
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+                    {editingBatch
+                      ? 'Upload file mới sẽ thay thế file cũ (nếu có). Có thể bỏ qua nếu không cần thay đổi.'
+                      : 'File sẽ được upload sau khi tạo đợt báo cáo.'}
+                  </Text>
+                </div>
               </div>
             </Col>
 
