@@ -976,20 +976,50 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
                     onChange={(e) => setDocumentTitle(e.target.value)}
                     style={{ marginBottom: 8 }}
                   />
-                  <Upload
-                    beforeUpload={() => false}
-                    fileList={ownerFileList}
-                    onChange={({ fileList }) => setOwnerFileList(fileList.slice(-1))}
-                    maxCount={1}
-                    listType="text"
-                    className="upload-list-inline"
-                  >
-                    {ownerFileList.length === 0 && (
+                  <div style={{ maxWidth: '100%', overflow: 'hidden' }}>
+                    <Upload
+                      beforeUpload={() => false}
+                      fileList={ownerFileList}
+                      onChange={({ fileList }) => setOwnerFileList(fileList.slice(-1))}
+                      maxCount={1}
+                      listType="text"
+                      itemRender={(originNode, file, fileList, actions) => (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          padding: '4px 0',
+                          maxWidth: '100%'
+                        }}>
+                          <Tooltip title={file.name}>
+                            <Text
+                              style={{
+                                flex: 1,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                fontSize: 12
+                              }}
+                            >
+                              {file.name}
+                            </Text>
+                          </Tooltip>
+                          <Button
+                            type="link"
+                            size="small"
+                            onClick={actions.remove}
+                            style={{ padding: '0 4px', fontSize: 12 }}
+                          >
+                            Xóa
+                          </Button>
+                        </div>
+                      )}
+                    >
                       <Button icon={<UploadOutlined />} size="small">
-                        Chọn file
+                        {ownerFileList.length > 0 ? 'Thay thế file' : 'Chọn file'}
                       </Button>
-                    )}
-                  </Upload>
+                    </Upload>
+                  </div>
                   <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
                     {editingBatch
                       ? 'Có thể bỏ qua nếu không cần thay đổi file.'
