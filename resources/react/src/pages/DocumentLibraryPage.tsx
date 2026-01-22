@@ -304,15 +304,34 @@ const DocumentLibraryPage: React.FC = () => {
       title: 'Tài liệu',
       dataIndex: 'title',
       key: 'title',
+      width: 300,
       render: (title, record) => (
         <Space>
           {getFileIconComponent(record.file_type)}
-          <div>
-            <Text strong>{title}</Text>
-            <br />
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {record.file_name}
-            </Text>
+          <div style={{ maxWidth: 250 }}>
+            <Tooltip title={title}>
+              <Text strong style={{
+                display: 'block',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: 250,
+              }}>
+                {title}
+              </Text>
+            </Tooltip>
+            <Tooltip title={record.file_name}>
+              <Text type="secondary" style={{
+                fontSize: 12,
+                display: 'block',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: 250,
+              }}>
+                {record.file_name}
+              </Text>
+            </Tooltip>
           </div>
         </Space>
       ),
