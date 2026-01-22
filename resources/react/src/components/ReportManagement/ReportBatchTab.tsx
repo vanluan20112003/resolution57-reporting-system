@@ -981,15 +981,19 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
                     fileList={ownerFileList}
                     onChange={({ fileList }) => setOwnerFileList(fileList.slice(-1))}
                     maxCount={1}
+                    listType="text"
+                    className="upload-list-inline"
                   >
-                    <Button icon={<UploadOutlined />} size="small">
-                      Chọn file
-                    </Button>
+                    {ownerFileList.length === 0 && (
+                      <Button icon={<UploadOutlined />} size="small">
+                        Chọn file
+                      </Button>
+                    )}
                   </Upload>
                   <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
                     {editingBatch
-                      ? 'Upload file mới sẽ thay thế file cũ (nếu có). Có thể bỏ qua nếu không cần thay đổi.'
-                      : 'File sẽ được upload sau khi tạo đợt báo cáo.'}
+                      ? 'Có thể bỏ qua nếu không cần thay đổi file.'
+                      : 'Chỉ được upload 1 file văn bản giao nhiệm vụ.'}
                   </Text>
                 </div>
               </div>
