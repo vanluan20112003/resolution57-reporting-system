@@ -292,7 +292,7 @@ class ReportBatchController extends Controller
             'collaboratingOrganizations:id,name,short_name',
         ])
             ->where('lead_organization_id', $user->organization_id)
-            ->whereIn('status', ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'IN_PROGRESS']);
+            ->whereIn('status', ['PENDING_APPROVAL', 'APPROVED', 'IN_PROGRESS', 'COMPLETED']);
 
         // Filter by date range if provided
         if ($request->has('start_date')) {
