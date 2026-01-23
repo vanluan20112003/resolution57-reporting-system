@@ -57,6 +57,7 @@ import {
 import { useAuth } from "../../shared/hooks"
 import AddMemberModal from "./AddMemberModal"
 import "./OrganizationProfile.css"
+import { t } from "i18next"
 
 const { Title, Text, Paragraph } = Typography
 const { TextArea } = Input
