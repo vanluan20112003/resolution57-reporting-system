@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
-use App\Models\ActivityLog;
 use App\Models\Activity;
-use Illuminate\Http\Request;
+use App\Models\ActivityLog;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class ActivityLogController extends Controller
@@ -22,7 +22,7 @@ class ActivityLogController extends Controller
             $organizationId = $user->organization_id;
 
             // Only users with organization can view logs
-            if (!$organizationId && !in_array($user->role, ['OPERATOR', 'ADMIN'])) {
+            if (! $organizationId && ! in_array($user->role, ['OPERATOR', 'ADMIN'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bạn không thuộc phòng ban nào',
@@ -69,10 +69,10 @@ class ActivityLogController extends Controller
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
                     $q->where('description', 'like', "%{$search}%")
-                      ->orWhereHas('activity', function ($q2) use ($search) {
-                          $q2->where('title', 'like', "%{$search}%")
-                            ->orWhere('code', 'like', "%{$search}%");
-                      });
+                        ->orWhereHas('activity', function ($q2) use ($search) {
+                            $q2->where('title', 'like', "%{$search}%")
+                                ->orWhere('code', 'like', "%{$search}%");
+                        });
                 });
             }
 
@@ -116,8 +116,20 @@ class ActivityLogController extends Controller
             $activity = Activity::findOrFail($activityId);
 
             // Check access permission
-            if (!in_array($user->role, ['OPERATOR', 'ADMIN'])) {
-                if ($user->organization_id !== $activity->lead_organization_id) {
+            if (! in_array($user->role, ['OPERATOR', 'ADMIN'])) {
+                // if ($user->organization_id !== $activity->lead_organization_id) {
+                //     return response()->json([
+                //         'success' => false,
+                //         'message' => 'Bạn không có quyền xem lịch sử hoạt động này',
+                //     ], 403);
+                // }
+                $isLeadOrg = $user->organization_id === $activity->lead_organization_id;
+
+                $isCollaboratorOrg = $activity->collaboratingOrganizations()
+                    ->where('organization_id', $user->organization_id)
+                    ->exists();
+
+                if (! $isLeadOrg && ! $isCollaboratorOrg) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Bạn không có quyền xem lịch sử hoạt động này',
@@ -165,7 +177,7 @@ class ActivityLogController extends Controller
             $user = $request->user();
             $organizationId = $user->organization_id;
 
-            if (!$organizationId && !in_array($user->role, ['OPERATOR', 'ADMIN'])) {
+            if (! $organizationId && ! in_array($user->role, ['OPERATOR', 'ADMIN'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bạn không thuộc phòng ban nào',

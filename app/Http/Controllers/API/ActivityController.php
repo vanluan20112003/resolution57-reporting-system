@@ -52,6 +52,70 @@ class ActivityController extends Controller
      * Check if user can access activity based on organization and status
      * Returns array with 'allowed' boolean and 'reason' string for error message
      */
+    private function canViewActivity(Request $request, Activity $activity): array
+    {
+        $user = $request->user();
+        $role = $user->role;
+
+        // ADMIN and OPERATOR can access all activities
+        if (in_array($role, ['ADMIN', 'OPERATOR'])) {
+            return ['allowed' => true, 'reason' => ''];
+        }
+
+        // User must have an organization
+        if (! $user->organization_id) {
+            return ['allowed' => false, 'reason' => 'Bạn chưa thuộc đơn vị nào. Vui lòng liên hệ quản trị viên để được gán vào đơn vị.'];
+        }
+
+        // Check lead organization or collaborator organization
+
+        $isLeadOrg = $activity->lead_organization_id === $user->organization_id;
+
+        $isCollaboratorOrg = $activity->collaboratingOrganizations()
+            ->where('organization_id', $user->organization_id)
+            ->exists();
+
+        $isOwnOrg = $isLeadOrg || $isCollaboratorOrg;
+
+        // GUEST can only view approved activities (IN_PROGRESS, COMPLETED) from their organization
+        if ($role === 'GUEST') {
+            if (! $isOwnOrg) {
+                return ['allowed' => false, 'reason' => 'Hoạt động này không thuộc đơn vị của bạn.'];
+            }
+            // Use computed status for access check
+            $computedStatus = $this->getComputedStatus($activity);
+            $approvedStatuses = [self::STATUS_APPROVED, self::STATUS_IN_PROGRESS, self::STATUS_POSTPONED, self::STATUS_COMPLETED];
+            if (! in_array($computedStatus, $approvedStatuses)) {
+                return ['allowed' => false, 'reason' => 'Bạn chỉ có thể xem các hoạt động đã được phê duyệt.'];
+            }
+
+            return ['allowed' => true, 'reason' => ''];
+        }
+
+        // STAFF and MANAGER can access all activities from their organization
+        if (in_array($role, ['STAFF', 'MANAGER'])) {
+            if ($isOwnOrg) {
+                return ['allowed' => true, 'reason' => ''];
+            }
+
+            // Check if user has cross-organization permission to view this activity
+            $hasPermission = $this->hasOrganizationAccessPermission($user, $activity->lead_organization_id);
+            if ($hasPermission) {
+                // Only allow viewing approved/completed activities from other organizations
+                $approvedStatuses = [self::STATUS_APPROVED, self::STATUS_IN_PROGRESS, self::STATUS_POSTPONED, self::STATUS_COMPLETED, self::STATUS_CANCELLED];
+                if (in_array($activity->status, $approvedStatuses)) {
+                    return ['allowed' => true, 'reason' => ''];
+                }
+
+                return ['allowed' => false, 'reason' => 'Bạn chỉ có thể xem các hoạt động đã được phê duyệt từ đơn vị khác.'];
+            }
+
+            return ['allowed' => false, 'reason' => 'Hoạt động này không thuộc đơn vị của bạn và bạn chưa được cấp quyền xem.'];
+        }
+
+        return ['allowed' => false, 'reason' => 'Bạn không có quyền truy cập hoạt động này.'];
+    }
+
     private function canAccessActivity(Request $request, Activity $activity): array
     {
         $user = $request->user();
@@ -67,7 +131,8 @@ class ActivityController extends Controller
             return ['allowed' => false, 'reason' => 'Bạn chưa thuộc đơn vị nào. Vui lòng liên hệ quản trị viên để được gán vào đơn vị.'];
         }
 
-        // Check if activity belongs to user's organization
+        // Check lead organization
+
         $isOwnOrg = $activity->lead_organization_id === $user->organization_id;
 
         // GUEST can only view approved activities (IN_PROGRESS, COMPLETED) from their organization
@@ -704,7 +769,7 @@ class ActivityController extends Controller
             ])->findOrFail($id);
 
             // Security check
-            $accessCheck = $this->canAccessActivity($request, $activity);
+            $accessCheck = $this->canViewActivity($request, $activity);
             if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,

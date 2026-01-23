@@ -105,6 +105,8 @@ interface ActivityDetailModalProps {
   mode: 'view' | 'edit'
   onClose: () => void
   onSuccess: (activity: Activity) => void
+  /** Chế độ chỉ xem - ẩn các chức năng cập nhật tiến độ, tải tài liệu, quản lý người tham dự */
+  readOnly?: boolean
 }
 
 function ActivityDetailModal({
@@ -114,6 +116,7 @@ function ActivityDetailModal({
   mode,
   onClose,
   onSuccess,
+  readOnly = false,
 }: ActivityDetailModalProps) {
   const [activeTab, setActiveTab] = useState('info')
   const [isEditing, setIsEditing] = useState(mode === 'edit')
@@ -171,7 +174,8 @@ function ActivityDetailModal({
       // Only allow editing if mode is 'edit' AND status is 'draft' or 'postponed'
       // pending_approval and other statuses cannot be edited
       // postponed status can only edit dates
-      setIsEditing(mode === 'edit' && (activity.status === 'DRAFT' || activity.status === 'POSTPONED'))
+      // In readOnly mode, always set isEditing to false
+      setIsEditing(!readOnly && mode === 'edit' && (activity.status === 'DRAFT' || activity.status === 'POSTPONED'))
       setPendingFiles([])
       setParticipants([])
       setAttendanceFile(null)
@@ -611,88 +615,90 @@ function ActivityDetailModal({
             </Tag>
             <Text code>{activity.code}</Text>
           </Space>
-          <Space>
-            {/* Edit button for DRAFT */}
-            {activity.status === 'DRAFT' && (
-              <Button
-                type="primary"
-                icon={<EditOutlined />}
-                onClick={() => setIsEditing(true)}
-              >
-                Chỉnh sửa
-              </Button>
-            )}
-            {/* Edit dates button for POSTPONED */}
-            {activity.status === 'POSTPONED' && (
-              <Button
-                type="primary"
-                icon={<CalendarOutlined />}
-                onClick={() => setIsEditing(true)}
-              >
-                Sửa thời gian
-              </Button>
-            )}
-            {/* Completion action button for COMPLETED activities needing update */}
-            {activity.status === 'COMPLETED' && needsCompletionAction(activity) && (
-              <Badge dot>
+          {!readOnly && (
+            <Space>
+              {/* Edit button for DRAFT */}
+              {activity.status === 'DRAFT' && (
+                <Button
+                  type="primary"
+                  icon={<EditOutlined />}
+                  onClick={() => setIsEditing(true)}
+                >
+                  Chỉnh sửa
+                </Button>
+              )}
+              {/* Edit dates button for POSTPONED */}
+              {activity.status === 'POSTPONED' && (
+                <Button
+                  type="primary"
+                  icon={<CalendarOutlined />}
+                  onClick={() => setIsEditing(true)}
+                >
+                  Sửa thời gian
+                </Button>
+              )}
+              {/* Completion action button for COMPLETED activities needing update */}
+              {activity.status === 'COMPLETED' && needsCompletionAction(activity) && (
+                <Badge dot>
+                  <Button
+                    type="primary"
+                    icon={<CheckCircleOutlined />}
+                    onClick={() => setShowCompletionModal(true)}
+                    style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                  >
+                    Cập nhật kết quả
+                  </Button>
+                </Badge>
+              )}
+              {/* Update more button for COMPLETED activities that already have result */}
+              {activity.status === 'COMPLETED' && !needsCompletionAction(activity) && (
+                <Button
+                  icon={<CheckCircleOutlined />}
+                  onClick={() => setShowCompletionModal(true)}
+                  style={{ borderColor: '#52c41a', color: '#52c41a' }}
+                >
+                  Cập nhật thêm
+                </Button>
+              )}
+              {/* Update progress button for APPROVED, IN_PROGRESS */}
+              {['APPROVED', 'IN_PROGRESS'].includes(activity.status) && (
                 <Button
                   type="primary"
                   icon={<CheckCircleOutlined />}
                   onClick={() => setShowCompletionModal(true)}
-                  style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                  style={{ background: '#1890ff', borderColor: '#1890ff' }}
                 >
-                  Cập nhật kết quả
+                  Cập nhật tiến độ
                 </Button>
-              </Badge>
-            )}
-            {/* Update more button for COMPLETED activities that already have result */}
-            {activity.status === 'COMPLETED' && !needsCompletionAction(activity) && (
-              <Button
-                icon={<CheckCircleOutlined />}
-                onClick={() => setShowCompletionModal(true)}
-                style={{ borderColor: '#52c41a', color: '#52c41a' }}
-              >
-                Cập nhật thêm
-              </Button>
-            )}
-            {/* Update progress button for APPROVED, IN_PROGRESS */}
-            {['APPROVED', 'IN_PROGRESS'].includes(activity.status) && (
-              <Button
-                type="primary"
-                icon={<CheckCircleOutlined />}
-                onClick={() => setShowCompletionModal(true)}
-                style={{ background: '#1890ff', borderColor: '#1890ff' }}
-              >
-                Cập nhật tiến độ
-              </Button>
-            )}
-            {/* Postpone/Cancel buttons for APPROVED, IN_PROGRESS only (not COMPLETED, not locked) */}
-            {['APPROVED', 'IN_PROGRESS'].includes(activity.status) && !activity.is_locked && (
-              <>
-                <Popconfirm
-                  title="Tạm hoãn hoạt động?"
-                  description="Bạn có thể chỉnh sửa thời gian sau khi tạm hoãn. Lời mời sẽ được gửi lại cho người tham dự sau khi lưu thời gian mới."
-                  onConfirm={handlePostpone}
-                  okText="Tạm hoãn"
-                  cancelText="Hủy"
-                >
-                  <Button
-                    icon={<PauseCircleOutlined />}
-                    loading={postponing}
+              )}
+              {/* Postpone/Cancel buttons for APPROVED, IN_PROGRESS only (not COMPLETED, not locked) */}
+              {['APPROVED', 'IN_PROGRESS'].includes(activity.status) && !activity.is_locked && (
+                <>
+                  <Popconfirm
+                    title="Tạm hoãn hoạt động?"
+                    description="Bạn có thể chỉnh sửa thời gian sau khi tạm hoãn. Lời mời sẽ được gửi lại cho người tham dự sau khi lưu thời gian mới."
+                    onConfirm={handlePostpone}
+                    okText="Tạm hoãn"
+                    cancelText="Hủy"
                   >
-                    Tạm hoãn
+                    <Button
+                      icon={<PauseCircleOutlined />}
+                      loading={postponing}
+                    >
+                      Tạm hoãn
+                    </Button>
+                  </Popconfirm>
+                  <Button
+                    danger
+                    icon={<StopOutlined />}
+                    onClick={() => setShowCancelModal(true)}
+                  >
+                    Hủy hoạt động
                   </Button>
-                </Popconfirm>
-                <Button
-                  danger
-                  icon={<StopOutlined />}
-                  onClick={() => setShowCancelModal(true)}
-                >
-                  Hủy hoạt động
-                </Button>
-              </>
-            )}
-          </Space>
+                </>
+              )}
+            </Space>
+          )}
         </div>
 
         {/* Pending approval notice */}
@@ -1329,11 +1335,13 @@ function ActivityDetailModal({
 
     // Allow file upload for: DRAFT (editing), APPROVED, IN_PROGRESS, COMPLETED
     // File upload is the only action allowed for these approved+ statuses
-    const canUploadFiles = isEditing ||
-      ['DRAFT', 'APPROVED', 'IN_PROGRESS', 'COMPLETED'].includes(activity.status)
+    // But not allowed in readOnly mode
+    const canUploadFiles = !readOnly && (isEditing ||
+      ['DRAFT', 'APPROVED', 'IN_PROGRESS', 'COMPLETED'].includes(activity.status))
 
     // Can share files if activity has files and is not in draft/rejected status
-    const canShareFiles = files.length > 0 &&
+    // But not allowed in readOnly mode
+    const canShareFiles = !readOnly && files.length > 0 &&
       !['DRAFT', 'REJECTED', 'CANCELLED'].includes(activity.status)
 
     return (
@@ -1369,9 +1377,11 @@ function ActivityDetailModal({
     if (!activity) return null
 
     // Check if activity is editable (ONLY draft status - pending_approval cannot be edited)
-    const canEditParticipants = activity.status === 'DRAFT'
+    // But not allowed in readOnly mode
+    const canEditParticipants = !readOnly && activity.status === 'DRAFT'
     // Check if can send invitations (approved/in_progress/completed status)
-    const canSendInvitations = ['APPROVED', 'IN_PROGRESS', 'COMPLETED'].includes(activity.status)
+    // But not allowed in readOnly mode
+    const canSendInvitations = !readOnly && ['APPROVED', 'IN_PROGRESS', 'COMPLETED'].includes(activity.status)
 
     // Invitation status configuration
     const invitationStatusConfig: Record<string, { color: string; text: string; icon: React.ReactNode }> = {
@@ -1808,6 +1818,11 @@ function ActivityDetailModal({
         Đóng
       </Button>,
     ]
+
+    // In readOnly mode, only show Close button
+    if (readOnly) {
+      return buttons
+    }
 
     if (isEditing) {
       buttons.push(
