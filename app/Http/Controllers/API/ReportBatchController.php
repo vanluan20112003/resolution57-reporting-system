@@ -611,24 +611,31 @@ class ReportBatchController extends Controller
             ], 404);
         }
 
-        // Check deadline - only allow submission before deadline
-        if ($batch->deadline && now()->gt($batch->deadline)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Đã quá hạn nộp báo cáo. Hạn nộp: ' . Carbon::parse($batch->deadline)->format('d/m/Y H:i'),
-            ], 400);
-        }
+        // Check deadline
+        $isOverdue = $batch->deadline && now()->gt($batch->deadline);
 
-        // Validate input
-        $validator = Validator::make($request->all(), [
+        // Build validation rules - explanation required if overdue
+        $rules = [
             'activity_id' => 'required|uuid|exists:activities,id',
             'content' => 'required|string|max:5000',
-        ], [
+            'difficulties' => 'nullable|string|max:3000',
+            'recommendations' => 'nullable|string|max:3000',
+            'explanation' => $isOverdue ? 'required|string|max:3000' : 'nullable|string|max:3000',
+        ];
+
+        $messages = [
             'activity_id.required' => 'Vui lòng chọn hoạt động',
             'activity_id.exists' => 'Hoạt động không tồn tại',
             'content.required' => 'Vui lòng nhập nội dung phản hồi',
             'content.max' => 'Nội dung phản hồi không được vượt quá 5000 ký tự',
-        ]);
+            'difficulties.max' => 'Nội dung khó khăn/vướng mắc không được vượt quá 3000 ký tự',
+            'recommendations.max' => 'Nội dung đề xuất/kiến nghị không được vượt quá 3000 ký tự',
+            'explanation.required' => 'Vui lòng nhập nội dung giải trình vì đã quá hạn nộp báo cáo',
+            'explanation.max' => 'Nội dung giải trình không được vượt quá 3000 ký tự',
+        ];
+
+        // Validate input
+        $validator = Validator::make($request->all(), $rules, $messages);
 
         if ($validator->fails()) {
             return response()->json([
@@ -670,6 +677,10 @@ class ReportBatchController extends Controller
             ],
             [
                 'content' => $request->input('content'),
+                'difficulties' => $request->input('difficulties'),
+                'recommendations' => $request->input('recommendations'),
+                'explanation' => $request->input('explanation'),
+                'is_overdue_submission' => $isOverdue,
                 'submitted_by' => $user->id,
                 'submitted_at' => now(),
             ]
@@ -1010,11 +1021,17 @@ class ReportBatchController extends Controller
             $activityData['my_response'] = $response ? [
                 'id' => $response->id,
                 'content' => $response->content,
+                'difficulties' => $response->difficulties,
+                'recommendations' => $response->recommendations,
+                'explanation' => $response->explanation,
+                'is_overdue_submission' => $response->is_overdue_submission,
                 'submitted_at' => $response->submitted_at,
                 'submitted_by' => $response->submitter,
             ] : null;
 
-            $activityData['can_submit'] = !$batch->deadline || now()->lte($batch->deadline);
+            // Allow submission even after deadline (but require explanation)
+            $activityData['can_submit'] = true;
+            $activityData['requires_explanation'] = $batch->deadline && now()->gt($batch->deadline);
 
             return $activityData;
         });
@@ -1043,6 +1060,7 @@ class ReportBatchController extends Controller
 
     /**
      * Get preview data for batch report export
+     * Format: Single sheet with all data combined
      */
     public function previewExport(Request $request, string $id): JsonResponse
     {
@@ -1054,7 +1072,9 @@ class ReportBatchController extends Controller
                 $query->with([
                     'leadOrganization:id,name,short_name',
                     'collaboratingOrganizations:id,name,short_name',
-                    'kpis:id,code,title',
+                    'kpis.tasks' => function ($q) {
+                        $q->where('is_active', true)->orderBy('order_number');
+                    },
                 ]);
             },
             'collaboratorResponses' => function ($query) {
@@ -1063,6 +1083,9 @@ class ReportBatchController extends Controller
                     'submitter:id,first_name,last_name,email',
                     'activity:id,title',
                 ]);
+            },
+            'files' => function ($query) {
+                $query->where('file_source', 'owner');
             },
         ])
             ->byOrganization($user->organization_id)
@@ -1075,67 +1098,87 @@ class ReportBatchController extends Controller
             ], 404);
         }
 
-        // Build preview data for Sheet 1: Activities
-        $activitiesPreview = $batch->activities->map(function ($activity) {
-            $kpiTexts = $activity->kpis->map(function ($kpi) {
-                return $kpi->code ? "[{$kpi->code}] {$kpi->title}" : $kpi->title;
-            })->toArray();
+        // Get owner file (văn bản giao nhiệm vụ)
+        $ownerFile = $batch->files->first();
+        $ownerFileTitle = $ownerFile ? $ownerFile->title : '';
 
-            $collabOrgs = $activity->collaboratingOrganizations->map(function ($org) {
-                return $org->short_name ?? $org->name;
-            })->toArray();
+        // Generate share file URL using config app.url to avoid nginx port issues
+        $shareFileUrl = $batch->share_token
+            ? config('app.url') . "/batch-files/{$batch->share_token}"
+            : '';
 
-            return [
-                'id' => $activity->id,
-                'title' => $activity->title,
-                'kpis' => implode(', ', $kpiTexts),
-                'lead_organization' => $activity->leadOrganization
-                    ? ($activity->leadOrganization->short_name ?? $activity->leadOrganization->name)
-                    : '',
-                'collaborating_organizations' => implode(', ', $collabOrgs),
-                'status' => $activity->status,
-                'completion_percentage' => $activity->completion_percentage,
-                'start_date' => $activity->start_date,
-                'end_date' => $activity->end_date,
-            ];
-        });
+        // Build preview data - combined format matching export
+        $previewRows = [];
+        $stt = 1;
 
-        // Build preview data for Sheet 2: Collaborator Responses
-        $responsesGrouped = [];
         foreach ($batch->activities as $activity) {
             $activityResponses = $batch->collaboratorResponses->where('activity_id', $activity->id);
             $collabOrgs = $activity->collaboratingOrganizations;
 
-            if ($collabOrgs->isEmpty()) continue;
+            // Get KPI tasks (nhóm nhiệm vụ con)
+            $kpiTasksText = $this->getKpiTasksText($activity);
 
-            $orgResponses = [];
+            // Get status text
+            $statusLabels = [
+                'DRAFT' => 'Nháp',
+                'PENDING_APPROVAL' => 'Chờ duyệt',
+                'APPROVED' => 'Đã duyệt',
+                'IN_PROGRESS' => 'Đang thực hiện',
+                'COMPLETED' => 'Đã hoàn thành',
+            ];
+            $statusText = $statusLabels[$activity->status] ?? $activity->status;
+
+            // Collect all collaborating org names (comma-separated)
+            $orgNames = $collabOrgs->map(fn($org) => $org->short_name ?? $org->name)->implode(', ');
+
+            // Collect all responses into single strings (each org on new line)
+            $responseLines = [];
+            $difficultiesLines = [];
+            $recommendationsLines = [];
+            $explanationLines = [];
+
             foreach ($collabOrgs as $org) {
                 $response = $activityResponses->where('organization_id', $org->id)->first();
-                $orgResponses[] = [
-                    'organization_id' => $org->id,
-                    'organization_name' => $org->short_name ?? $org->name,
-                    'has_response' => $response !== null,
-                    'content' => $response ? $response->content : null,
-                    'submitter' => $response && $response->submitter
-                        ? trim(($response->submitter->first_name ?? '') . ' ' . ($response->submitter->last_name ?? ''))
-                        : null,
-                    'submitted_at' => $response ? $response->submitted_at : null,
-                ];
+                $orgName = $org->short_name ?? $org->name;
+
+                if ($response) {
+                    if ($response->content) {
+                        $responseLines[] = "{$orgName}: {$response->content}";
+                    }
+                    if ($response->difficulties) {
+                        $difficultiesLines[] = "{$orgName}: {$response->difficulties}";
+                    }
+                    if ($response->recommendations) {
+                        $recommendationsLines[] = "{$orgName}: {$response->recommendations}";
+                    }
+                    if ($response->explanation) {
+                        $explanationLines[] = "{$orgName}: {$response->explanation}";
+                    }
+                }
             }
 
-            $responsesGrouped[] = [
-                'activity_id' => $activity->id,
-                'activity_title' => $activity->title,
-                'kpis' => $activity->kpis->map(fn($k) => $k->code ?? $k->title)->implode(', '),
-                'total_collaborators' => $collabOrgs->count(),
-                'submitted_count' => $activityResponses->count(),
-                'responses' => $orgResponses,
+            // Build single row for this activity
+            $previewRows[] = [
+                'stt' => $stt,
+                'code' => $activity->code ?? '',
+                'title' => $activity->title,
+                'kpi_tasks' => $kpiTasksText,
+                'organization' => $orgNames,
+                'owner_file' => $ownerFileTitle,
+                'status' => $statusText,
+                'response_content' => implode("\n", $responseLines),
+                'difficulties' => implode("\n", $difficultiesLines),
+                'recommendations' => implode("\n", $recommendationsLines),
+                'share_file_url' => $shareFileUrl,
+                'explanation' => implode("\n", $explanationLines),
             ];
+            $stt++;
         }
 
         // Statistics
         $totalActivities = $batch->activities->count();
-        $activitiesWithCollab = $batch->activities->filter(fn($a) => $a->collaboratingOrganizations->isNotEmpty())->count();
+        $completed = $batch->activities->where('status', 'COMPLETED')->count();
+        $inProgress = $batch->activities->where('status', 'IN_PROGRESS')->count();
 
         $totalRequired = 0;
         foreach ($batch->activities as $activity) {
@@ -1154,12 +1197,29 @@ class ReportBatchController extends Controller
                     'end_date' => $batch->end_date,
                     'deadline' => $batch->deadline,
                     'organization' => $batch->organization,
+                    'share_token' => $batch->share_token,
+                    'share_file_url' => $shareFileUrl,
+                    'owner_file_title' => $ownerFileTitle,
                 ],
-                'activities' => $activitiesPreview,
-                'collaborator_responses' => $responsesGrouped,
+                'preview_rows' => $previewRows,
+                'columns' => [
+                    ['key' => 'stt', 'label' => 'STT', 'width' => 50],
+                    ['key' => 'code', 'label' => 'Mã nhiệm vụ', 'width' => 120],
+                    ['key' => 'title', 'label' => 'Tên nhiệm vụ', 'width' => 250],
+                    ['key' => 'kpi_tasks', 'label' => 'Tên nhóm nhiệm vụ', 'width' => 200],
+                    ['key' => 'organization', 'label' => 'Đơn vị cập nhật báo cáo', 'width' => 150],
+                    ['key' => 'owner_file', 'label' => 'Văn bản giao nhiệm vụ', 'width' => 150],
+                    ['key' => 'status', 'label' => 'Kết quả', 'width' => 100],
+                    ['key' => 'response_content', 'label' => 'Các văn bản/hoạt động triển khai', 'width' => 300],
+                    ['key' => 'difficulties', 'label' => 'Khó khăn/vướng mắc', 'width' => 200],
+                    ['key' => 'recommendations', 'label' => 'Đề xuất/kiến nghị', 'width' => 200],
+                    ['key' => 'share_file_url', 'label' => 'File sở cứ', 'width' => 150],
+                    ['key' => 'explanation', 'label' => 'Nội dung giải trình', 'width' => 200],
+                ],
                 'statistics' => [
                     'total_activities' => $totalActivities,
-                    'activities_with_collaborators' => $activitiesWithCollab,
+                    'completed' => $completed,
+                    'in_progress' => $inProgress,
                     'total_required_responses' => $totalRequired,
                     'total_submitted' => $totalSubmitted,
                     'completion_percentage' => $totalRequired > 0
@@ -1168,6 +1228,32 @@ class ReportBatchController extends Controller
                 ],
             ],
         ]);
+    }
+
+    /**
+     * Helper to get KPI tasks text for an activity
+     */
+    private function getKpiTasksText($activity): string
+    {
+        $allTasks = [];
+
+        foreach ($activity->kpis as $kpi) {
+            if ($kpi->tasks && $kpi->tasks->isNotEmpty()) {
+                foreach ($kpi->tasks as $task) {
+                    $allTasks[] = $task->title;
+                }
+            }
+        }
+
+        if (empty($allTasks)) {
+            // If no tasks, return KPI titles
+            $kpiTitles = $activity->kpis->map(function ($kpi) {
+                return $kpi->code ? "[{$kpi->code}] {$kpi->title}" : $kpi->title;
+            })->toArray();
+            return implode("\n", $kpiTitles);
+        }
+
+        return implode("\n", $allTasks);
     }
 
     /**
@@ -1362,8 +1448,11 @@ class ReportBatchController extends Controller
         $user = $request->user();
 
         // Find batch (by owner or collaborator)
-        $batch = ReportBatch::with(['files.organization:id,name,short_name', 'files.uploader:id,first_name,last_name,email'])
-            ->find($id);
+        $batch = ReportBatch::with([
+            'files.organization:id,name,short_name',
+            'files.uploader:id,first_name,last_name,email',
+            'files.activity:id,title'
+        ])->find($id);
 
         if (!$batch) {
             return response()->json([
@@ -1390,6 +1479,11 @@ class ReportBatchController extends Controller
         $files = $batch->files->map(function ($file) {
             return [
                 'id' => $file->id,
+                'activity_id' => $file->activity_id,
+                'activity' => $file->activity ? [
+                    'id' => $file->activity->id,
+                    'title' => $file->activity->title,
+                ] : null,
                 'file_name' => $file->file_name,
                 'file_path' => $file->file_path,
                 'file_type' => $file->file_type,
@@ -1414,13 +1508,25 @@ class ReportBatchController extends Controller
 
         // Group by organization
         $ownerFiles = $files->where('file_source', 'owner')->values();
-        $collaboratorFiles = $files->where('file_source', 'collaborator')
-            ->groupBy('organization.id')
-            ->map(function ($orgFiles, $orgId) {
-                $firstFile = $orgFiles->first();
+
+        // Group collaborator files by activity, then by organization
+        $collaboratorFilesGrouped = $files->where('file_source', 'collaborator')
+            ->groupBy('activity_id')
+            ->map(function ($activityFiles, $activityId) {
+                $firstFile = $activityFiles->first();
+                $byOrganization = $activityFiles->groupBy('organization.id')
+                    ->map(function ($orgFiles, $orgId) {
+                        $firstOrgFile = $orgFiles->first();
+                        return [
+                            'organization' => $firstOrgFile['organization'],
+                            'files' => $orgFiles->values(),
+                        ];
+                    })->values();
+
                 return [
-                    'organization' => $firstFile['organization'],
-                    'files' => $orgFiles->values(),
+                    'activity_id' => $activityId ?: null,
+                    'activity' => $firstFile['activity'],
+                    'organizations' => $byOrganization,
                 ];
             })->values();
 
@@ -1428,7 +1534,7 @@ class ReportBatchController extends Controller
             'success' => true,
             'data' => [
                 'owner_files' => $ownerFiles,
-                'collaborator_files' => $collaboratorFiles,
+                'collaborator_files_by_activity' => $collaboratorFilesGrouped,
                 'total_files' => $files->count(),
             ],
         ]);
@@ -1539,6 +1645,7 @@ class ReportBatchController extends Controller
 
         $validator = Validator::make($request->all(), [
             'file' => 'required|file|max:51200', // 50MB max
+            'activity_id' => 'required|uuid|exists:activities,id',
             'title' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:1000',
         ]);
@@ -1551,13 +1658,31 @@ class ReportBatchController extends Controller
             ], 422);
         }
 
+        $activityId = $request->input('activity_id');
+
+        // Verify that the activity is in this batch and user's organization is a collaborator of this activity
+        $activityInBatch = $batch->activities()
+            ->whereHas('collaboratingOrganizations', function ($q) use ($user) {
+                $q->where('organizations.id', $user->organization_id);
+            })
+            ->where('activities.id', $activityId)
+            ->exists();
+
+        if (!$activityInBatch) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hoạt động không thuộc đợt báo cáo này hoặc đơn vị của bạn không phải là đơn vị phối hợp của hoạt động này',
+            ], 403);
+        }
+
         // Upload file (multiple files allowed for collaborator)
         $file = $request->file('file');
         $fileName = $file->getClientOriginalName();
-        $filePath = $file->store('report_batch_files/' . $id . '/collaborators/' . $user->organization_id, 'local');
+        $filePath = $file->store('report_batch_files/' . $id . '/activities/' . $activityId . '/' . $user->organization_id, 'local');
 
         $batchFile = ReportBatchFile::create([
             'report_batch_id' => $id,
+            'activity_id' => $activityId,
             'organization_id' => $user->organization_id,
             'uploaded_by' => $user->id,
             'file_name' => $fileName,
@@ -1632,6 +1757,140 @@ class ReportBatchController extends Controller
     }
 
     /**
+     * Get files in folder structure for batch explorer
+     * Only accessible by batch owner
+     */
+    public function getFilesExplorer(Request $request, string $id): JsonResponse
+    {
+        $user = $request->user();
+
+        $batch = ReportBatch::with([
+            'files.organization:id,name,short_name',
+            'files.activity:id,title',
+            'activities:id,title',
+        ])->find($id);
+
+        if (!$batch) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy đợt báo cáo',
+            ], 404);
+        }
+
+        // Only owner can access explorer
+        if ($batch->organization_id !== $user->organization_id && !in_array($user->role, ['ADMIN', 'OPERATOR'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền xem file explorer của đợt báo cáo này',
+            ], 403);
+        }
+
+        $files = $batch->files;
+
+        // Build folder structure
+        $ownerFiles = $files->where('file_source', 'owner')->map(function ($file) {
+            return [
+                'id' => $file->id,
+                'file_name' => $file->file_name,
+                'file_type' => $file->file_type,
+                'file_size' => $file->file_size,
+                'file_size_formatted' => $file->file_size_formatted,
+                'title' => $file->title,
+                'created_at' => $file->created_at,
+            ];
+        })->values();
+
+        $collaboratorFiles = $files->where('file_source', 'collaborator');
+
+        // Group by organization first
+        $byOrganization = $collaboratorFiles->groupBy('organization_id')->map(function ($orgFiles, $orgId) {
+            $firstFile = $orgFiles->first();
+            $org = $firstFile->organization;
+
+            // Group files by activity within organization
+            $byActivity = $orgFiles->groupBy('activity_id')->map(function ($actFiles, $actId) {
+                $firstActFile = $actFiles->first();
+                return [
+                    'activity_id' => $actId ?: null,
+                    'activity_title' => $firstActFile->activity?->title ?? 'Chung',
+                    'files' => $actFiles->map(function ($f) {
+                        return [
+                            'id' => $f->id,
+                            'file_name' => $f->file_name,
+                            'file_type' => $f->file_type,
+                            'file_size' => $f->file_size,
+                            'file_size_formatted' => $f->file_size_formatted,
+                            'title' => $f->title,
+                            'created_at' => $f->created_at,
+                        ];
+                    })->values(),
+                ];
+            })->values();
+
+            return [
+                'organization_id' => $orgId,
+                'organization_name' => $org?->short_name ?? $org?->name ?? 'Unknown',
+                'activities' => $byActivity,
+                'total_files' => $orgFiles->count(),
+            ];
+        })->values();
+
+        // Group by activity first
+        $byActivity = $collaboratorFiles->groupBy('activity_id')->map(function ($actFiles, $actId) {
+            $firstFile = $actFiles->first();
+
+            // Group files by organization within activity
+            $byOrg = $actFiles->groupBy('organization_id')->map(function ($orgFiles, $orgId) {
+                $firstOrgFile = $orgFiles->first();
+                $org = $firstOrgFile->organization;
+                return [
+                    'organization_id' => $orgId,
+                    'organization_name' => $org?->short_name ?? $org?->name ?? 'Unknown',
+                    'files' => $orgFiles->map(function ($f) {
+                        return [
+                            'id' => $f->id,
+                            'file_name' => $f->file_name,
+                            'file_type' => $f->file_type,
+                            'file_size' => $f->file_size,
+                            'file_size_formatted' => $f->file_size_formatted,
+                            'title' => $f->title,
+                            'created_at' => $f->created_at,
+                        ];
+                    })->values(),
+                ];
+            })->values();
+
+            return [
+                'activity_id' => $actId ?: null,
+                'activity_title' => $firstFile->activity?->title ?? 'Chung',
+                'organizations' => $byOrg,
+                'total_files' => $actFiles->count(),
+            ];
+        })->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'batch' => [
+                    'id' => $batch->id,
+                    'name' => $batch->name,
+                    'share_token' => $batch->share_token,
+                ],
+                'owner_files' => $ownerFiles,
+                'by_organization' => $byOrganization,
+                'by_activity' => $byActivity,
+                'statistics' => [
+                    'total_files' => $files->count(),
+                    'owner_files_count' => $ownerFiles->count(),
+                    'collaborator_files_count' => $collaboratorFiles->count(),
+                    'organizations_count' => $byOrganization->count(),
+                    'activities_count' => $byActivity->count(),
+                ],
+            ],
+        ]);
+    }
+
+    /**
      * Delete batch file
      */
     public function deleteFile(Request $request, string $id, string $fileId): JsonResponse
@@ -1670,5 +1929,166 @@ class ReportBatchController extends Controller
             'success' => true,
             'message' => 'Xóa file thành công',
         ]);
+    }
+
+    /**
+     * Get files by share token (public access)
+     */
+    public function getFilesByShareToken(string $token): JsonResponse
+    {
+        $batch = ReportBatch::with([
+            'files.organization:id,name,short_name',
+            'files.activity:id,title',
+            'organization:id,name,short_name',
+        ])->where('share_token', $token)->first();
+
+        if (!$batch) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Link không hợp lệ hoặc đã hết hạn',
+            ], 404);
+        }
+
+        $files = $batch->files;
+
+        // Build folder structure (same as getFilesExplorer)
+        $ownerFiles = $files->where('file_source', 'owner')->map(function ($file) {
+            return [
+                'id' => $file->id,
+                'file_name' => $file->file_name,
+                'file_type' => $file->file_type,
+                'file_size' => $file->file_size,
+                'file_size_formatted' => $file->file_size_formatted,
+                'title' => $file->title,
+                'created_at' => $file->created_at,
+            ];
+        })->values();
+
+        $collaboratorFiles = $files->where('file_source', 'collaborator');
+
+        // Group by organization
+        $byOrganization = $collaboratorFiles->groupBy('organization_id')->map(function ($orgFiles, $orgId) {
+            $firstFile = $orgFiles->first();
+            $org = $firstFile->organization;
+
+            $byActivity = $orgFiles->groupBy('activity_id')->map(function ($actFiles, $actId) {
+                $firstActFile = $actFiles->first();
+                return [
+                    'activity_id' => $actId ?: null,
+                    'activity_title' => $firstActFile->activity?->title ?? 'Chung',
+                    'files' => $actFiles->map(function ($f) {
+                        return [
+                            'id' => $f->id,
+                            'file_name' => $f->file_name,
+                            'file_type' => $f->file_type,
+                            'file_size' => $f->file_size,
+                            'file_size_formatted' => $f->file_size_formatted,
+                            'title' => $f->title,
+                            'created_at' => $f->created_at,
+                        ];
+                    })->values(),
+                ];
+            })->values();
+
+            return [
+                'organization_id' => $orgId,
+                'organization_name' => $org?->short_name ?? $org?->name ?? 'Unknown',
+                'activities' => $byActivity,
+                'total_files' => $orgFiles->count(),
+            ];
+        })->values();
+
+        // Group by activity
+        $byActivity = $collaboratorFiles->groupBy('activity_id')->map(function ($actFiles, $actId) {
+            $firstFile = $actFiles->first();
+
+            $byOrg = $actFiles->groupBy('organization_id')->map(function ($orgFiles, $orgId) {
+                $firstOrgFile = $orgFiles->first();
+                $org = $firstOrgFile->organization;
+                return [
+                    'organization_id' => $orgId,
+                    'organization_name' => $org?->short_name ?? $org?->name ?? 'Unknown',
+                    'files' => $orgFiles->map(function ($f) {
+                        return [
+                            'id' => $f->id,
+                            'file_name' => $f->file_name,
+                            'file_type' => $f->file_type,
+                            'file_size' => $f->file_size,
+                            'file_size_formatted' => $f->file_size_formatted,
+                            'title' => $f->title,
+                            'created_at' => $f->created_at,
+                        ];
+                    })->values(),
+                ];
+            })->values();
+
+            return [
+                'activity_id' => $actId ?: null,
+                'activity_title' => $firstFile->activity?->title ?? 'Chung',
+                'organizations' => $byOrg,
+                'total_files' => $actFiles->count(),
+            ];
+        })->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'batch' => [
+                    'id' => $batch->id,
+                    'name' => $batch->name,
+                    'description' => $batch->description,
+                    'start_date' => $batch->start_date,
+                    'end_date' => $batch->end_date,
+                    'owner_organization' => $batch->organization ? [
+                        'id' => $batch->organization->id,
+                        'name' => $batch->organization->name,
+                        'short_name' => $batch->organization->short_name,
+                    ] : null,
+                ],
+                'owner_files' => $ownerFiles,
+                'by_organization' => $byOrganization,
+                'by_activity' => $byActivity,
+                'statistics' => [
+                    'total_files' => $files->count(),
+                    'owner_files_count' => $ownerFiles->count(),
+                    'collaborator_files_count' => $collaboratorFiles->count(),
+                    'organizations_count' => $byOrganization->count(),
+                    'activities_count' => $byActivity->count(),
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Download file by share token (public access)
+     */
+    public function downloadFileByShareToken(string $token, string $fileId): \Symfony\Component\HttpFoundation\StreamedResponse|JsonResponse
+    {
+        $batch = ReportBatch::where('share_token', $token)->first();
+
+        if (!$batch) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Link không hợp lệ hoặc đã hết hạn',
+            ], 404);
+        }
+
+        $file = ReportBatchFile::where('report_batch_id', $batch->id)->find($fileId);
+
+        if (!$file) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy file',
+            ], 404);
+        }
+
+        if (!Storage::disk('local')->exists($file->file_path)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'File không tồn tại trên hệ thống',
+            ], 404);
+        }
+
+        return Storage::disk('local')->download($file->file_path, $file->file_name);
     }
 }

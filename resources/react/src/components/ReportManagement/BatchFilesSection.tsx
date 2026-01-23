@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   Card,
   Upload,
@@ -14,6 +14,7 @@ import {
   Divider,
   Empty,
   Spin,
+  Alert,
 } from 'antd'
 import {
   UploadOutlined,
@@ -31,11 +32,10 @@ import type { UploadFile } from 'antd/es/upload/interface'
 import {
   getBatchFiles,
   uploadOwnerFile,
-  uploadCollaboratorFile,
   downloadBatchFile,
   deleteBatchFile,
   BatchFile,
-  CollaboratorFileGroup,
+  CollaboratorFilesByActivity,
 } from '../../services/reportBatchApi'
 
 const { Text, Title } = Typography
@@ -58,37 +58,32 @@ const BatchFilesSection: React.FC<BatchFilesSectionProps> = ({
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [ownerFiles, setOwnerFiles] = useState<BatchFile[]>([])
-  const [collaboratorFiles, setCollaboratorFiles] = useState<CollaboratorFileGroup[]>([])
+  const [collaboratorFilesByActivity, setCollaboratorFilesByActivity] = useState<CollaboratorFilesByActivity[]>([])
 
   // Owner file upload state
   const [ownerFileList, setOwnerFileList] = useState<UploadFile[]>([])
   const [documentTitle, setDocumentTitle] = useState('')
 
-  // Collaborator file upload state
-  const [collaboratorFileList, setCollaboratorFileList] = useState<UploadFile[]>([])
-  const [collaboratorFileTitle, setCollaboratorFileTitle] = useState('')
-
   // Load files
-  const loadFiles = async () => {
+  const loadFiles = useCallback(async () => {
+    if (!batchId) return
     setLoading(true)
     try {
       const response = await getBatchFiles(batchId)
       if (response.success) {
         setOwnerFiles(response.data.owner_files)
-        setCollaboratorFiles(response.data.collaborator_files)
+        setCollaboratorFilesByActivity(response.data.collaborator_files_by_activity || [])
       }
     } catch (error) {
       console.error('Failed to load batch files:', error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [batchId])
 
   useEffect(() => {
-    if (batchId) {
-      loadFiles()
-    }
-  }, [batchId])
+    loadFiles()
+  }, [loadFiles])
 
   // Get file icon
   const getFileIcon = (fileType?: string | null) => {
@@ -128,27 +123,10 @@ const BatchFilesSection: React.FC<BatchFilesSectionProps> = ({
     }
   }
 
-  // Handle collaborator file upload
-  const handleCollaboratorUpload = async () => {
-    if (collaboratorFileList.length === 0) {
-      message.warning('Vui lòng chọn file để upload')
-      return
-    }
-
-    setUploading(true)
-    try {
-      const file = collaboratorFileList[0].originFileObj as File
-      await uploadCollaboratorFile(batchId, file, collaboratorFileTitle.trim() || undefined)
-      message.success('Upload file minh chứng thành công')
-      setCollaboratorFileList([])
-      setCollaboratorFileTitle('')
-      loadFiles()
-      onFilesChange?.()
-    } catch (error: any) {
-      message.error(error.message || 'Upload thất bại')
-    } finally {
-      setUploading(false)
-    }
+  // Get total collaborator files count
+  const getTotalCollaboratorFiles = () => {
+    return collaboratorFilesByActivity.reduce((sum, activity) =>
+      sum + activity.organizations.reduce((orgSum, org) => orgSum + org.files.length, 0), 0)
   }
 
   // Handle download
@@ -288,62 +266,102 @@ const BatchFilesSection: React.FC<BatchFilesSectionProps> = ({
         )}
       </Card>
 
-      {/* File minh chứng từ đơn vị phối hợp */}
+      {/* File minh chứng từ đơn vị phối hợp - Grouped by Activity */}
       <Card
         size="small"
         title={
           <Space>
             <TeamOutlined />
             <span>File minh chứng từ đơn vị phối hợp</span>
-            <Tag>{collaboratorFiles.reduce((sum, g) => sum + g.files.length, 0)} file</Tag>
+            <Tag>{getTotalCollaboratorFiles()} file</Tag>
           </Space>
         }
       >
-        {collaboratorFiles.length > 0 ? (
-          collaboratorFiles.map((group) => (
-            <div key={group.organization.id} style={{ marginBottom: 16 }}>
-              <Title level={5} style={{ marginBottom: 8 }}>
-                <Tag color="green">{group.organization.short_name || group.organization.name}</Tag>
-              </Title>
-              <List
-                size="small"
-                dataSource={group.files}
-                renderItem={(file) => (
-                  <List.Item
-                    actions={[
-                      <Tooltip title="Tải xuống" key="download">
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={<DownloadOutlined />}
-                          onClick={() => handleDownload(file)}
+        {collaboratorFilesByActivity.length > 0 ? (
+          collaboratorFilesByActivity.map((activityGroup) => (
+            <div key={activityGroup.activity_id || 'general'} style={{ marginBottom: 16 }}>
+              {/* Activity Header */}
+              <div style={{
+                background: '#e6f7ff',
+                padding: '6px 10px',
+                borderRadius: 4,
+                marginBottom: 8
+              }}>
+                <Text strong style={{ fontSize: 12 }}>
+                  {activityGroup.activity?.title || 'Chung cho đợt báo cáo'}
+                </Text>
+              </div>
+
+              {/* Files by organization */}
+              {activityGroup.organizations.map((orgGroup) => (
+                <div key={orgGroup.organization.id} style={{ marginLeft: 12, marginBottom: 8 }}>
+                  <Tag color="green" style={{ marginBottom: 4 }}>
+                    {orgGroup.organization.short_name || orgGroup.organization.name}
+                  </Tag>
+                  <List
+                    size="small"
+                    dataSource={orgGroup.files}
+                    renderItem={(file) => (
+                      <List.Item
+                        style={{ padding: '4px 0' }}
+                        actions={[
+                          <Tooltip title="Tải xuống" key="download">
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<DownloadOutlined />}
+                              onClick={() => handleDownload(file)}
+                            />
+                          </Tooltip>,
+                          canEdit && isOwner && (
+                            <Popconfirm
+                              key="delete"
+                              title="Bạn có chắc muốn xóa file này?"
+                              onConfirm={() => handleDelete(file)}
+                              okText="Xóa"
+                              cancelText="Hủy"
+                            >
+                              <Button type="text" size="small" icon={<DeleteOutlined />} danger />
+                            </Popconfirm>
+                          ),
+                        ].filter(Boolean)}
+                      >
+                        <List.Item.Meta
+                          avatar={getFileIcon(file.file_type)}
+                          title={
+                            <Tooltip title={file.title || file.file_name}>
+                              <Text strong style={{
+                                display: 'block',
+                                maxWidth: 180,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                fontSize: 12
+                              }}>
+                                {file.title || file.file_name}
+                              </Text>
+                            </Tooltip>
+                          }
+                          description={
+                            <Tooltip title={file.file_name}>
+                              <Text type="secondary" style={{
+                                fontSize: 10,
+                                display: 'block',
+                                maxWidth: 180,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {file.file_name} ({file.file_size_formatted})
+                              </Text>
+                            </Tooltip>
+                          }
                         />
-                      </Tooltip>,
-                      canEdit && file.organization?.id === group.organization.id && (
-                        <Popconfirm
-                          key="delete"
-                          title="Bạn có chắc muốn xóa file này?"
-                          onConfirm={() => handleDelete(file)}
-                          okText="Xóa"
-                          cancelText="Hủy"
-                        >
-                          <Button type="text" size="small" icon={<DeleteOutlined />} danger />
-                        </Popconfirm>
-                      ),
-                    ].filter(Boolean)}
-                  >
-                    <List.Item.Meta
-                      avatar={getFileIcon(file.file_type)}
-                      title={file.title || file.file_name}
-                      description={
-                        <Text type="secondary" style={{ fontSize: 11 }}>
-                          {file.file_name} ({file.file_size_formatted})
-                        </Text>
-                      }
-                    />
-                  </List.Item>
-                )}
-              />
+                      </List.Item>
+                    )}
+                  />
+                </div>
+              ))}
             </div>
           ))
         ) : (
@@ -353,39 +371,14 @@ const BatchFilesSection: React.FC<BatchFilesSectionProps> = ({
           />
         )}
 
-        {/* Collaborator upload form */}
-        {canEdit && isCollaborator && (
-          <>
-            <Divider style={{ margin: '12px 0' }} />
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Input
-                placeholder="Mô tả file (tùy chọn)"
-                value={collaboratorFileTitle}
-                onChange={(e) => setCollaboratorFileTitle(e.target.value)}
-              />
-              <Space>
-                <Upload
-                  beforeUpload={() => false}
-                  fileList={collaboratorFileList}
-                  onChange={({ fileList }) => setCollaboratorFileList(fileList.slice(-1))}
-                  maxCount={1}
-                >
-                  <Button icon={<UploadOutlined />}>Chọn file</Button>
-                </Upload>
-                <Button
-                  type="primary"
-                  onClick={handleCollaboratorUpload}
-                  loading={uploading}
-                  disabled={collaboratorFileList.length === 0}
-                >
-                  Upload minh chứng
-                </Button>
-              </Space>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                Bạn có thể upload nhiều file minh chứng cho đợt báo cáo này.
-              </Text>
-            </Space>
-          </>
+        {/* Note: Collaborator upload is now done in CollaboratorReportView per activity */}
+        {isCollaborator && (
+          <Alert
+            type="info"
+            message="Để upload file minh chứng, vui lòng chọn hoạt động cụ thể và nhấn 'Nhập báo cáo'"
+            showIcon
+            style={{ marginTop: 8 }}
+          />
         )}
       </Card>
     </div>

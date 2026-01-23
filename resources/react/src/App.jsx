@@ -12,6 +12,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import SharedFilesPage from './pages/SharedFilesPage'
 import MaintenancePage from './pages/MaintenancePage'
+import PublicBatchFilesPage from './pages/PublicBatchFilesPage'
 import { getMaintenanceStatus } from './services/maintenanceApi'
 
 // Protected Route Component
@@ -101,6 +102,9 @@ function App() {
 
         {/* Unauthorized Page - No auth required */}
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
+
+        {/* Public Batch Files - accessible via share token without auth */}
+        <Route path="/batch-files/:token" element={<PublicBatchFilesPage />} />
 
         {/* Protected Routes */}
         <Route path="/dashboard" element={

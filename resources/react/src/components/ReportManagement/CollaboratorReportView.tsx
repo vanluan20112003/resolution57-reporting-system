@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Card,
   Button,
@@ -20,6 +20,9 @@ import {
   Progress,
   Form,
   Divider,
+  Upload,
+  List,
+  Popconfirm,
 } from 'antd'
 import {
   EyeOutlined,
@@ -36,21 +39,74 @@ import {
   EditOutlined,
   WarningOutlined,
   SendOutlined,
+  UploadOutlined,
+  FileOutlined,
+  FilePdfOutlined,
+  FileWordOutlined,
+  FileExcelOutlined,
+  DownloadOutlined,
+  DeleteOutlined,
+  PaperClipOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
+import type { UploadFile } from 'antd/es/upload/interface'
 import dayjs from 'dayjs'
 import * as reportBatchApi from '../../services/reportBatchApi'
-import BatchFilesSection from './BatchFilesSection'
 import type {
   CollaboratorBatch,
   CollaboratorSummary,
   CollaboratorBatchDetail,
   CollaboratorBatchActivity,
   BatchStatus,
+  BatchFile,
+  CollaboratorFilesByActivity,
 } from '../../services/reportBatchApi'
 
 const { Title, Text, Paragraph } = Typography
 const { TextArea } = Input
+
+// Draft interface for localStorage
+interface ResponseDraft {
+  content: string
+  difficulties: string
+  recommendations: string
+  explanation: string
+  savedAt: string
+}
+
+// Helper to get draft key
+const getDraftKey = (batchId: string, activityId: string) =>
+  `response_draft_${batchId}_${activityId}`
+
+// Helper to save draft to localStorage
+const saveDraft = (batchId: string, activityId: string, draft: Omit<ResponseDraft, 'savedAt'>) => {
+  const key = getDraftKey(batchId, activityId)
+  const data: ResponseDraft = {
+    ...draft,
+    savedAt: new Date().toISOString(),
+  }
+  localStorage.setItem(key, JSON.stringify(data))
+}
+
+// Helper to load draft from localStorage
+const loadDraft = (batchId: string, activityId: string): ResponseDraft | null => {
+  const key = getDraftKey(batchId, activityId)
+  const data = localStorage.getItem(key)
+  if (data) {
+    try {
+      return JSON.parse(data) as ResponseDraft
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
+// Helper to clear draft from localStorage
+const clearDraft = (batchId: string, activityId: string) => {
+  const key = getDraftKey(batchId, activityId)
+  localStorage.removeItem(key)
+}
 
 function CollaboratorReportView() {
   // List state
@@ -76,7 +132,23 @@ function CollaboratorReportView() {
   const [responseModalVisible, setResponseModalVisible] = useState(false)
   const [selectedActivity, setSelectedActivity] = useState<CollaboratorBatchActivity | null>(null)
   const [responseContent, setResponseContent] = useState('')
+  const [responseDifficulties, setResponseDifficulties] = useState('')
+  const [responseRecommendations, setResponseRecommendations] = useState('')
+  const [responseExplanation, setResponseExplanation] = useState('')
   const [submittingResponse, setSubmittingResponse] = useState(false)
+
+  // File upload state
+  const [ownerFiles, setOwnerFiles] = useState<BatchFile[]>([])
+  const [activityFiles, setActivityFiles] = useState<CollaboratorFilesByActivity[]>([])
+  const [uploadFileList, setUploadFileList] = useState<UploadFile[]>([])
+  const [uploadFileTitle, setUploadFileTitle] = useState('')
+  const [uploadingFile, setUploadingFile] = useState(false)
+
+  // Draft state
+  const [hasDraft, setHasDraft] = useState(false)
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null)
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const [isRestoringDraft, setIsRestoringDraft] = useState(false)
 
   // Fetch summary
   const fetchSummary = useCallback(async () => {
@@ -123,6 +195,10 @@ function CollaboratorReportView() {
     try {
       const response = await reportBatchApi.getCollaboratorBatchDetail(id)
       setDetailBatch(response.data)
+      // Also fetch files
+      const filesResponse = await reportBatchApi.getBatchFiles(id)
+      setOwnerFiles(filesResponse.data.owner_files || [])
+      setActivityFiles(filesResponse.data.collaborator_files_by_activity || [])
     } catch (error: any) {
       message.error(error.message || 'Không thể tải thông tin đợt báo cáo')
     } finally {
@@ -133,14 +209,244 @@ function CollaboratorReportView() {
   // Open detail modal
   const handleViewDetail = (record: CollaboratorBatch) => {
     setDetailVisible(true)
+    setOwnerFiles([])
+    setActivityFiles([])
     fetchBatchDetail(record.id)
   }
 
+  // Get files for specific activity
+  const getFilesForActivity = (activityId: string): BatchFile[] => {
+    const activityGroup = activityFiles.find(g => g.activity_id === activityId)
+    if (!activityGroup) return []
+    // Get files from all organizations for this activity
+    return activityGroup.organizations.flatMap(org => org.files)
+  }
+
+  // Get file icon
+  const getFileIcon = (fileType?: string | null) => {
+    if (!fileType) return <FileOutlined />
+    if (fileType.includes('pdf')) return <FilePdfOutlined style={{ color: '#f5222d' }} />
+    if (fileType.includes('word') || fileType.includes('document')) return <FileWordOutlined style={{ color: '#2f54eb' }} />
+    if (fileType.includes('excel') || fileType.includes('spreadsheet')) return <FileExcelOutlined style={{ color: '#52c41a' }} />
+    return <FileOutlined style={{ color: '#1890ff' }} />
+  }
+
+  // Upload file for activity
+  const handleUploadFile = async () => {
+    if (!detailBatch || !selectedActivity || uploadFileList.length === 0) return
+
+    setUploadingFile(true)
+    try {
+      const file = uploadFileList[0].originFileObj as File
+      // Auto generate title if not provided
+      const existingFiles = getFilesForActivity(selectedActivity.id)
+      const autoTitle = uploadFileTitle.trim() || `Tài liệu ${existingFiles.length + 1}`
+
+      await reportBatchApi.uploadCollaboratorFile(
+        detailBatch.id,
+        selectedActivity.id,
+        file,
+        autoTitle
+      )
+      message.success('Upload file minh chứng thành công')
+      setUploadFileList([])
+      setUploadFileTitle('')
+      // Reload files
+      const filesResponse = await reportBatchApi.getBatchFiles(detailBatch.id)
+      setActivityFiles(filesResponse.data.collaborator_files_by_activity || [])
+    } catch (error: any) {
+      message.error(error.message || 'Upload thất bại')
+    } finally {
+      setUploadingFile(false)
+    }
+  }
+
+  // Download file
+  const handleDownloadFile = async (file: BatchFile) => {
+    if (!detailBatch) return
+    try {
+      await reportBatchApi.downloadBatchFile(detailBatch.id, file.id, file.file_name)
+    } catch (error: any) {
+      message.error(error.message || 'Tải file thất bại')
+    }
+  }
+
+  // Delete file
+  const handleDeleteFile = async (file: BatchFile) => {
+    if (!detailBatch) return
+    try {
+      await reportBatchApi.deleteBatchFile(detailBatch.id, file.id)
+      message.success('Xóa file thành công')
+      // Reload files
+      const filesResponse = await reportBatchApi.getBatchFiles(detailBatch.id)
+      setActivityFiles(filesResponse.data.collaborator_files_by_activity || [])
+    } catch (error: any) {
+      message.error(error.message || 'Xóa file thất bại')
+    }
+  }
+
+  // Auto-save draft effect
+  useEffect(() => {
+    if (!responseModalVisible || !detailBatch || !selectedActivity) return
+
+    // Clear previous timer
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current)
+    }
+
+    // Don't auto-save if restoring draft
+    if (isRestoringDraft) return
+
+    // Set new timer to save after 2 seconds of inactivity
+    autoSaveTimerRef.current = setTimeout(() => {
+      // Get the submitted response values (or empty string if not submitted)
+      const submittedContent = selectedActivity.my_response?.content || ''
+      const submittedDifficulties = selectedActivity.my_response?.difficulties || ''
+      const submittedRecommendations = selectedActivity.my_response?.recommendations || ''
+      const submittedExplanation = selectedActivity.my_response?.explanation || ''
+
+      // Check if current values are DIFFERENT from submitted values
+      const hasChanges =
+        responseContent.trim() !== submittedContent ||
+        responseDifficulties.trim() !== submittedDifficulties ||
+        responseRecommendations.trim() !== submittedRecommendations ||
+        responseExplanation.trim() !== submittedExplanation
+
+      // Only save draft if there are actual changes
+      if (hasChanges) {
+        saveDraft(detailBatch.id, selectedActivity.id, {
+          content: responseContent,
+          difficulties: responseDifficulties,
+          recommendations: responseRecommendations,
+          explanation: responseExplanation,
+        })
+        setDraftSavedAt(new Date().toISOString())
+        setHasDraft(true)
+      } else {
+        // No changes from submitted - clear any existing draft
+        clearDraft(detailBatch.id, selectedActivity.id)
+        setHasDraft(false)
+        setDraftSavedAt(null)
+      }
+    }, 2000)
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current)
+      }
+    }
+  }, [responseContent, responseDifficulties, responseRecommendations, responseExplanation,
+    responseModalVisible, detailBatch, selectedActivity, isRestoringDraft])
+
   // Open response form
   const handleOpenResponseForm = (activity: CollaboratorBatchActivity) => {
+    if (!detailBatch) return
+
     setSelectedActivity(activity)
-    setResponseContent(activity.my_response?.content || '')
-    setResponseModalVisible(true)
+    setIsRestoringDraft(true)
+
+    // Check for existing draft
+    const draft = loadDraft(detailBatch.id, activity.id)
+
+    if (draft && !activity.my_response) {
+      // Has draft and no submitted response - ask to restore
+      Modal.confirm({
+        title: 'Khôi phục bản nháp?',
+        content: (
+          <div>
+            <p>Bạn có bản nháp chưa gửi từ {dayjs(draft.savedAt).format('DD/MM/YYYY HH:mm')}.</p>
+            <p>Bạn muốn khôi phục bản nháp này không?</p>
+          </div>
+        ),
+        okText: 'Khôi phục',
+        cancelText: 'Bỏ qua',
+        onOk: () => {
+          setResponseContent(draft.content)
+          setResponseDifficulties(draft.difficulties)
+          setResponseRecommendations(draft.recommendations)
+          setResponseExplanation(draft.explanation)
+          setHasDraft(true)
+          setDraftSavedAt(draft.savedAt)
+          setIsRestoringDraft(false)
+          setResponseModalVisible(true)
+        },
+        onCancel: () => {
+          // Clear old draft and use empty/existing response
+          clearDraft(detailBatch.id, activity.id)
+          setResponseContent(activity.my_response?.content || '')
+          setResponseDifficulties(activity.my_response?.difficulties || '')
+          setResponseRecommendations(activity.my_response?.recommendations || '')
+          setResponseExplanation(activity.my_response?.explanation || '')
+          setHasDraft(false)
+          setDraftSavedAt(null)
+          setIsRestoringDraft(false)
+          setResponseModalVisible(true)
+        },
+      })
+    } else if (draft && activity.my_response) {
+      // Has draft and has submitted response - check if draft is newer
+      const draftTime = new Date(draft.savedAt).getTime()
+      const submitTime = activity.my_response.submitted_at
+        ? new Date(activity.my_response.submitted_at).getTime()
+        : 0
+
+      if (draftTime > submitTime) {
+        // Draft is newer than submitted response
+        Modal.confirm({
+          title: 'Khôi phục bản nháp?',
+          content: (
+            <div>
+              <p>Bạn có bản nháp mới hơn báo cáo đã gửi từ {dayjs(draft.savedAt).format('DD/MM/YYYY HH:mm')}.</p>
+              <p>Bạn muốn khôi phục bản nháp này không?</p>
+            </div>
+          ),
+          okText: 'Khôi phục',
+          cancelText: 'Dùng bản đã gửi',
+          onOk: () => {
+            setResponseContent(draft.content)
+            setResponseDifficulties(draft.difficulties)
+            setResponseRecommendations(draft.recommendations)
+            setResponseExplanation(draft.explanation)
+            setHasDraft(true)
+            setDraftSavedAt(draft.savedAt)
+            setIsRestoringDraft(false)
+            setResponseModalVisible(true)
+          },
+          onCancel: () => {
+            clearDraft(detailBatch.id, activity.id)
+            setResponseContent(activity.my_response?.content || '')
+            setResponseDifficulties(activity.my_response?.difficulties || '')
+            setResponseRecommendations(activity.my_response?.recommendations || '')
+            setResponseExplanation(activity.my_response?.explanation || '')
+            setHasDraft(false)
+            setDraftSavedAt(null)
+            setIsRestoringDraft(false)
+            setResponseModalVisible(true)
+          },
+        })
+      } else {
+        // Submitted response is newer, use it
+        clearDraft(detailBatch.id, activity.id)
+        setResponseContent(activity.my_response?.content || '')
+        setResponseDifficulties(activity.my_response?.difficulties || '')
+        setResponseRecommendations(activity.my_response?.recommendations || '')
+        setResponseExplanation(activity.my_response?.explanation || '')
+        setHasDraft(false)
+        setDraftSavedAt(null)
+        setIsRestoringDraft(false)
+        setResponseModalVisible(true)
+      }
+    } else {
+      // No draft, use existing response or empty
+      setResponseContent(activity.my_response?.content || '')
+      setResponseDifficulties(activity.my_response?.difficulties || '')
+      setResponseRecommendations(activity.my_response?.recommendations || '')
+      setResponseExplanation(activity.my_response?.explanation || '')
+      setHasDraft(false)
+      setDraftSavedAt(null)
+      setIsRestoringDraft(false)
+      setResponseModalVisible(true)
+    }
   }
 
   // Submit response
@@ -152,16 +458,32 @@ function CollaboratorReportView() {
       return
     }
 
+    // Check if explanation is required (overdue)
+    if (selectedActivity.requires_explanation && !responseExplanation.trim()) {
+      message.warning('Vui lòng nhập nội dung giải trình vì đã quá hạn nộp báo cáo')
+      return
+    }
+
     setSubmittingResponse(true)
     try {
       await reportBatchApi.submitCollaboratorResponse(detailBatch.id, {
         activity_id: selectedActivity.id,
         content: responseContent.trim(),
+        difficulties: responseDifficulties.trim() || undefined,
+        recommendations: responseRecommendations.trim() || undefined,
+        explanation: responseExplanation.trim() || undefined,
       })
       message.success('Đã gửi báo cáo thành công')
+      // Clear draft after successful submit
+      clearDraft(detailBatch.id, selectedActivity.id)
+      setHasDraft(false)
+      setDraftSavedAt(null)
       setResponseModalVisible(false)
       setSelectedActivity(null)
       setResponseContent('')
+      setResponseDifficulties('')
+      setResponseRecommendations('')
+      setResponseExplanation('')
       // Refresh detail
       fetchBatchDetail(detailBatch.id)
       // Refresh summary
@@ -172,6 +494,62 @@ function CollaboratorReportView() {
     } finally {
       setSubmittingResponse(false)
     }
+  }
+
+  // Handle close response modal with warnings
+  const handleCloseResponseModal = () => {
+    // Check if there's a file selected but not uploaded
+    if (uploadFileList.length > 0) {
+      Modal.confirm({
+        title: 'Có file chưa upload',
+        content: 'Bạn đã chọn file nhưng chưa upload. File sẽ bị mất nếu đóng form. Bạn có muốn tiếp tục?',
+        okText: 'Đóng form',
+        cancelText: 'Quay lại',
+        okButtonProps: { danger: true },
+        onOk: () => {
+          closeResponseModal()
+        },
+      })
+      return
+    }
+
+    // Check if there are unsaved changes
+    const hasUnsavedChanges = detailBatch && selectedActivity && (
+      responseContent.trim() !== (selectedActivity.my_response?.content || '') ||
+      responseDifficulties.trim() !== (selectedActivity.my_response?.difficulties || '') ||
+      responseRecommendations.trim() !== (selectedActivity.my_response?.recommendations || '') ||
+      responseExplanation.trim() !== (selectedActivity.my_response?.explanation || '')
+    )
+
+    if (hasUnsavedChanges) {
+      Modal.confirm({
+        title: 'Có thay đổi chưa lưu',
+        content: 'Nội dung đã nhập sẽ được lưu tạm. Bạn có thể tiếp tục sau.',
+        okText: 'Đóng form',
+        cancelText: 'Tiếp tục nhập',
+        onOk: () => {
+          // Draft is auto-saved, just close
+          closeResponseModal()
+        },
+      })
+      return
+    }
+
+    closeResponseModal()
+  }
+
+  // Actually close the modal
+  const closeResponseModal = () => {
+    setResponseModalVisible(false)
+    setSelectedActivity(null)
+    setResponseContent('')
+    setResponseDifficulties('')
+    setResponseRecommendations('')
+    setResponseExplanation('')
+    setUploadFileList([])
+    setUploadFileTitle('')
+    setHasDraft(false)
+    setDraftSavedAt(null)
   }
 
   // Status tag colors
@@ -449,9 +827,9 @@ function CollaboratorReportView() {
               {/* Overdue Alert */}
               {detailBatch.is_overdue && (
                 <Alert
-                  type="error"
+                  type="warning"
                   message="Đã quá hạn nộp báo cáo"
-                  description={`Hạn nộp: ${dayjs(detailBatch.deadline).format('DD/MM/YYYY HH:mm')}. Bạn không thể nộp thêm báo cáo.`}
+                  description={`Hạn nộp: ${dayjs(detailBatch.deadline).format('DD/MM/YYYY HH:mm')}. Bạn vẫn có thể nộp báo cáo nhưng cần nhập nội dung giải trình.`}
                   showIcon
                   icon={<WarningOutlined />}
                   style={{ marginBottom: 16 }}
@@ -544,13 +922,64 @@ function CollaboratorReportView() {
                       </div>
                     )}
 
-                    {/* Batch Files Section */}
-                    <BatchFilesSection
-                      batchId={detailBatch.id}
-                      isOwner={false}
-                      isCollaborator={true}
-                      canEdit={!detailBatch.is_overdue}
-                    />
+                    {/* Owner Files (Văn bản giao nhiệm vụ) - Read only */}
+                    <div style={{ marginTop: 12 }}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        <PaperClipOutlined style={{ marginRight: 4 }} />
+                        Văn bản giao nhiệm vụ
+                      </Text>
+                      <div style={{ marginTop: 4, padding: '8px', background: '#fff', borderRadius: 4 }}>
+                        {ownerFiles.length > 0 ? (
+                          ownerFiles.map(file => (
+                            <div key={file.id} style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              padding: '4px 0'
+                            }}>
+                              {getFileIcon(file.file_type)}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <Tooltip title={file.title || file.file_name}>
+                                  <Text strong style={{
+                                    display: 'block',
+                                    fontSize: 12,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    {file.title || 'Văn bản giao nhiệm vụ'}
+                                  </Text>
+                                </Tooltip>
+                                <Tooltip title={file.file_name}>
+                                  <Text type="secondary" style={{
+                                    display: 'block',
+                                    fontSize: 10,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    {file.file_name} ({file.file_size_formatted})
+                                  </Text>
+                                </Tooltip>
+                              </div>
+                              <Tooltip title="Tải xuống">
+                                <Button
+                                  type="link"
+                                  size="small"
+                                  icon={<DownloadOutlined />}
+                                  onClick={() => handleDownloadFile(file)}
+                                  style={{ padding: '0 4px' }}
+                                />
+                              </Tooltip>
+                            </div>
+                          ))
+                        ) : (
+                          <Text type="secondary" style={{ fontSize: 11 }}>
+                            Chưa có văn bản giao nhiệm vụ
+                          </Text>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </Col>
 
@@ -615,9 +1044,9 @@ function CollaboratorReportView() {
                                   <div style={{
                                     marginTop: 8,
                                     padding: '8px 10px',
-                                    background: '#f6ffed',
+                                    background: activity.my_response.is_overdue_submission ? '#fff2e8' : '#f6ffed',
                                     borderRadius: 4,
-                                    borderLeft: '3px solid #52c41a'
+                                    borderLeft: `3px solid ${activity.my_response.is_overdue_submission ? '#fa8c16' : '#52c41a'}`
                                   }}>
                                     <div style={{ marginBottom: 4 }}>
                                       <Text type="secondary" style={{ fontSize: 10 }}>
@@ -625,30 +1054,117 @@ function CollaboratorReportView() {
                                         {activity.my_response.submitted_by?.first_name} {activity.my_response.submitted_by?.last_name}
                                         {' • '}
                                         {dayjs(activity.my_response.submitted_at).format('DD/MM/YY HH:mm')}
+                                        {activity.my_response.is_overdue_submission && (
+                                          <Tag color="orange" style={{ marginLeft: 8, fontSize: 10 }}>Nộp quá hạn</Tag>
+                                        )}
                                       </Text>
                                     </div>
-                                    <Text style={{ fontSize: 12, whiteSpace: 'pre-wrap' }}>{activity.my_response.content}</Text>
+                                    <div style={{ marginBottom: 4 }}>
+                                      <Text strong style={{ fontSize: 11 }}>Nội dung báo cáo:</Text>
+                                      <Text style={{ fontSize: 12, whiteSpace: 'pre-wrap', display: 'block' }}>{activity.my_response.content}</Text>
+                                    </div>
+                                    {activity.my_response.difficulties && (
+                                      <div style={{ marginTop: 6 }}>
+                                        <Text strong style={{ fontSize: 11, color: '#d46b08' }}>Khó khăn/vướng mắc:</Text>
+                                        <Text style={{ fontSize: 12, whiteSpace: 'pre-wrap', display: 'block' }}>{activity.my_response.difficulties}</Text>
+                                      </div>
+                                    )}
+                                    {activity.my_response.recommendations && (
+                                      <div style={{ marginTop: 6 }}>
+                                        <Text strong style={{ fontSize: 11, color: '#1890ff' }}>Đề xuất/kiến nghị:</Text>
+                                        <Text style={{ fontSize: 12, whiteSpace: 'pre-wrap', display: 'block' }}>{activity.my_response.recommendations}</Text>
+                                      </div>
+                                    )}
+                                    {activity.my_response.explanation && (
+                                      <div style={{ marginTop: 6 }}>
+                                        <Text strong style={{ fontSize: 11, color: '#fa541c' }}>Giải trình:</Text>
+                                        <Text style={{ fontSize: 12, whiteSpace: 'pre-wrap', display: 'block' }}>{activity.my_response.explanation}</Text>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Show uploaded files for this activity */}
+                                {getFilesForActivity(activity.id).length > 0 && (
+                                  <div style={{
+                                    marginTop: 8,
+                                    padding: '6px 10px',
+                                    background: '#fff7e6',
+                                    borderRadius: 4,
+                                    borderLeft: '3px solid #faad14'
+                                  }}>
+                                    <Text type="secondary" style={{ fontSize: 10, display: 'block', marginBottom: 4 }}>
+                                      <PaperClipOutlined style={{ marginRight: 4 }} />
+                                      File minh chứng ({getFilesForActivity(activity.id).length})
+                                    </Text>
+                                    {getFilesForActivity(activity.id).map(file => (
+                                      <div key={file.id} style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        padding: '2px 0'
+                                      }}>
+                                        {getFileIcon(file.file_type)}
+                                        <Tooltip title={file.title || file.file_name}>
+                                          <Text style={{
+                                            flex: 1,
+                                            fontSize: 11,
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                            maxWidth: 180
+                                          }}>
+                                            {file.title || file.file_name}
+                                          </Text>
+                                        </Tooltip>
+                                        <Tooltip title="Tải xuống">
+                                          <Button
+                                            type="link"
+                                            size="small"
+                                            icon={<DownloadOutlined />}
+                                            onClick={() => handleDownloadFile(file)}
+                                            style={{ padding: 0, height: 'auto' }}
+                                          />
+                                        </Tooltip>
+                                        {activity.can_submit && (
+                                          <Popconfirm
+                                            title="Xóa file này?"
+                                            onConfirm={() => handleDeleteFile(file)}
+                                            okText="Xóa"
+                                            cancelText="Hủy"
+                                          >
+                                            <Button
+                                              type="link"
+                                              size="small"
+                                              danger
+                                              icon={<DeleteOutlined />}
+                                              style={{ padding: 0, height: 'auto' }}
+                                            />
+                                          </Popconfirm>
+                                        )}
+                                      </div>
+                                    ))}
                                   </div>
                                 )}
                               </div>
 
                               <div>
-                                {activity.can_submit ? (
+                                <Space direction="vertical" size={4}>
                                   <Button
                                     type={activity.my_response ? 'default' : 'primary'}
                                     size="small"
                                     icon={activity.my_response ? <EditOutlined /> : <SendOutlined />}
                                     onClick={() => handleOpenResponseForm(activity)}
+                                    danger={activity.requires_explanation && !activity.my_response}
                                   >
-                                    {activity.my_response ? 'Sửa' : 'Nhập báo cáo'}
+                                    {activity.my_response ? 'Sửa' : activity.requires_explanation ? 'Nộp quá hạn' : 'Nhập báo cáo'}
                                   </Button>
-                                ) : (
-                                  <Tooltip title="Đã quá hạn nộp">
-                                    <Button size="small" disabled icon={<ExclamationCircleOutlined />}>
-                                      Quá hạn
-                                    </Button>
-                                  </Tooltip>
-                                )}
+                                  {activity.requires_explanation && !activity.my_response && (
+                                    <Text type="danger" style={{ fontSize: 10 }}>
+                                      <WarningOutlined /> Quá hạn
+                                    </Text>
+                                  )}
+                                </Space>
                               </div>
                             </div>
                           </div>
@@ -678,12 +1194,8 @@ function CollaboratorReportView() {
           </Space>
         }
         open={responseModalVisible}
-        onCancel={() => {
-          setResponseModalVisible(false)
-          setSelectedActivity(null)
-          setResponseContent('')
-        }}
-        width={600}
+        onCancel={handleCloseResponseModal}
+        width={700}
         centered
         okText={selectedActivity?.my_response ? 'Cập nhật' : 'Gửi báo cáo'}
         okButtonProps={{ loading: submittingResponse, icon: <SendOutlined /> }}
@@ -712,17 +1224,255 @@ function CollaboratorReportView() {
               </div>
             </div>
 
+            {/* Draft Saved Notice */}
+            {hasDraft && draftSavedAt && (
+              <Alert
+                type="info"
+                message={
+                  <Space>
+                    <CheckCircleOutlined />
+                    <span>Đã lưu tạm lúc {dayjs(draftSavedAt).format('HH:mm:ss')}</span>
+                  </Space>
+                }
+                style={{ marginBottom: 12, padding: '4px 12px' }}
+                banner
+              />
+            )}
+
+            {/* Overdue Alert */}
+            {selectedActivity.requires_explanation && (
+              <Alert
+                type="warning"
+                message="Đã quá hạn nộp báo cáo"
+                description="Bạn vẫn có thể nộp báo cáo nhưng cần nhập nội dung giải trình."
+                showIcon
+                icon={<WarningOutlined />}
+                style={{ marginBottom: 16 }}
+              />
+            )}
+
             {/* Response Input */}
             <div>
-              <Text style={{ marginBottom: 8, display: 'block' }}>Nội dung báo cáo:</Text>
+              <Text style={{ marginBottom: 8, display: 'block' }}>
+                Nội dung báo cáo: <Text type="danger">*</Text>
+              </Text>
               <TextArea
-                rows={6}
+                rows={4}
                 value={responseContent}
                 onChange={(e) => setResponseContent(e.target.value)}
                 placeholder="Nhập nội dung kết quả hoạt động mà đơn vị bạn đã thực hiện..."
                 maxLength={5000}
                 showCount
               />
+            </div>
+
+            {/* Difficulties Input */}
+            <div style={{ marginTop: 16 }}>
+              <Text style={{ marginBottom: 8, display: 'block' }}>
+                Khó khăn/vướng mắc:
+              </Text>
+              <TextArea
+                rows={2}
+                value={responseDifficulties}
+                onChange={(e) => setResponseDifficulties(e.target.value)}
+                placeholder="Nhập các khó khăn, vướng mắc trong quá trình thực hiện (nếu có)..."
+                maxLength={3000}
+                showCount
+              />
+            </div>
+
+            {/* Recommendations Input */}
+            <div style={{ marginTop: 16 }}>
+              <Text style={{ marginBottom: 8, display: 'block' }}>
+                Đề xuất/kiến nghị:
+              </Text>
+              <TextArea
+                rows={2}
+                value={responseRecommendations}
+                onChange={(e) => setResponseRecommendations(e.target.value)}
+                placeholder="Nhập các đề xuất, kiến nghị (nếu có)..."
+                maxLength={3000}
+                showCount
+              />
+            </div>
+
+            {/* Explanation Input (required if overdue) */}
+            {selectedActivity.requires_explanation && (
+              <div style={{ marginTop: 16 }}>
+                <Text style={{ marginBottom: 8, display: 'block' }}>
+                  Nội dung giải trình: <Text type="danger">*</Text>
+                </Text>
+                <TextArea
+                  rows={3}
+                  value={responseExplanation}
+                  onChange={(e) => setResponseExplanation(e.target.value)}
+                  placeholder="Vui lòng giải trình lý do nộp báo cáo quá hạn..."
+                  maxLength={3000}
+                  showCount
+                  status={!responseExplanation.trim() ? 'error' : undefined}
+                />
+                <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+                  Bắt buộc nhập vì đã quá hạn nộp báo cáo
+                </Text>
+              </div>
+            )}
+
+            {/* File Upload Section */}
+            <Divider style={{ margin: '16px 0 12px' }} />
+            <div>
+              <Text style={{ marginBottom: 8, display: 'block' }}>
+                <PaperClipOutlined style={{ marginRight: 4 }} />
+                File minh chứng cho hoạt động này:
+              </Text>
+
+              {/* Existing files for this activity */}
+              {getFilesForActivity(selectedActivity.id).length > 0 && (
+                <div style={{
+                  marginBottom: 12,
+                  padding: '8px 12px',
+                  background: '#fafafa',
+                  borderRadius: 4,
+                  border: '1px solid #f0f0f0'
+                }}>
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>
+                    Đã upload ({getFilesForActivity(selectedActivity.id).length} file):
+                  </Text>
+                  {getFilesForActivity(selectedActivity.id).map(file => (
+                    <div key={file.id} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '4px 0',
+                      borderBottom: '1px solid #f0f0f0'
+                    }}>
+                      {getFileIcon(file.file_type)}
+                      <Tooltip title={file.file_name}>
+                        <Text style={{
+                          flex: 1,
+                          fontSize: 12,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {file.title || file.file_name}
+                        </Text>
+                      </Tooltip>
+                      <Text type="secondary" style={{ fontSize: 10 }}>
+                        {file.file_size_formatted}
+                      </Text>
+                      <Button
+                        type="link"
+                        size="small"
+                        icon={<DownloadOutlined />}
+                        onClick={() => handleDownloadFile(file)}
+                        style={{ padding: '0 4px' }}
+                      />
+                      <Popconfirm
+                        title="Xóa file này?"
+                        onConfirm={() => handleDeleteFile(file)}
+                        okText="Xóa"
+                        cancelText="Hủy"
+                      >
+                        <Button
+                          type="link"
+                          size="small"
+                          danger
+                          icon={<DeleteOutlined />}
+                          style={{ padding: '0 4px' }}
+                        />
+                      </Popconfirm>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Upload new file */}
+              <div style={{ marginTop: 8 }}>
+                <Input
+                  placeholder={`Tên tài liệu (mặc định: Tài liệu ${getFilesForActivity(selectedActivity.id).length + 1})`}
+                  value={uploadFileTitle}
+                  onChange={(e) => setUploadFileTitle(e.target.value)}
+                  style={{ marginBottom: 8 }}
+                  size="small"
+                />
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <Upload
+                    beforeUpload={() => false}
+                    fileList={uploadFileList}
+                    onChange={({ fileList }) => setUploadFileList(fileList.slice(-1))}
+                    maxCount={1}
+                    showUploadList={false}
+                  >
+                    <Button icon={<UploadOutlined />} size="small">Chọn file</Button>
+                  </Upload>
+                  <Button
+                    type="primary"
+                    size="small"
+                    onClick={handleUploadFile}
+                    loading={uploadingFile}
+                    disabled={uploadFileList.length === 0}
+                  >
+                    Upload
+                  </Button>
+                </div>
+                {uploadFileList.length > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '6px 10px',
+                    background: '#fff7e6',
+                    borderRadius: 4,
+                    marginTop: 8,
+                    border: '1px solid #ffd591'
+                  }}>
+                    <WarningOutlined style={{ color: '#fa8c16' }} />
+                    <FileOutlined style={{ color: '#1890ff' }} />
+                    <Tooltip title={uploadFileList[0].name}>
+                      <Text style={{
+                        flex: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        fontSize: 12
+                      }}>
+                        {uploadFileList[0].name}
+                      </Text>
+                    </Tooltip>
+                    <Button
+                      type="primary"
+                      size="small"
+                      onClick={handleUploadFile}
+                      loading={uploadingFile}
+                      style={{ fontSize: 11 }}
+                    >
+                      Upload ngay
+                    </Button>
+                    <Button
+                      type="link"
+                      size="small"
+                      danger
+                      onClick={() => setUploadFileList([])}
+                      style={{ padding: '0 4px', fontSize: 12 }}
+                    >
+                      Hủy
+                    </Button>
+                  </div>
+                )}
+                {uploadFileList.length > 0 && (
+                  <Alert
+                    type="warning"
+                    message="Bạn đã chọn file nhưng chưa upload. Nhấn 'Upload ngay' hoặc file sẽ bị mất khi đóng form."
+                    style={{ marginTop: 8, padding: '4px 10px', fontSize: 11 }}
+                    banner
+                  />
+                )}
+                {uploadFileList.length === 0 && (
+                  <Text type="secondary" style={{ fontSize: 10, display: 'block', marginTop: 4 }}>
+                    Có thể upload nhiều file minh chứng cho hoạt động này.
+                  </Text>
+                )}
+              </div>
             </div>
 
             {selectedActivity.my_response && (

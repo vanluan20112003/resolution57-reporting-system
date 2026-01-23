@@ -18,6 +18,10 @@ export interface CollaboratorResponse {
   activity_id: string
   submitted_by: string | null
   content: string
+  difficulties?: string | null
+  recommendations?: string | null
+  explanation?: string | null
+  is_overdue_submission?: boolean
   submitted_at: string | null
   created_at: string
   updated_at: string
@@ -390,6 +394,9 @@ export interface CollaboratorResponsesResponse {
 export interface SubmitResponseData {
   activity_id: string
   content: string
+  difficulties?: string
+  recommendations?: string
+  explanation?: string
 }
 
 /**
@@ -488,6 +495,10 @@ export interface CollaboratorSummaryResponse {
 export interface CollaboratorActivityResponse {
   id: string
   content: string
+  difficulties?: string | null
+  recommendations?: string | null
+  explanation?: string | null
+  is_overdue_submission?: boolean
   submitted_at: string | null
   submitted_by?: {
     id: string
@@ -500,6 +511,7 @@ export interface CollaboratorActivityResponse {
 export interface CollaboratorBatchActivity extends BatchActivity {
   my_response?: CollaboratorActivityResponse | null
   can_submit?: boolean
+  requires_explanation?: boolean
 }
 
 export interface CollaboratorBatchDetail extends Omit<ReportBatch, 'activities'> {
@@ -581,39 +593,31 @@ export const getCollaboratorBatchDetail = async (id: string): Promise<Collaborat
 
 // ==================== Export Batch Report APIs ====================
 
-export interface ActivityPreview {
-  id: string
+export interface ExportPreviewRow {
+  stt: number
+  code: string
   title: string
-  kpis: string
-  lead_organization: string
-  collaborating_organizations: string
+  kpi_tasks: string
+  organization: string
+  owner_file: string
   status: string
-  completion_percentage: number
-  start_date: string
-  end_date: string
+  response_content: string
+  difficulties: string
+  recommendations: string
+  share_file_url: string
+  explanation: string
 }
 
-export interface ResponsePreview {
-  organization_id: string
-  organization_name: string
-  has_response: boolean
-  content: string | null
-  submitter: string | null
-  submitted_at: string | null
-}
-
-export interface CollaboratorResponseGrouped {
-  activity_id: string
-  activity_title: string
-  kpis: string
-  total_collaborators: number
-  submitted_count: number
-  responses: ResponsePreview[]
+export interface ExportPreviewColumn {
+  key: string
+  label: string
+  width: number
 }
 
 export interface ExportPreviewStatistics {
   total_activities: number
-  activities_with_collaborators: number
+  completed: number
+  in_progress: number
   total_required_responses: number
   total_submitted: number
   completion_percentage: number
@@ -629,14 +633,17 @@ export interface ExportPreviewResponse {
       start_date: string | null
       end_date: string | null
       deadline: string | null
+      share_token: string | null
+      share_file_url: string
+      owner_file_title: string
       organization?: {
         id: string
         name: string
         short_name?: string
       }
     }
-    activities: ActivityPreview[]
-    collaborator_responses: CollaboratorResponseGrouped[]
+    preview_rows: ExportPreviewRow[]
+    columns: ExportPreviewColumn[]
     statistics: ExportPreviewStatistics
   }
 }
@@ -748,6 +755,11 @@ export const downloadBatchExport = async (batchId: string, exportId: string): Pr
 
 export interface BatchFile {
   id: string
+  activity_id: string | null
+  activity: {
+    id: string
+    title: string
+  } | null
   file_name: string
   file_path: string
   file_type: string | null
@@ -778,11 +790,20 @@ export interface CollaboratorFileGroup {
   files: BatchFile[]
 }
 
+export interface CollaboratorFilesByActivity {
+  activity_id: string | null
+  activity: {
+    id: string
+    title: string
+  } | null
+  organizations: CollaboratorFileGroup[]
+}
+
 export interface BatchFilesResponse {
   success: boolean
   data: {
     owner_files: BatchFile[]
-    collaborator_files: CollaboratorFileGroup[]
+    collaborator_files_by_activity: CollaboratorFilesByActivity[]
     total_files: number
   }
 }
@@ -846,16 +867,18 @@ export const uploadOwnerFile = async (
 }
 
 /**
- * Upload collaborator file (multiple files allowed)
+ * Upload collaborator file (multiple files allowed, linked to specific activity)
  */
 export const uploadCollaboratorFile = async (
   batchId: string,
+  activityId: string,
   file: File,
   title?: string,
   description?: string
 ): Promise<UploadFileResponse> => {
   const formData = new FormData()
   formData.append('file', file)
+  formData.append('activity_id', activityId)
   if (title) formData.append('title', title)
   if (description) formData.append('description', description)
 
@@ -917,4 +940,153 @@ export const deleteBatchFile = async (batchId: string, fileId: string): Promise<
   }
 
   return response.json()
+}
+
+// ===== FILES EXPLORER API =====
+
+export interface ExplorerFile {
+  id: string
+  file_name: string
+  file_type: string | null
+  file_size: number
+  file_size_formatted: string
+  title: string | null
+  created_at: string
+}
+
+export interface ExplorerActivityGroup {
+  activity_id: string | null
+  activity_title: string
+  files: ExplorerFile[]
+}
+
+export interface ExplorerOrganizationFolder {
+  organization_id: string
+  organization_name: string
+  activities: ExplorerActivityGroup[]
+  total_files: number
+}
+
+export interface ExplorerOrgGroup {
+  organization_id: string
+  organization_name: string
+  files: ExplorerFile[]
+}
+
+export interface ExplorerActivityFolder {
+  activity_id: string | null
+  activity_title: string
+  organizations: ExplorerOrgGroup[]
+  total_files: number
+}
+
+export interface FilesExplorerResponse {
+  success: boolean
+  data: {
+    batch: {
+      id: string
+      name: string
+      share_token: string
+    }
+    owner_files: ExplorerFile[]
+    by_organization: ExplorerOrganizationFolder[]
+    by_activity: ExplorerActivityFolder[]
+    statistics: {
+      total_files: number
+      owner_files_count: number
+      collaborator_files_count: number
+      organizations_count: number
+      activities_count: number
+    }
+  }
+}
+
+/**
+ * Get files explorer data for batch (owner only)
+ */
+export const getFilesExplorer = async (batchId: string): Promise<FilesExplorerResponse> => {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/reports/batches/${batchId}/files/explorer`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Không thể tải dữ liệu file explorer')
+  }
+
+  return response.json()
+}
+
+// ===== PUBLIC BATCH FILES API =====
+
+export interface PublicBatchFilesResponse {
+  success: boolean
+  data: {
+    batch: {
+      id: string
+      name: string
+      description: string | null
+      start_date: string | null
+      end_date: string | null
+      owner_organization: {
+        id: string
+        name: string
+        short_name?: string
+      } | null
+    }
+    owner_files: ExplorerFile[]
+    by_organization: ExplorerOrganizationFolder[]
+    by_activity: ExplorerActivityFolder[]
+    statistics: {
+      total_files: number
+      owner_files_count: number
+      collaborator_files_count: number
+      organizations_count: number
+      activities_count: number
+    }
+  }
+}
+
+/**
+ * Get batch files by share token (public, no auth required)
+ */
+export const getPublicBatchFiles = async (token: string): Promise<PublicBatchFilesResponse> => {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/batch-files/${token}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Không thể tải dữ liệu')
+  }
+
+  return response.json()
+}
+
+/**
+ * Download file by share token (public, no auth required)
+ */
+export const downloadPublicBatchFile = async (token: string, fileId: string, fileName: string): Promise<void> => {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/batch-files/${token}/download/${fileId}`, {
+    method: 'GET',
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Không thể tải file')
+  }
+
+  const blob = await response.blob()
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  document.body.appendChild(a)
+  a.click()
+  window.URL.revokeObjectURL(url)
+  document.body.removeChild(a)
 }

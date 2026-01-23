@@ -627,6 +627,10 @@ Route::prefix('v1')->group(function () {
         ]);
     });
 
+    // Public batch files route (access via share token)
+    Route::get('/batch-files/{token}', [ReportBatchController::class, 'getFilesByShareToken']);
+    Route::get('/batch-files/{token}/download/{fileId}', [ReportBatchController::class, 'downloadFileByShareToken']);
+
     // Activity Management Routes
     // All authenticated users can access (security handled in controller based on role/organization)
     Route::middleware('auth:sanctum')->prefix('activities')->group(function () {
@@ -1027,6 +1031,7 @@ Route::prefix('v1')->group(function () {
 
             // Batch files
             Route::get('/{id}/files', [ReportBatchController::class, 'getFiles']);
+            Route::get('/{id}/files/explorer', [ReportBatchController::class, 'getFilesExplorer']);
             Route::post('/{id}/files/owner', [ReportBatchController::class, 'uploadOwnerFile']);
             Route::post('/{id}/files/collaborator', [ReportBatchController::class, 'uploadCollaboratorFile']);
             Route::get('/{id}/files/{fileId}/download', [ReportBatchController::class, 'downloadFile'])

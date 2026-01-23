@@ -17,6 +17,7 @@ class ReportBatchFile extends Model
 
     protected $fillable = [
         'report_batch_id',
+        'activity_id',
         'organization_id',
         'uploaded_by',
         'file_name',
@@ -54,6 +55,11 @@ class ReportBatchFile extends Model
         return $this->belongsTo(User::class, 'uploaded_by');
     }
 
+    public function activity(): BelongsTo
+    {
+        return $this->belongsTo(Activity::class);
+    }
+
     // Scopes
     public function scopeByBatch($query, $batchId)
     {
@@ -73,6 +79,20 @@ class ReportBatchFile extends Model
     public function scopeCollaboratorFiles($query)
     {
         return $query->where('file_source', self::SOURCE_COLLABORATOR);
+    }
+
+    public function scopeByActivity($query, $activityId)
+    {
+        return $query->where('activity_id', $activityId);
+    }
+
+    public function scopeForActivity($query, $activityId)
+    {
+        // Get files for specific activity or general files (no activity)
+        return $query->where(function ($q) use ($activityId) {
+            $q->where('activity_id', $activityId)
+              ->orWhereNull('activity_id');
+        });
     }
 
     // Helpers

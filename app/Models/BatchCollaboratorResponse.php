@@ -17,11 +17,16 @@ class BatchCollaboratorResponse extends Model
         'activity_id',
         'submitted_by',
         'content',
+        'difficulties',          // Khó khăn/vướng mắc
+        'recommendations',       // Đề xuất/kiến nghị
+        'explanation',           // Nội dung giải trình (khi quá hạn)
+        'is_overdue_submission', // Đánh dấu nộp quá hạn
         'submitted_at',
     ];
 
     protected $casts = [
         'submitted_at' => 'datetime',
+        'is_overdue_submission' => 'boolean',
     ];
 
     /**

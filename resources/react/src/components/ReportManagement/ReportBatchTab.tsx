@@ -50,6 +50,10 @@ import {
   FileExcelOutlined,
   HistoryOutlined,
   UploadOutlined,
+  FileOutlined,
+  FilePdfOutlined,
+  FileWordOutlined,
+  FolderOpenOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import type { UploadFile } from 'antd/es/upload/interface'
@@ -67,12 +71,11 @@ import type {
   CollaboratorSummary,
   ExportHistoryItem,
   ExportPreviewResponse,
-  ActivityPreview,
-  CollaboratorResponseGrouped,
-  ExportPreviewStatistics,
+  BatchFile,
+  CollaboratorFilesByActivity,
 } from '../../services/reportBatchApi'
 import CollaboratorReportView from './CollaboratorReportView'
-import BatchFilesSection from './BatchFilesSection'
+import BatchFilesExplorer from './BatchFilesExplorer'
 
 const { Title, Text, Paragraph } = Typography
 const { TextArea } = Input
@@ -205,11 +208,16 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
   const [ownerFileList, setOwnerFileList] = useState<UploadFile[]>([])
   const [documentTitle, setDocumentTitle] = useState('')
   const [uploadingFile, setUploadingFile] = useState(false)
+  const [existingOwnerFile, setExistingOwnerFile] = useState<BatchFile | null>(null)
 
   // Detail modal state
   const [detailVisible, setDetailVisible] = useState(false)
   const [detailBatch, setDetailBatch] = useState<ReportBatch | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+
+  // Files state for detail view
+  const [collaboratorFilesByActivity, setCollaboratorFilesByActivity] = useState<CollaboratorFilesByActivity[]>([])
+  const [ownerFilesForDetail, setOwnerFilesForDetail] = useState<BatchFile[]>([])
 
   // Activity selection state
   const [availableActivities, setAvailableActivities] = useState<BatchActivity[]>([])
@@ -227,12 +235,16 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
   const [exportPreviewVisible, setExportPreviewVisible] = useState(false)
   const [exportPreviewLoading, setExportPreviewLoading] = useState(false)
   const [exportPreviewData, setExportPreviewData] = useState<ExportPreviewResponse['data'] | null>(null)
-  const [activePreviewTab, setActivePreviewTab] = useState<'activities' | 'responses'>('activities')
   const [exportLoading, setExportLoading] = useState(false)
   const [exportHistoryVisible, setExportHistoryVisible] = useState(false)
   const [exportHistory, setExportHistory] = useState<ExportHistoryItem[]>([])
   const [exportHistoryLoading, setExportHistoryLoading] = useState(false)
   const [currentExportBatchId, setCurrentExportBatchId] = useState<string>('')
+
+  // Files explorer state
+  const [filesExplorerVisible, setFilesExplorerVisible] = useState(false)
+  const [filesExplorerBatchId, setFilesExplorerBatchId] = useState<string>('')
+  const [filesExplorerBatchName, setFilesExplorerBatchName] = useState<string>('')
 
   // Helper: Get all activities from both sources (list view + KPI view)
   const getAllActivitiesMap = useCallback((): Map<string, BatchActivity | KpiActivityItem> => {
@@ -292,8 +304,13 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
   const fetchBatchDetail = async (id: string) => {
     setDetailLoading(true)
     try {
-      const response = await reportBatchApi.getReportBatch(id)
-      setDetailBatch(response.data)
+      const [batchResponse, filesResponse] = await Promise.all([
+        reportBatchApi.getReportBatch(id),
+        reportBatchApi.getBatchFiles(id),
+      ])
+      setDetailBatch(batchResponse.data)
+      setOwnerFilesForDetail(filesResponse.data.owner_files || [])
+      setCollaboratorFilesByActivity(filesResponse.data.collaborator_files_by_activity || [])
     } catch (error: any) {
       message.error(error.message || 'Không thể tải thông tin đợt báo cáo')
     } finally {
@@ -411,6 +428,7 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
       setSelectedActivityIds([])
       setOwnerFileList([])
       setDocumentTitle('')
+      setExistingOwnerFile(null)
       fetchBatches()
     } catch (error: any) {
       message.error(error.message || 'Không thể lưu đợt báo cáo')
@@ -438,6 +456,17 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
       const response = await reportBatchApi.getReportBatch(record.id)
       const batch = response.data
 
+      // Fetch existing files
+      const filesResponse = await reportBatchApi.getBatchFiles(record.id)
+      if (filesResponse.success && filesResponse.data.owner_files.length > 0) {
+        const ownerFile = filesResponse.data.owner_files[0]
+        setExistingOwnerFile(ownerFile)
+        setDocumentTitle(ownerFile.title || '')
+      } else {
+        setExistingOwnerFile(null)
+        setDocumentTitle('')
+      }
+
       setEditingBatch(batch)
       form.setFieldsValue({
         name: batch.name,
@@ -450,6 +479,7 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
         deadline: batch.deadline ? dayjs(batch.deadline) : undefined,
       })
       setSelectedActivityIds(batch.activities?.map(a => a.id) || [])
+      setOwnerFileList([]) // Reset file list for new upload
       setFormVisible(true)
     } catch (error: any) {
       message.error(error.message || 'Không thể tải thông tin đợt báo cáo')
@@ -464,11 +494,38 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
     fetchBatchDetail(record.id)
   }
 
+  // Get files for a specific organization in an activity
+  const getFilesForOrgInActivity = (activityId: string, organizationId: string): BatchFile[] => {
+    const activityGroup = collaboratorFilesByActivity.find(g => g.activity_id === activityId)
+    if (!activityGroup) return []
+    const orgGroup = activityGroup.organizations.find(o => o.organization.id === organizationId)
+    return orgGroup?.files || []
+  }
+
+  // Handle download file in detail view
+  const handleDownloadFile = async (file: BatchFile) => {
+    if (!detailBatch) return
+    try {
+      await reportBatchApi.downloadBatchFile(detailBatch.id, file.id, file.file_name)
+      message.success('Tải file thành công')
+    } catch (error: any) {
+      message.error(error.message || 'Tải file thất bại')
+    }
+  }
+
+  // Get file icon based on file type
+  const getFileIcon = (fileType?: string | null) => {
+    if (!fileType) return <FileOutlined style={{ color: '#8c8c8c' }} />
+    if (fileType.includes('pdf')) return <FilePdfOutlined style={{ color: '#f5222d' }} />
+    if (fileType.includes('word') || fileType.includes('document')) return <FileWordOutlined style={{ color: '#2f54eb' }} />
+    if (fileType.includes('excel') || fileType.includes('spreadsheet')) return <FileExcelOutlined style={{ color: '#52c41a' }} />
+    return <FileOutlined style={{ color: '#8c8c8c' }} />
+  }
+
   // Preview export
   const handlePreviewExport = async (batchId: string) => {
     setExportPreviewLoading(true)
     setExportPreviewVisible(true)
-    setActivePreviewTab('activities')
     try {
       const response = await reportBatchApi.previewBatchExport(batchId)
       setExportPreviewData(response.data)
@@ -788,6 +845,9 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
                       setEditingBatch(null)
                       form.resetFields()
                       setSelectedActivityIds([])
+                      setOwnerFileList([])
+                      setDocumentTitle('')
+                      setExistingOwnerFile(null)
                       setFormVisible(true)
                     }}
                   >
@@ -846,6 +906,7 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
           setActivitySearchText('')
           setOwnerFileList([])
           setDocumentTitle('')
+          setExistingOwnerFile(null)
         }}
         width={1200}
         centered
@@ -970,6 +1031,54 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
                     <UploadOutlined style={{ marginRight: 4 }} />
                     Văn bản giao nhiệm vụ
                   </Text>
+
+                  {/* Hiển thị file hiện tại khi edit */}
+                  {editingBatch && existingOwnerFile && ownerFileList.length === 0 && (
+                    <div style={{
+                      padding: '8px 12px',
+                      background: '#f6ffed',
+                      border: '1px solid #b7eb8f',
+                      borderRadius: 4,
+                      marginBottom: 8,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8
+                    }}>
+                      {existingOwnerFile.file_type?.includes('pdf') ? (
+                        <FilePdfOutlined style={{ color: '#f5222d', fontSize: 16 }} />
+                      ) : existingOwnerFile.file_type?.includes('word') || existingOwnerFile.file_type?.includes('document') ? (
+                        <FileWordOutlined style={{ color: '#2f54eb', fontSize: 16 }} />
+                      ) : (
+                        <FileOutlined style={{ color: '#1890ff', fontSize: 16 }} />
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <Tooltip title={existingOwnerFile.title || existingOwnerFile.file_name}>
+                          <Text strong style={{
+                            display: 'block',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            fontSize: 12
+                          }}>
+                            {existingOwnerFile.title || 'Văn bản giao nhiệm vụ'}
+                          </Text>
+                        </Tooltip>
+                        <Tooltip title={existingOwnerFile.file_name}>
+                          <Text type="secondary" style={{
+                            display: 'block',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            fontSize: 11
+                          }}>
+                            {existingOwnerFile.file_name} ({existingOwnerFile.file_size_formatted})
+                          </Text>
+                        </Tooltip>
+                      </div>
+                      <Tag color="green" style={{ margin: 0 }}>Đã có file</Tag>
+                    </div>
+                  )}
+
                   <Input
                     placeholder="Tên văn bản giao nhiệm vụ"
                     value={documentTitle}
@@ -1016,13 +1125,19 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
                       )}
                     >
                       <Button icon={<UploadOutlined />} size="small">
-                        {ownerFileList.length > 0 ? 'Thay thế file' : 'Chọn file'}
+                        {ownerFileList.length > 0
+                          ? 'Đổi file khác'
+                          : existingOwnerFile
+                            ? 'Thay thế file'
+                            : 'Chọn file'}
                       </Button>
                     </Upload>
                   </div>
                   <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
                     {editingBatch
-                      ? 'Có thể bỏ qua nếu không cần thay đổi file.'
+                      ? existingOwnerFile
+                        ? 'Chọn file mới nếu muốn thay thế file hiện tại.'
+                        : 'Có thể bỏ qua nếu không cần thêm file.'
                       : 'Chỉ được upload 1 file văn bản giao nhiệm vụ.'}
                   </Text>
                 </div>
@@ -1564,14 +1679,85 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
                     </div>
                   )}
 
-                  {/* Batch Files Section */}
+                  {/* Files Explorer Button */}
+                  <div style={{ marginTop: 8, marginBottom: 12 }}>
+                    <Button
+                      type="primary"
+                      ghost
+                      icon={<FolderOpenOutlined />}
+                      onClick={() => {
+                        setFilesExplorerBatchId(detailBatch.id)
+                        setFilesExplorerBatchName(detailBatch.name)
+                        setFilesExplorerVisible(true)
+                      }}
+                      block
+                    >
+                      Xem tất cả file đợt báo cáo
+                    </Button>
+                  </div>
+
+                  {/* Owner Files (Văn bản giao nhiệm vụ) */}
                   <div style={{ marginTop: 8 }}>
-                    <BatchFilesSection
-                      batchId={detailBatch.id}
-                      isOwner={true}
-                      isCollaborator={false}
-                      canEdit={detailBatch.status !== 'completed'}
-                    />
+                    <div style={{
+                      border: '1px solid #d9d9d9',
+                      borderRadius: 8,
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{
+                        background: '#e6f7ff',
+                        padding: '8px 12px',
+                        borderBottom: '1px solid #d9d9d9',
+                        fontWeight: 500
+                      }}>
+                        <Space>
+                          <UserOutlined />
+                          <span>Văn bản giao nhiệm vụ</span>
+                        </Space>
+                      </div>
+                      <div style={{ padding: 12 }}>
+                        {ownerFilesForDetail.length > 0 ? (
+                          ownerFilesForDetail.map(file => (
+                            <div
+                              key={file.id}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '8px 12px',
+                                background: '#fafafa',
+                                borderRadius: 4,
+                                marginBottom: 4
+                              }}
+                            >
+                              <Space>
+                                {getFileIcon(file.file_type)}
+                                <div>
+                                  <Text strong style={{ fontSize: 13 }}>
+                                    {file.title || 'Văn bản giao nhiệm vụ'}
+                                  </Text>
+                                  <br />
+                                  <Text type="secondary" style={{ fontSize: 11 }}>
+                                    {file.file_name} ({file.file_size_formatted})
+                                  </Text>
+                                </div>
+                              </Space>
+                              <Tooltip title="Tải xuống">
+                                <Button
+                                  type="text"
+                                  icon={<DownloadOutlined />}
+                                  onClick={() => handleDownloadFile(file)}
+                                />
+                              </Tooltip>
+                            </div>
+                          ))
+                        ) : (
+                          <Empty
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                            description="Chưa có văn bản giao nhiệm vụ"
+                          />
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </Col>
@@ -1764,45 +1950,129 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
                               </div>
                               {/* Responses for this activity */}
                               <div style={{ border: '1px solid #f0f0f0', borderTop: 'none', borderRadius: '0 0 4px 4px' }}>
-                                {group.responses.map((response, idx) => (
-                                  <div
-                                    key={response.id}
-                                    style={{
-                                      padding: '8px 10px',
-                                      background: idx % 2 === 0 ? '#fafafa' : '#fff',
-                                      borderBottom: idx < group.responses.length - 1 ? '1px solid #f0f0f0' : 'none'
-                                    }}
-                                  >
-                                    <div style={{ marginBottom: 4 }}>
-                                      <Tag color="green" style={{ marginRight: 6, fontSize: 10 }}>
-                                        {response.organization?.short_name || response.organization?.name}
-                                      </Tag>
-                                      <Text type="secondary" style={{ fontSize: 10 }}>
-                                        {response.submitter && (
-                                          <>
-                                            <UserOutlined style={{ marginRight: 2 }} />
-                                            {response.submitter.first_name} {response.submitter.last_name}
-                                            {' • '}
-                                          </>
-                                        )}
-                                        {response.submitted_at
-                                          ? dayjs(response.submitted_at).format('DD/MM/YY HH:mm')
-                                          : dayjs(response.created_at).format('DD/MM/YY HH:mm')
-                                        }
-                                      </Text>
-                                    </div>
+                                {group.responses.map((response, idx) => {
+                                  const orgFiles = response.organization?.id && group.activity?.id
+                                    ? getFilesForOrgInActivity(group.activity.id, response.organization.id)
+                                    : []
+                                  return (
                                     <div
+                                      key={response.id}
                                       style={{
-                                        padding: '4px 8px',
-                                        background: '#fff',
-                                        borderRadius: 4,
-                                        borderLeft: '2px solid #52c41a'
+                                        padding: '8px 10px',
+                                        background: idx % 2 === 0 ? '#fafafa' : '#fff',
+                                        borderBottom: idx < group.responses.length - 1 ? '1px solid #f0f0f0' : 'none'
                                       }}
                                     >
-                                      <Text style={{ fontSize: 11, whiteSpace: 'pre-wrap' }}>{response.content}</Text>
+                                      <div style={{ marginBottom: 4 }}>
+                                        <Tag color="green" style={{ marginRight: 6, fontSize: 10 }}>
+                                          {response.organization?.short_name || response.organization?.name}
+                                        </Tag>
+                                        {response.is_overdue_submission && (
+                                          <Tag color="orange" style={{ marginRight: 6, fontSize: 10 }}>Nộp quá hạn</Tag>
+                                        )}
+                                        <Text type="secondary" style={{ fontSize: 10 }}>
+                                          {response.submitter && (
+                                            <>
+                                              <UserOutlined style={{ marginRight: 2 }} />
+                                              {response.submitter.first_name} {response.submitter.last_name}
+                                              {' • '}
+                                            </>
+                                          )}
+                                          {response.submitted_at
+                                            ? dayjs(response.submitted_at).format('DD/MM/YY HH:mm')
+                                            : dayjs(response.created_at).format('DD/MM/YY HH:mm')
+                                          }
+                                        </Text>
+                                      </div>
+                                      <div
+                                        style={{
+                                          padding: '4px 8px',
+                                          background: '#fff',
+                                          borderRadius: 4,
+                                          borderLeft: `2px solid ${response.is_overdue_submission ? '#fa8c16' : '#52c41a'}`
+                                        }}
+                                      >
+                                        <Text strong style={{ fontSize: 10, display: 'block', marginBottom: 2 }}>Nội dung báo cáo:</Text>
+                                        <Text style={{ fontSize: 11, whiteSpace: 'pre-wrap' }}>{response.content}</Text>
+                                        {response.difficulties && (
+                                          <div style={{ marginTop: 6 }}>
+                                            <Text strong style={{ fontSize: 10, color: '#d46b08' }}>Khó khăn/vướng mắc:</Text>
+                                            <Text style={{ fontSize: 11, whiteSpace: 'pre-wrap', display: 'block' }}>{response.difficulties}</Text>
+                                          </div>
+                                        )}
+                                        {response.recommendations && (
+                                          <div style={{ marginTop: 6 }}>
+                                            <Text strong style={{ fontSize: 10, color: '#1890ff' }}>Đề xuất/kiến nghị:</Text>
+                                            <Text style={{ fontSize: 11, whiteSpace: 'pre-wrap', display: 'block' }}>{response.recommendations}</Text>
+                                          </div>
+                                        )}
+                                        {response.explanation && (
+                                          <div style={{ marginTop: 6 }}>
+                                            <Text strong style={{ fontSize: 10, color: '#fa541c' }}>Giải trình:</Text>
+                                            <Text style={{ fontSize: 11, whiteSpace: 'pre-wrap', display: 'block' }}>{response.explanation}</Text>
+                                          </div>
+                                        )}
+                                      </div>
+                                      {/* Files from this organization for this activity */}
+                                      {orgFiles.length > 0 && (
+                                        <div style={{
+                                          marginTop: 6,
+                                          padding: '4px 8px',
+                                          background: '#fff7e6',
+                                          borderRadius: 4,
+                                          border: '1px solid #ffd591'
+                                        }}>
+                                          <Text type="secondary" style={{ fontSize: 10, display: 'block', marginBottom: 4 }}>
+                                            <FileOutlined style={{ marginRight: 4 }} />
+                                            File minh chứng ({orgFiles.length}):
+                                          </Text>
+                                          {orgFiles.map(file => (
+                                            <div
+                                              key={file.id}
+                                              style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '2px 4px',
+                                                background: '#fff',
+                                                borderRadius: 2,
+                                                marginBottom: 2
+                                              }}
+                                            >
+                                              <Space size={4}>
+                                                {getFileIcon(file.file_type)}
+                                                <Tooltip title={file.file_name}>
+                                                  <Text style={{
+                                                    fontSize: 10,
+                                                    maxWidth: 150,
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                    display: 'inline-block'
+                                                  }}>
+                                                    {file.title || file.file_name}
+                                                  </Text>
+                                                </Tooltip>
+                                                <Text type="secondary" style={{ fontSize: 9 }}>
+                                                  ({file.file_size_formatted})
+                                                </Text>
+                                              </Space>
+                                              <Tooltip title="Tải xuống">
+                                                <Button
+                                                  type="text"
+                                                  size="small"
+                                                  icon={<DownloadOutlined style={{ fontSize: 12 }} />}
+                                                  onClick={() => handleDownloadFile(file)}
+                                                  style={{ padding: '0 4px', height: 20 }}
+                                                />
+                                              </Tooltip>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
-                                  </div>
-                                ))}
+                                  )
+                                })}
                               </div>
                             </div>
                           ))
@@ -1836,9 +2106,9 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
           setExportPreviewVisible(false)
           setExportPreviewData(null)
         }}
-        width={1100}
+        width={1200}
         centered
-        styles={{ body: { padding: '16px 24px', maxHeight: '70vh', overflow: 'auto' } }}
+        styles={{ body: { padding: '16px 24px', maxHeight: '75vh', overflow: 'auto' } }}
         footer={
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text type="secondary">
@@ -1863,33 +2133,41 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
             <>
               {/* Statistics Summary */}
               <Row gutter={16} style={{ marginBottom: 16 }}>
-                <Col span={6}>
+                <Col span={5}>
                   <div style={{ background: '#e6f7ff', padding: 12, borderRadius: 8, textAlign: 'center' }}>
-                    <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Hoạt động</Text>
+                    <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Nhiệm vụ</Text>
                     <Text strong style={{ fontSize: 20, color: '#1890ff' }}>
                       {exportPreviewData.statistics.total_activities}
                     </Text>
                   </div>
                 </Col>
-                <Col span={6}>
+                <Col span={5}>
                   <div style={{ background: '#f6ffed', padding: 12, borderRadius: 8, textAlign: 'center' }}>
-                    <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Có đơn vị phối hợp</Text>
+                    <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Đã hoàn thành</Text>
                     <Text strong style={{ fontSize: 20, color: '#52c41a' }}>
-                      {exportPreviewData.statistics.activities_with_collaborators}
+                      {exportPreviewData.statistics.completed}
                     </Text>
                   </div>
                 </Col>
-                <Col span={6}>
+                <Col span={5}>
+                  <div style={{ background: '#fffbe6', padding: 12, borderRadius: 8, textAlign: 'center' }}>
+                    <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Đang thực hiện</Text>
+                    <Text strong style={{ fontSize: 20, color: '#faad14' }}>
+                      {exportPreviewData.statistics.in_progress}
+                    </Text>
+                  </div>
+                </Col>
+                <Col span={5}>
                   <div style={{ background: '#fff7e6', padding: 12, borderRadius: 8, textAlign: 'center' }}>
-                    <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Cần nộp / Đã nộp</Text>
+                    <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Báo cáo đã nộp</Text>
                     <Text strong style={{ fontSize: 20, color: '#fa8c16' }}>
                       {exportPreviewData.statistics.total_submitted}/{exportPreviewData.statistics.total_required_responses}
                     </Text>
                   </div>
                 </Col>
-                <Col span={6}>
+                <Col span={4}>
                   <div style={{ background: '#f9f0ff', padding: 12, borderRadius: 8, textAlign: 'center' }}>
-                    <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Tỷ lệ hoàn thành</Text>
+                    <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>Tỷ lệ</Text>
                     <Text strong style={{ fontSize: 20, color: '#722ed1' }}>
                       {exportPreviewData.statistics.completion_percentage}%
                     </Text>
@@ -1897,176 +2175,135 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
                 </Col>
               </Row>
 
-              {/* Tab Switch */}
-              <Segmented
-                value={activePreviewTab}
-                onChange={(value) => setActivePreviewTab(value as 'activities' | 'responses')}
-                options={[
-                  { value: 'activities', label: `Sheet 1: Hoạt động (${exportPreviewData.activities.length})` },
-                  { value: 'responses', label: `Sheet 2: Báo cáo đơn vị phối hợp (${exportPreviewData.collaborator_responses.length})` },
-                ]}
-                style={{ marginBottom: 16 }}
-                block
-              />
+              {/* Info Row */}
+              {(exportPreviewData.batch.owner_file_title || exportPreviewData.batch.share_file_url) && (
+                <div style={{ marginBottom: 16, padding: '8px 12px', background: '#f5f5f5', borderRadius: 8, fontSize: 12 }}>
+                  {exportPreviewData.batch.owner_file_title && (
+                    <div><Text type="secondary">Văn bản giao nhiệm vụ:</Text> <Text>{exportPreviewData.batch.owner_file_title}</Text></div>
+                  )}
+                  {exportPreviewData.batch.share_file_url && (
+                    <div><Text type="secondary">Link file sở cứ:</Text> <a href={exportPreviewData.batch.share_file_url} target="_blank" rel="noopener noreferrer">{exportPreviewData.batch.share_file_url}</a></div>
+                  )}
+                </div>
+              )}
 
-              {/* Activities Tab */}
-              {activePreviewTab === 'activities' && (
+              {/* Preview Table */}
+              <div style={{
+                border: '1px solid #d9d9d9',
+                borderRadius: 8,
+                overflow: 'hidden'
+              }}>
                 <div style={{
-                  border: '1px solid #d9d9d9',
-                  borderRadius: 8,
-                  overflow: 'hidden'
+                  background: '#FFC000',
+                  color: '#000',
+                  padding: '8px 12px',
+                  fontWeight: 500
                 }}>
-                  <div style={{
-                    background: '#1890ff',
-                    color: '#fff',
-                    padding: '8px 12px',
-                    fontWeight: 500
+                  Báo cáo đợt: {exportPreviewData.batch.name}
+                </div>
+                <div style={{ overflowX: 'auto', maxHeight: 450 }}>
+                  <table style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    fontSize: 11
                   }}>
-                    Danh sách hoạt động
-                  </div>
-                  <div style={{ overflowX: 'auto', maxHeight: 400 }}>
-                    <table style={{
-                      width: '100%',
-                      borderCollapse: 'collapse',
-                      fontSize: 12
-                    }}>
-                      <thead>
-                        <tr style={{ background: '#fafafa' }}>
-                          <th style={{ padding: '8px 10px', borderBottom: '2px solid #d9d9d9', textAlign: 'left', whiteSpace: 'nowrap' }}>STT</th>
-                          <th style={{ padding: '8px 10px', borderBottom: '2px solid #d9d9d9', textAlign: 'left' }}>Hoạt động</th>
-                          <th style={{ padding: '8px 10px', borderBottom: '2px solid #d9d9d9', textAlign: 'left' }}>KPIs</th>
-                          <th style={{ padding: '8px 10px', borderBottom: '2px solid #d9d9d9', textAlign: 'left' }}>Đơn vị chủ trì</th>
-                          <th style={{ padding: '8px 10px', borderBottom: '2px solid #d9d9d9', textAlign: 'left' }}>Đơn vị phối hợp</th>
-                          <th style={{ padding: '8px 10px', borderBottom: '2px solid #d9d9d9', textAlign: 'center' }}>Trạng thái</th>
-                          <th style={{ padding: '8px 10px', borderBottom: '2px solid #d9d9d9', textAlign: 'center' }}>Tiến độ</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {exportPreviewData.activities.slice(0, 50).map((activity, idx) => (
-                          <tr key={activity.id} style={{ background: idx % 2 === 0 ? '#fff' : '#fafafa' }}>
-                            <td style={{ padding: '6px 10px', borderBottom: '1px solid #f0f0f0', textAlign: 'center' }}>{idx + 1}</td>
-                            <td style={{ padding: '6px 10px', borderBottom: '1px solid #f0f0f0', maxWidth: 200 }}>
-                              <Text style={{ fontSize: 12 }}>{activity.title}</Text>
-                            </td>
-                            <td style={{ padding: '6px 10px', borderBottom: '1px solid #f0f0f0', maxWidth: 150 }}>
-                              <Text type="secondary" style={{ fontSize: 11 }}>{activity.kpis || '-'}</Text>
-                            </td>
-                            <td style={{ padding: '6px 10px', borderBottom: '1px solid #f0f0f0' }}>
-                              <Tag color="blue" style={{ fontSize: 10 }}>{activity.lead_organization || '-'}</Tag>
-                            </td>
-                            <td style={{ padding: '6px 10px', borderBottom: '1px solid #f0f0f0', maxWidth: 150 }}>
-                              {activity.collaborating_organizations ? (
-                                <Text type="secondary" style={{ fontSize: 11 }}>{activity.collaborating_organizations}</Text>
-                              ) : '-'}
-                            </td>
-                            <td style={{ padding: '6px 10px', borderBottom: '1px solid #f0f0f0', textAlign: 'center' }}>
+                    <thead>
+                      <tr style={{ background: '#fafafa', position: 'sticky', top: 0 }}>
+                        <th style={{ padding: '8px 6px', borderBottom: '2px solid #d9d9d9', textAlign: 'center', whiteSpace: 'nowrap', minWidth: 40 }}>STT</th>
+                        <th style={{ padding: '8px 6px', borderBottom: '2px solid #d9d9d9', textAlign: 'left', minWidth: 80 }}>Mã</th>
+                        <th style={{ padding: '8px 6px', borderBottom: '2px solid #d9d9d9', textAlign: 'left', minWidth: 200 }}>Tên nhiệm vụ</th>
+                        <th style={{ padding: '8px 6px', borderBottom: '2px solid #d9d9d9', textAlign: 'left', minWidth: 150 }}>Nhóm nhiệm vụ</th>
+                        <th style={{ padding: '8px 6px', borderBottom: '2px solid #d9d9d9', textAlign: 'left', minWidth: 100 }}>Đơn vị báo cáo</th>
+                        <th style={{ padding: '8px 6px', borderBottom: '2px solid #d9d9d9', textAlign: 'center', minWidth: 80 }}>Kết quả</th>
+                        <th style={{ padding: '8px 6px', borderBottom: '2px solid #d9d9d9', textAlign: 'left', minWidth: 200 }}>Nội dung báo cáo</th>
+                        <th style={{ padding: '8px 6px', borderBottom: '2px solid #d9d9d9', textAlign: 'left', minWidth: 120 }}>Khó khăn</th>
+                        <th style={{ padding: '8px 6px', borderBottom: '2px solid #d9d9d9', textAlign: 'left', minWidth: 120 }}>Đề xuất</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {exportPreviewData.preview_rows.slice(0, 100).map((row, idx) => (
+                        <tr
+                          key={idx}
+                          style={{
+                            background: idx % 2 === 0 ? '#fff' : '#fafafa'
+                          }}
+                        >
+                          <td style={{ padding: '6px', borderBottom: '1px solid #f0f0f0', textAlign: 'center', fontWeight: 'bold' }}>
+                            {row.stt}
+                          </td>
+                          <td style={{ padding: '6px', borderBottom: '1px solid #f0f0f0' }}>
+                            <Text style={{ fontSize: 11 }}>{row.code}</Text>
+                          </td>
+                          <td style={{ padding: '6px', borderBottom: '1px solid #f0f0f0', maxWidth: 250 }}>
+                            <Text style={{ fontSize: 11 }}>{row.title}</Text>
+                          </td>
+                          <td style={{ padding: '6px', borderBottom: '1px solid #f0f0f0', maxWidth: 180 }}>
+                            <Text type="secondary" style={{ fontSize: 10, whiteSpace: 'pre-wrap' }}>
+                              {row.kpi_tasks && row.kpi_tasks.length > 80
+                                ? <Tooltip title={row.kpi_tasks}>{row.kpi_tasks.substring(0, 80)}...</Tooltip>
+                                : row.kpi_tasks}
+                            </Text>
+                          </td>
+                          <td style={{ padding: '6px', borderBottom: '1px solid #f0f0f0' }}>
+                            {row.organization && (
+                              <Text type="secondary" style={{ fontSize: 10 }}>{row.organization}</Text>
+                            )}
+                          </td>
+                          <td style={{ padding: '6px', borderBottom: '1px solid #f0f0f0', textAlign: 'center' }}>
+                            {row.status && (
                               <Tag
                                 color={
-                                  activity.status === 'COMPLETED' ? 'success' :
-                                  activity.status === 'IN_PROGRESS' ? 'processing' :
-                                  activity.status === 'APPROVED' ? 'blue' : 'default'
+                                  row.status === 'Đã hoàn thành' ? 'success' :
+                                  row.status === 'Đang thực hiện' ? 'processing' :
+                                  row.status === 'Đã duyệt' ? 'blue' : 'default'
                                 }
                                 style={{ fontSize: 10 }}
                               >
-                                {activity.status}
+                                {row.status}
                               </Tag>
-                            </td>
-                            <td style={{ padding: '6px 10px', borderBottom: '1px solid #f0f0f0', textAlign: 'center' }}>
-                              {activity.completion_percentage}%
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {exportPreviewData.activities.length > 50 && (
-                      <div style={{ padding: '12px', textAlign: 'center', background: '#fafafa' }}>
-                        <Text type="secondary">
-                          Hiển thị 50/{exportPreviewData.activities.length} hoạt động. Xuất Excel để xem đầy đủ.
-                        </Text>
-                      </div>
-                    )}
-                  </div>
+                            )}
+                          </td>
+                          <td style={{ padding: '6px', borderBottom: '1px solid #f0f0f0', maxWidth: 250 }}>
+                            <Text style={{ fontSize: 10, whiteSpace: 'pre-wrap' }}>
+                              {row.response_content && row.response_content.length > 100
+                                ? <Tooltip title={row.response_content}>{row.response_content.substring(0, 100)}...</Tooltip>
+                                : row.response_content}
+                            </Text>
+                          </td>
+                          <td style={{ padding: '6px', borderBottom: '1px solid #f0f0f0', maxWidth: 150 }}>
+                            <Text type="secondary" style={{ fontSize: 10, whiteSpace: 'pre-wrap' }}>
+                              {row.difficulties && row.difficulties.length > 60
+                                ? <Tooltip title={row.difficulties}>{row.difficulties.substring(0, 60)}...</Tooltip>
+                                : row.difficulties}
+                            </Text>
+                          </td>
+                          <td style={{ padding: '6px', borderBottom: '1px solid #f0f0f0', maxWidth: 150 }}>
+                            <Text type="secondary" style={{ fontSize: 10, whiteSpace: 'pre-wrap' }}>
+                              {row.recommendations && row.recommendations.length > 60
+                                ? <Tooltip title={row.recommendations}>{row.recommendations.substring(0, 60)}...</Tooltip>
+                                : row.recommendations}
+                            </Text>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {exportPreviewData.preview_rows.length > 100 && (
+                    <div style={{ padding: '12px', textAlign: 'center', background: '#fafafa' }}>
+                      <Text type="secondary">
+                        Hiển thị 100/{exportPreviewData.preview_rows.length} dòng. Xuất Excel để xem đầy đủ.
+                      </Text>
+                    </div>
+                  )}
+                  {exportPreviewData.preview_rows.length === 0 && (
+                    <Empty
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      description="Chưa có dữ liệu báo cáo"
+                      style={{ padding: 40 }}
+                    />
+                  )}
                 </div>
-              )}
-
-              {/* Collaborator Responses Tab */}
-              {activePreviewTab === 'responses' && (
-                <div style={{
-                  border: '1px solid #d9d9d9',
-                  borderRadius: 8,
-                  overflow: 'hidden'
-                }}>
-                  <div style={{
-                    background: '#52c41a',
-                    color: '#fff',
-                    padding: '8px 12px',
-                    fontWeight: 500
-                  }}>
-                    Báo cáo từ đơn vị phối hợp
-                  </div>
-                  <div style={{ maxHeight: 400, overflow: 'auto' }}>
-                    {exportPreviewData.collaborator_responses.length === 0 ? (
-                      <Empty
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        description="Không có hoạt động nào có đơn vị phối hợp"
-                        style={{ padding: 40 }}
-                      />
-                    ) : (
-                      exportPreviewData.collaborator_responses.map((group, groupIdx) => (
-                        <div key={group.activity_id} style={{ borderBottom: groupIdx < exportPreviewData.collaborator_responses.length - 1 ? '2px solid #d9d9d9' : 'none' }}>
-                          {/* Activity Header */}
-                          <div style={{
-                            background: '#f6ffed',
-                            padding: '8px 12px',
-                            borderBottom: '1px solid #d9d9d9'
-                          }}>
-                            <Space>
-                              <Text strong style={{ fontSize: 12 }}>{group.activity_title}</Text>
-                              <Tag color="purple" style={{ fontSize: 10 }}>{group.kpis || 'KPI'}</Tag>
-                              <Badge
-                                count={`${group.submitted_count}/${group.total_collaborators}`}
-                                style={{ backgroundColor: group.submitted_count === group.total_collaborators ? '#52c41a' : '#fa8c16' }}
-                              />
-                            </Space>
-                          </div>
-                          {/* Responses */}
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                            <tbody>
-                              {group.responses.map((response, respIdx) => (
-                                <tr key={response.organization_id} style={{ background: respIdx % 2 === 0 ? '#fff' : '#fafafa' }}>
-                                  <td style={{ padding: '6px 12px', borderBottom: '1px solid #f0f0f0', width: 150 }}>
-                                    <Tag color="green" style={{ fontSize: 10 }}>{response.organization_name}</Tag>
-                                  </td>
-                                  <td style={{ padding: '6px 12px', borderBottom: '1px solid #f0f0f0' }}>
-                                    {response.has_response ? (
-                                      <div>
-                                        <Text style={{ fontSize: 11, whiteSpace: 'pre-wrap' }}>
-                                          {response.content && response.content.length > 200
-                                            ? <Tooltip title={response.content}>{response.content.substring(0, 200)}...</Tooltip>
-                                            : response.content}
-                                        </Text>
-                                        <div style={{ marginTop: 4 }}>
-                                          <Text type="secondary" style={{ fontSize: 10 }}>
-                                            <UserOutlined style={{ marginRight: 2 }} />
-                                            {response.submitter}
-                                            {response.submitted_at && ` • ${dayjs(response.submitted_at).format('DD/MM/YY HH:mm')}`}
-                                          </Text>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <Tag color="default" style={{ fontSize: 10 }}>Chưa nộp</Tag>
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
+              </div>
             </>
           )}
         </Spin>
@@ -2141,6 +2378,14 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
       </Modal>
         </>
       )}
+
+      {/* Files Explorer Modal */}
+      <BatchFilesExplorer
+        visible={filesExplorerVisible}
+        batchId={filesExplorerBatchId}
+        batchName={filesExplorerBatchName}
+        onClose={() => setFilesExplorerVisible(false)}
+      />
     </div>
   )
 }

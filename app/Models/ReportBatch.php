@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class ReportBatch extends Model
 {
@@ -26,7 +27,20 @@ class ReportBatch extends Model
         'end_date',
         'deadline',
         'notes',
+        'share_token',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        // Auto-generate share_token when creating new batch
+        static::creating(function ($batch) {
+            if (empty($batch->share_token)) {
+                $batch->share_token = Str::random(32);
+            }
+        });
+    }
 
     protected $casts = [
         'start_date' => 'datetime',
@@ -35,6 +49,9 @@ class ReportBatch extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    // Append computed attributes to JSON
+    protected $appends = ['status'];
 
     // Status constants (calculated from dates, not stored)
     const STATUS_UPCOMING = 'upcoming';
