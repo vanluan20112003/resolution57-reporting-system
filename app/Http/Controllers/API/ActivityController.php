@@ -4,22 +4,22 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
-use App\Models\ActivityParticipant;
-use App\Models\ActivityType;
 use App\Models\ActivityField;
 use App\Models\ActivityFile;
+use App\Models\ActivityParticipant;
+use App\Models\ActivityType;
 use App\Models\FileType;
-use App\Models\Organization;
 use App\Models\Kpi;
 use App\Models\Notification;
+use App\Models\Organization;
 use App\Models\User;
 use App\Services\ActivityLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
 class ActivityController extends Controller
@@ -33,12 +33,19 @@ class ActivityController extends Controller
      * - IN_PROGRESS and COMPLETED are computed dynamically from APPROVED based on dates
      */
     const STATUS_DRAFT = 'DRAFT';
+
     const STATUS_PENDING_APPROVAL = 'PENDING_APPROVAL';
+
     const STATUS_APPROVED = 'APPROVED'; // Manager approved - IN_PROGRESS/COMPLETED computed from this
+
     const STATUS_REJECTED = 'REJECTED'; // Manager rejected - will be reset to DRAFT
+
     const STATUS_POSTPONED = 'POSTPONED'; // Temporarily postponed - allows editing dates
+
     const STATUS_IN_PROGRESS = 'IN_PROGRESS'; // Computed: APPROVED + within date range
+
     const STATUS_CANCELLED = 'CANCELLED';
+
     const STATUS_COMPLETED = 'COMPLETED'; // Computed: APPROVED + past end_date
 
     /**
@@ -56,7 +63,7 @@ class ActivityController extends Controller
         }
 
         // User must have an organization
-        if (!$user->organization_id) {
+        if (! $user->organization_id) {
             return ['allowed' => false, 'reason' => 'Bạn chưa thuộc đơn vị nào. Vui lòng liên hệ quản trị viên để được gán vào đơn vị.'];
         }
 
@@ -65,15 +72,16 @@ class ActivityController extends Controller
 
         // GUEST can only view approved activities (IN_PROGRESS, COMPLETED) from their organization
         if ($role === 'GUEST') {
-            if (!$isOwnOrg) {
+            if (! $isOwnOrg) {
                 return ['allowed' => false, 'reason' => 'Hoạt động này không thuộc đơn vị của bạn.'];
             }
             // Use computed status for access check
             $computedStatus = $this->getComputedStatus($activity);
             $approvedStatuses = [self::STATUS_APPROVED, self::STATUS_IN_PROGRESS, self::STATUS_POSTPONED, self::STATUS_COMPLETED];
-            if (!in_array($computedStatus, $approvedStatuses)) {
+            if (! in_array($computedStatus, $approvedStatuses)) {
                 return ['allowed' => false, 'reason' => 'Bạn chỉ có thể xem các hoạt động đã được phê duyệt.'];
             }
+
             return ['allowed' => true, 'reason' => ''];
         }
 
@@ -91,6 +99,7 @@ class ActivityController extends Controller
                 if (in_array($activity->status, $approvedStatuses)) {
                     return ['allowed' => true, 'reason' => ''];
                 }
+
                 return ['allowed' => false, 'reason' => 'Bạn chỉ có thể xem các hoạt động đã được phê duyệt từ đơn vị khác.'];
             }
 
@@ -107,7 +116,7 @@ class ActivityController extends Controller
     private function hasOrganizationAccessPermission($user, string $targetOrganizationId): bool
     {
         // User must have an organization
-        if (!$user->organization_id) {
+        if (! $user->organization_id) {
             return false;
         }
 
@@ -120,7 +129,7 @@ class ActivityController extends Controller
 
         foreach ($permissions as $permission) {
             // Check if user's role is allowed
-            if (!$permission->isRoleAllowed($user->role)) {
+            if (! $permission->isRoleAllowed($user->role)) {
                 continue;
             }
 
@@ -198,7 +207,7 @@ class ActivityController extends Controller
         $endDate = $activity->end_date ? \Carbon\Carbon::parse($activity->end_date) : null;
 
         // If no dates defined, keep as REVIEWED
-        if (!$startDate && !$endDate) {
+        if (! $startDate && ! $endDate) {
             return self::STATUS_APPROVED;
         }
 
@@ -210,7 +219,7 @@ class ActivityController extends Controller
         // IN_PROGRESS: within start_date and end_date range
         if ($startDate && $now->gte($startDate)) {
             // If no end_date, it's in progress if we're past start_date
-            if (!$endDate || $now->lte($endDate)) {
+            if (! $endDate || $now->lte($endDate)) {
                 return self::STATUS_IN_PROGRESS;
             }
         }
@@ -255,12 +264,14 @@ class ActivityController extends Controller
             if ($activity->completion_percentage != 100) {
                 $activity->completion_percentage = 100;
             }
+
             return;
         }
 
         // For DRAFT and REJECTED, reset to suggested value
         if (in_array($newStatus, [self::STATUS_DRAFT, self::STATUS_REJECTED])) {
             $activity->completion_percentage = $suggestedPercentage;
+
             return;
         }
 
@@ -356,8 +367,8 @@ class ActivityController extends Controller
             if ($request->has('search') && $request->search) {
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
-                    $q->where('code', 'like', '%' . $search . '%')
-                      ->orWhere('title', 'like', '%' . $search . '%');
+                    $q->where('code', 'like', '%'.$search.'%')
+                        ->orWhere('title', 'like', '%'.$search.'%');
                 });
             }
 
@@ -446,8 +457,8 @@ class ActivityController extends Controller
             if ($request->has('search') && $request->search) {
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
-                    $q->where('code', 'like', '%' . $search . '%')
-                      ->orWhere('title', 'like', '%' . $search . '%');
+                    $q->where('code', 'like', '%'.$search.'%')
+                        ->orWhere('title', 'like', '%'.$search.'%');
                 });
             }
 
@@ -467,6 +478,7 @@ class ActivityController extends Controller
                 $statusPriority = $activity->status === self::STATUS_IN_PROGRESS ? 0 : 1;
                 // Use negative timestamp to sort desc within each priority group
                 $timestamp = $activity->start_date ? strtotime($activity->start_date) : 0;
+
                 return [$statusPriority, -$timestamp];
             })->values()->all();
 
@@ -512,7 +524,7 @@ class ActivityController extends Controller
             'data' => $request->except(['password']),
         ]);
 
-        if (!$this->canManageActivities($request)) {
+        if (! $this->canManageActivities($request)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn không có quyền tạo hoạt động',
@@ -570,7 +582,7 @@ class ActivityController extends Controller
             $organizationId = $user->organization_id;
 
             // STAFF/MANAGER must use their own organization
-            if (in_array($user->role, ['STAFF', 'MANAGER']) && !$organizationId) {
+            if (in_array($user->role, ['STAFF', 'MANAGER']) && ! $organizationId) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bạn phải thuộc một đơn vị để tạo hoạt động',
@@ -613,18 +625,18 @@ class ActivityController extends Controller
             }
 
             Notification::create([
-                "user_id" => $user->id,
-                "title" => "Tạo hoạt động thành công",
-                "message" => "Bạn đã tạo hoạt động {$activity->title} thành công",
-                "category" => "activity",
-                "notification_type" => "activity_created",
-                "icon" => "PlusCircleOutlined",
-                "color" => "primary",
-                "action_url" => "/dashboard?tab=activity-management",
-                "actor_id" => $user->id,
-                "related_organization_id" => $organizationId,
-                "is_read" => false,
-                "priority" => "normal"
+                'user_id' => $user->id,
+                'title' => 'Tạo hoạt động thành công',
+                'message' => "Bạn đã tạo hoạt động {$activity->title} thành công",
+                'category' => 'activity',
+                'notification_type' => 'activity_created',
+                'icon' => 'PlusCircleOutlined',
+                'color' => 'primary',
+                'action_url' => '/dashboard?tab=activity-management',
+                'actor_id' => $user->id,
+                'related_organization_id' => $organizationId,
+                'is_read' => false,
+                'priority' => 'normal',
             ]);
 
             // Log activity creation
@@ -693,7 +705,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -779,7 +791,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -798,7 +810,7 @@ class ActivityController extends Controller
                 $allowedFields = ['start_date', 'end_date'];
                 $disallowedFields = array_diff($requestFields, $allowedFields);
 
-                if (!empty($disallowedFields)) {
+                if (! empty($disallowedFields)) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Hoạt động đang tạm hoãn. Chỉ có thể cập nhật ngày bắt đầu và ngày kết thúc.',
@@ -809,7 +821,7 @@ class ActivityController extends Controller
             elseif ($activity->is_locked) {
                 $disallowedFields = array_diff($requestFields, $completionAllowedFields);
 
-                if (!empty($disallowedFields)) {
+                if (! empty($disallowedFields)) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Hoạt động đã bị khóa. Chỉ có thể cập nhật tiến độ, kết quả và trạng thái.',
@@ -825,7 +837,7 @@ class ActivityController extends Controller
                     // Only allow updating completion_percentage, result_summary, actual dates, and status
                     $disallowedFields = array_diff($requestFields, $completionAllowedFields);
 
-                    if (!empty($disallowedFields)) {
+                    if (! empty($disallowedFields)) {
                         return response()->json([
                             'success' => false,
                             'message' => 'Hoạt động đã được phê duyệt. Chỉ có thể cập nhật tiến độ, kết quả và trạng thái. Nếu cần thay đổi ngày, vui lòng chuyển sang trạng thái Tạm hoãn.',
@@ -996,25 +1008,25 @@ class ActivityController extends Controller
             ]);
             ActivityLogService::logUpdated($activity, $oldValues, $newValues, $request);
 
-            if($activity->status === self::STATUS_PENDING_APPROVAL){
-                $orgManagers = User::where("organization_id", $activity->lead_organization_id)->where("role", "MANAGER")->get();
+            if ($activity->status === self::STATUS_PENDING_APPROVAL) {
+                $orgManagers = User::where('organization_id', $activity->lead_organization_id)->where('role', 'MANAGER')->get();
                 $notifications = [];
                 foreach ($orgManagers as $manager) {
                     $notifications[] = [
-                        "id" => Str::uuid()->toString(),
-                        "user_id" => $manager->id,
-                        "title" => "Chỉnh sửa hoạt động PENDING",
-                        "message" => "{$activity->creator->getNameAttribute()} đã cập nhật hoạt động {$activity->code} đang chờ duyệt",
-                        "category" => "activity",
-                        "notification_type" => "activity_updated",
-                        "icon" => "EditOutlined",
-                        "color" => "primary",
-                        "action_url" => "/dashboard?tab=pending-approval",
-                        "actor_id" => $activity->created_by,
-                        "is_read" => false,
-                        "priority" => "normal",
-                        "created_at" => now(),
-                        "updated_at" => now()
+                        'id' => Str::uuid()->toString(),
+                        'user_id' => $manager->id,
+                        'title' => 'Chỉnh sửa hoạt động PENDING',
+                        'message' => "{$activity->creator->getNameAttribute()} đã cập nhật hoạt động {$activity->code} đang chờ duyệt",
+                        'category' => 'activity',
+                        'notification_type' => 'activity_updated',
+                        'icon' => 'EditOutlined',
+                        'color' => 'primary',
+                        'action_url' => '/dashboard?tab=pending-approval',
+                        'actor_id' => $activity->created_by,
+                        'is_read' => false,
+                        'priority' => 'normal',
+                        'created_at' => now(),
+                        'updated_at' => now(),
                     ];
                 }
                 DB::table('notifications')->insert($notifications);
@@ -1024,7 +1036,7 @@ class ActivityController extends Controller
             $newResultSummary = $activity->result_summary;
             $computedStatus = $this->getComputedStatus($activity);
             $wasEmptyResult = empty($oldResultSummary) || trim($oldResultSummary) === '';
-            $hasNewResult = !empty($newResultSummary) && trim($newResultSummary) !== '';
+            $hasNewResult = ! empty($newResultSummary) && trim($newResultSummary) !== '';
 
             if ($computedStatus === self::STATUS_COMPLETED && $wasEmptyResult && $hasNewResult) {
                 // Get all members in the department (exclude the creator to avoid duplicate notification)
@@ -1056,14 +1068,14 @@ class ActivityController extends Controller
                             'organization_id' => $leadOrg ? $leadOrg->id : null,
                             'organization_name' => $leadOrg ? $leadOrg->name : null,
                             'organization_short_name' => $leadOrg ? $leadOrg->short_name : null,
-                            'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/' . $leadOrg->avatar) : null,
+                            'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/'.$leadOrg->avatar) : null,
                         ]),
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];
                 }
 
-                if (!empty($completionNotifications)) {
+                if (! empty($completionNotifications)) {
                     DB::table('notifications')->insert($completionNotifications);
 
                     Log::info('Sent completion notifications to department members', [
@@ -1087,6 +1099,7 @@ class ActivityController extends Controller
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             Log::warning('Activity not found for update', ['activity_id' => $id]);
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy hoạt động',
@@ -1124,7 +1137,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -1140,7 +1153,7 @@ class ActivityController extends Controller
             }
 
             // Only allow deletion of DRAFT or PENDING_APPROVAL activities
-            if (!in_array($activity->status, [self::STATUS_DRAFT, self::STATUS_PENDING_APPROVAL])) {
+            if (! in_array($activity->status, [self::STATUS_DRAFT, self::STATUS_PENDING_APPROVAL])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Chỉ có thể xóa hoạt động ở trạng thái Nháp hoặc Chờ phê duyệt. Với hoạt động đã phê duyệt, hãy khóa lại thay vì xóa.',
@@ -1162,25 +1175,25 @@ class ActivityController extends Controller
                 'activity_code' => $activityCode,
             ]);
 
-            if($activity->status === self::STATUS_PENDING_APPROVAL) {
-                $orgManagers = User::where("organization_id", $activity->lead_organization_id)->where("role", "MANAGER")->get();
+            if ($activity->status === self::STATUS_PENDING_APPROVAL) {
+                $orgManagers = User::where('organization_id', $activity->lead_organization_id)->where('role', 'MANAGER')->get();
                 $notifications = [];
                 foreach ($orgManagers as $manager) {
                     $notifications[] = [
-                        "id" => Str::uuid()->toString(),
-                        "user_id" => $manager->id,
-                        "title" => "Xóa hoạt động PENDING",
-                        "message" => "{$activity->creator->getNameAttribute()} đã rút lại hoạt động {$activity->code}",
-                        "category" => "activity",
-                        "notification_type" => "activity_withdrawn",
-                        "icon" => "RollbackOutlined",
-                        "color" => "warning",
-                        "action_url" => "/dashboard?tab=activity-management",
-                        "actor_id" => $activity->created_by,
-                        "is_read" => false,
-                        "priority" => "normal",
-                        "created_at" => now(),
-                        "updated_at" => now()
+                        'id' => Str::uuid()->toString(),
+                        'user_id' => $manager->id,
+                        'title' => 'Xóa hoạt động PENDING',
+                        'message' => "{$activity->creator->getNameAttribute()} đã rút lại hoạt động {$activity->code}",
+                        'category' => 'activity',
+                        'notification_type' => 'activity_withdrawn',
+                        'icon' => 'RollbackOutlined',
+                        'color' => 'warning',
+                        'action_url' => '/dashboard?tab=activity-management',
+                        'actor_id' => $activity->created_by,
+                        'is_read' => false,
+                        'priority' => 'normal',
+                        'created_at' => now(),
+                        'updated_at' => now(),
                     ];
                 }
                 DB::table('notifications')->insert($notifications);
@@ -1232,7 +1245,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -1262,89 +1275,89 @@ class ActivityController extends Controller
 
             $organization = Organization::find($activity->lead_organization_id);
 
-            $orgManagers = User::where("organization_id", $activity->lead_organization_id)
-            ->where("role", "MANAGER")
-            ->get();
+            $orgManagers = User::where('organization_id', $activity->lead_organization_id)
+                ->where('role', 'MANAGER')
+                ->get();
 
-            $operatorAdmins = User::whereIn("role", ["ADMIN", "OPERATOR"])->get();  
+            $operatorAdmins = User::whereIn('role', ['ADMIN', 'OPERATOR'])->get();
             $notifications = [[
-                "id" => Str::uuid()->toString(),
-                "user_id" => $request->user()->id,
-                "title" => "Gửi yêu cầu phê duyệt",
-                "message" => "Bạn đã gửi hoạt động {$activity->code} để phê duyệt",
-                "category" => "activity",
-                "notification_type" => "activity_submitted",
-                "icon" => "SendOutlined",
-                "color" => "processing",
-                "action_url" => "/dashboard?tab=activity-management",
-                "actor_id" => $activity->created_by,
-                "is_read" => false,
-                "priority" => "normal",
-                "data" => json_encode([
-                    "activity_id" => $activity->id,
-                    "activity_code" => $activity->code,
-                    "activity_title" => $activity->title,
-                    "organization_id" => $organization ? $organization->id : null,
-                    "organization_name" => $organization ? $organization->name : null,
-                    "submitter_id" => $request->user()->id,
-                    "submitter_name" => $request->user()->name,
+                'id' => Str::uuid()->toString(),
+                'user_id' => $request->user()->id,
+                'title' => 'Gửi yêu cầu phê duyệt',
+                'message' => "Bạn đã gửi hoạt động {$activity->code} để phê duyệt",
+                'category' => 'activity',
+                'notification_type' => 'activity_submitted',
+                'icon' => 'SendOutlined',
+                'color' => 'processing',
+                'action_url' => '/dashboard?tab=activity-management',
+                'actor_id' => $activity->created_by,
+                'is_read' => false,
+                'priority' => 'normal',
+                'data' => json_encode([
+                    'activity_id' => $activity->id,
+                    'activity_code' => $activity->code,
+                    'activity_title' => $activity->title,
+                    'organization_id' => $organization ? $organization->id : null,
+                    'organization_name' => $organization ? $organization->name : null,
+                    'submitter_id' => $request->user()->id,
+                    'submitter_name' => $request->user()->name,
                 ]),
-                "created_at" => now(),
-                "updated_at" => now()
+                'created_at' => now(),
+                'updated_at' => now(),
             ]];
             foreach ($orgManagers as $manager) {
                 $notifications[] = [
-                    "id" => Str::uuid()->toString(),
-                    "user_id" => $manager->id,
-                    "title" => "Có hoạt động chờ duyệt",
-                    "message" => "{$request->user()->name} đã gửi hoạt động {$activity->code} chờ phê duyệt",
-                    "category" => "activity",
-                    "notification_type" => "activity_pending_approval",
-                    "icon" => "ClockCircleOutlined",
-                    "color" => "warning",
-                    "action_url" => "/dashboard?tab=pending-approval",
-                    "actor_id" => $activity->created_by,
-                    "is_read" => false,
-                    "priority" => "high",
-                    "data" => json_encode([
-                    "activity_id" => $activity->id,
-                    "activity_code" => $activity->code,
-                    "activity_title" => $activity->title,
-                    "organization_id" => $organization ? $organization->id : null,
-                    "organization_name" => $organization ? $organization->name : null,
-                    "submitter_id" => $request->user()->id,
-                    "submitter_name" => $request->user()->name,
-                ]),
-                    "created_at" => now(),
-                    "updated_at" => now(),
+                    'id' => Str::uuid()->toString(),
+                    'user_id' => $manager->id,
+                    'title' => 'Có hoạt động chờ duyệt',
+                    'message' => "{$request->user()->name} đã gửi hoạt động {$activity->code} chờ phê duyệt",
+                    'category' => 'activity',
+                    'notification_type' => 'activity_pending_approval',
+                    'icon' => 'ClockCircleOutlined',
+                    'color' => 'warning',
+                    'action_url' => '/dashboard?tab=pending-approval',
+                    'actor_id' => $activity->created_by,
+                    'is_read' => false,
+                    'priority' => 'high',
+                    'data' => json_encode([
+                        'activity_id' => $activity->id,
+                        'activity_code' => $activity->code,
+                        'activity_title' => $activity->title,
+                        'organization_id' => $organization ? $organization->id : null,
+                        'organization_name' => $organization ? $organization->name : null,
+                        'submitter_id' => $request->user()->id,
+                        'submitter_name' => $request->user()->name,
+                    ]),
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ];
             }
 
             foreach ($operatorAdmins as $admin) {
                 $notifications[] = [
-                    "id" => Str::uuid()->toString(),
-                    "user_id" => $admin->id,
-                    "title" => "Có hoạt động chờ duyệt",
-                    "message" => "Có hoạt động mới {$activity->code} từ {$organization->code} chờ phê duyệt",
-                    "category" => "activity",
-                    "notification_type" => "activity_pending_approval",
-                    "icon" => "ClockCircleOutlined",
-                    "color" => "warning",
-                    "action_url" => "/dashboard?tab=pending-approval",
-                    "actor_id" => $activity->created_by,
-                    "is_read" => false,
-                    "priority" => "normal",
-                    "data" => json_encode([
-                        "activity_id" => $activity->id,
-                        "activity_code" => $activity->code,
-                        "activity_title" => $activity->title,
-                        "organization_id" => $organization ? $organization->id : null,
-                        "organization_name" => $organization ? $organization->name : null,
-                        "submitter_id" => $request->user()->id,
-                        "submitter_name" => $request->user()->name,
+                    'id' => Str::uuid()->toString(),
+                    'user_id' => $admin->id,
+                    'title' => 'Có hoạt động chờ duyệt',
+                    'message' => "Có hoạt động mới {$activity->code} từ {$organization->code} chờ phê duyệt",
+                    'category' => 'activity',
+                    'notification_type' => 'activity_pending_approval',
+                    'icon' => 'ClockCircleOutlined',
+                    'color' => 'warning',
+                    'action_url' => '/dashboard?tab=pending-approval',
+                    'actor_id' => $activity->created_by,
+                    'is_read' => false,
+                    'priority' => 'normal',
+                    'data' => json_encode([
+                        'activity_id' => $activity->id,
+                        'activity_code' => $activity->code,
+                        'activity_title' => $activity->title,
+                        'organization_id' => $organization ? $organization->id : null,
+                        'organization_name' => $organization ? $organization->name : null,
+                        'submitter_id' => $request->user()->id,
+                        'submitter_name' => $request->user()->name,
                     ]),
-                    "created_at" => now(),
-                    "updated_at" => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ];
             }
 
@@ -1362,6 +1375,7 @@ class ActivityController extends Controller
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy hoạt động',
@@ -1395,7 +1409,7 @@ class ActivityController extends Controller
         $user = $request->user();
 
         // Only MANAGER, OPERATOR, ADMIN can review
-        if (!in_array($user->role, ['MANAGER', 'OPERATOR', 'ADMIN'])) {
+        if (! in_array($user->role, ['MANAGER', 'OPERATOR', 'ADMIN'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn không có quyền xem xét hoạt động',
@@ -1481,7 +1495,7 @@ class ActivityController extends Controller
         $user = $request->user();
 
         // Only MANAGER, OPERATOR, ADMIN can approve
-        if (!in_array($user->role, ['MANAGER', 'OPERATOR', 'ADMIN'])) {
+        if (! in_array($user->role, ['MANAGER', 'OPERATOR', 'ADMIN'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn không có quyền phê duyệt hoạt động',
@@ -1525,7 +1539,7 @@ class ActivityController extends Controller
                 'activityField:id,name',
                 'leadOrganization:id,name,short_name',
                 'creator:id,email,first_name,last_name',
-                'approver:id,email,first_name,last_name'
+                'approver:id,email,first_name,last_name',
             ]);
 
             // Apply computed status for response
@@ -1541,112 +1555,112 @@ class ActivityController extends Controller
                 'approved_by' => $user->id,
             ]);
 
-            $orgMembers = User::where("organization_id", $activity->lead_organization_id)->whereIn("role", ["STAFF", "GUEST"])->get();
+            $orgMembers = User::where('organization_id', $activity->lead_organization_id)->whereIn('role', ['STAFF', 'GUEST'])->get();
             $leadOrg = $activity->leadOrganization;
 
             $notifications = [
                 [
-                    "id" => Str::uuid()->toString(),
-                    "user_id" => $activity->created_by,
-                    "title" => "Hoạt động đã được phê duyệt",
-                    "message" => "Hoạt động {$activity->code} đã được {$user->getNameAttribute()} phê duyệt",
-                    "category" => "activity",
-                    "notification_type" => "activity_approved",
-                    "icon" => "CheckCircleOutlined",
-                    "color" => "success",
-                    "action_url" => "/dashboard?tab=activity-management",
-                    "actor_id" => $activity->created_by,
-                    "is_read" => false,
-                    "priority" => "high",
-                    "data" => json_encode([
-                        "activity_id" => $activity->id,
-                        "activity_code" => $activity->code,
-                        "activity_title" => $activity->title,
-                        "approver_id" => $user->id,
-                        "approver_name" => $user->getNameAttribute(),
-                        "approved_at" => $activity->approved_at,
-                        "is_auto_locked" => true,
-                        "organization_id" => $leadOrg ? $leadOrg->id : null,
-                        "organization_name" => $leadOrg ? $leadOrg->name : null,
-                        "organization_short_name" => $leadOrg ? $leadOrg->short_name : null,
-                        "organization_avatar" => $leadOrg && $leadOrg->avatar ? asset('storage/' . $leadOrg->avatar) : null,
+                    'id' => Str::uuid()->toString(),
+                    'user_id' => $activity->created_by,
+                    'title' => 'Hoạt động đã được phê duyệt',
+                    'message' => "Hoạt động {$activity->code} đã được {$user->getNameAttribute()} phê duyệt",
+                    'category' => 'activity',
+                    'notification_type' => 'activity_approved',
+                    'icon' => 'CheckCircleOutlined',
+                    'color' => 'success',
+                    'action_url' => '/dashboard?tab=activity-management',
+                    'actor_id' => $activity->created_by,
+                    'is_read' => false,
+                    'priority' => 'high',
+                    'data' => json_encode([
+                        'activity_id' => $activity->id,
+                        'activity_code' => $activity->code,
+                        'activity_title' => $activity->title,
+                        'approver_id' => $user->id,
+                        'approver_name' => $user->getNameAttribute(),
+                        'approved_at' => $activity->approved_at,
+                        'is_auto_locked' => true,
+                        'organization_id' => $leadOrg ? $leadOrg->id : null,
+                        'organization_name' => $leadOrg ? $leadOrg->name : null,
+                        'organization_short_name' => $leadOrg ? $leadOrg->short_name : null,
+                        'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/'.$leadOrg->avatar) : null,
                     ]),
-                    "created_at" => now(),
-                    "updated_at" => now()
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ],
                 [
-                    "id" => Str::uuid()->toString(),
-                    "user_id" => $activity->created_by,
-                    "title" => "Hoạt động đã khóa",
-                    "message" => "Hoạt động {$activity->code} đã được khóa sau khi phê duyệt",
-                    "category" => "activity",
-                    "notification_type" => "activity_locked",
-                    "icon" => "LockOutlined",
-                    "color" => "warning",
-                    "action_url" => "/dashboard?tab=activity-management",
-                    "actor_id" => $activity->created_by,
-                    "is_read" => false,
-                    "priority" => "normal",
-                    "data" => json_encode([
-                        "activity_id" => $activity->id,
-                        "activity_code" => $activity->code,
-                        "organization_id" => $leadOrg ? $leadOrg->id : null,
-                        "organization_name" => $leadOrg ? $leadOrg->name : null,
-                        "organization_short_name" => $leadOrg ? $leadOrg->short_name : null,
-                        "organization_avatar" => $leadOrg && $leadOrg->avatar ? asset('storage/' . $leadOrg->avatar) : null,
+                    'id' => Str::uuid()->toString(),
+                    'user_id' => $activity->created_by,
+                    'title' => 'Hoạt động đã khóa',
+                    'message' => "Hoạt động {$activity->code} đã được khóa sau khi phê duyệt",
+                    'category' => 'activity',
+                    'notification_type' => 'activity_locked',
+                    'icon' => 'LockOutlined',
+                    'color' => 'warning',
+                    'action_url' => '/dashboard?tab=activity-management',
+                    'actor_id' => $activity->created_by,
+                    'is_read' => false,
+                    'priority' => 'normal',
+                    'data' => json_encode([
+                        'activity_id' => $activity->id,
+                        'activity_code' => $activity->code,
+                        'organization_id' => $leadOrg ? $leadOrg->id : null,
+                        'organization_name' => $leadOrg ? $leadOrg->name : null,
+                        'organization_short_name' => $leadOrg ? $leadOrg->short_name : null,
+                        'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/'.$leadOrg->avatar) : null,
                     ]),
-                    "created_at" => now(),
-                    "updated_at" => now()
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ],
                 [
-                    "id" => Str::uuid()->toString(),
-                    "user_id" => $user->id,
-                    "title" => "Xác nhận phê duyệt",
-                    "message" => "Bạn đã phê duyệt hoạt động {$activity->code}",
-                    "category" => "activity",
-                    "notification_type" => "activity_approved_confirm",
-                    "icon" => "CheckOutlined",
-                    "color" => "success",
-                    "action_url" => "/dashboard?tab=activity-management",
-                    "actor_id" => $activity->created_by,
-                    "is_read" => false,
-                    "priority" => "low",
-                    "data" => null,
-                    "created_at" => now(),
-                    "updated_at" => now()
-                ]
+                    'id' => Str::uuid()->toString(),
+                    'user_id' => $user->id,
+                    'title' => 'Xác nhận phê duyệt',
+                    'message' => "Bạn đã phê duyệt hoạt động {$activity->code}",
+                    'category' => 'activity',
+                    'notification_type' => 'activity_approved_confirm',
+                    'icon' => 'CheckOutlined',
+                    'color' => 'success',
+                    'action_url' => '/dashboard?tab=activity-management',
+                    'actor_id' => $activity->created_by,
+                    'is_read' => false,
+                    'priority' => 'low',
+                    'data' => null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
             ];
 
             foreach ($orgMembers as $member) {
                 $notifications[] = [
-                    "id" => Str::uuid()->toString(),
-                    "user_id" => $member->id,
-                    "title" => "Hoạt động mới của phòng ban",
-                    "message" => "Phòng ban có hoạt động mới: {$activity->title}",
-                    "category" => "activity",
-                    "notification_type" => "department_activity_approved",
-                    "icon" => "TeamOutlined",
-                    "color" => "success",
-                    "action_url" => "/dashboard?tab=activity-management",
-                    "actor_id" => $activity->created_by,
-                    "is_read" => false,
-                    "priority" => "normal",
-                    "data" => json_encode([
-                        "activity_id" => $activity->id,
-                        "activity_code" => $activity->code,
-                        "activity_title" => $activity->title,
-                        "activity_type" => $activity->activityType ? $activity->activityType->name : null,
-                        "organization_id" => $leadOrg ? $leadOrg->id : null,
-                        "organization_name" => $leadOrg ? $leadOrg->name : null,
-                        "organization_short_name" => $leadOrg ? $leadOrg->short_name : null,
-                        "organization_avatar" => $leadOrg && $leadOrg->avatar ? asset('storage/' . $leadOrg->avatar) : null,
-                        "creator_id" => $activity->creator ? $activity->creator->id : null,
-                        "creator_name" => $activity->creator ? $activity->creator->first_name . ' ' . $activity->creator->last_name : null,
-                        "start_date" => $activity->start_date,
-                        "end_date" => $activity->end_date,
+                    'id' => Str::uuid()->toString(),
+                    'user_id' => $member->id,
+                    'title' => 'Hoạt động mới của phòng ban',
+                    'message' => "Phòng ban có hoạt động mới: {$activity->title}",
+                    'category' => 'activity',
+                    'notification_type' => 'department_activity_approved',
+                    'icon' => 'TeamOutlined',
+                    'color' => 'success',
+                    'action_url' => '/dashboard?tab=activity-management',
+                    'actor_id' => $activity->created_by,
+                    'is_read' => false,
+                    'priority' => 'normal',
+                    'data' => json_encode([
+                        'activity_id' => $activity->id,
+                        'activity_code' => $activity->code,
+                        'activity_title' => $activity->title,
+                        'activity_type' => $activity->activityType ? $activity->activityType->name : null,
+                        'organization_id' => $leadOrg ? $leadOrg->id : null,
+                        'organization_name' => $leadOrg ? $leadOrg->name : null,
+                        'organization_short_name' => $leadOrg ? $leadOrg->short_name : null,
+                        'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/'.$leadOrg->avatar) : null,
+                        'creator_id' => $activity->creator ? $activity->creator->id : null,
+                        'creator_name' => $activity->creator ? $activity->creator->first_name.' '.$activity->creator->last_name : null,
+                        'start_date' => $activity->start_date,
+                        'end_date' => $activity->end_date,
                     ]),
-                    "created_at" => now(),
-                    "updated_at" => now()
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ];
             }
 
@@ -1672,14 +1686,16 @@ class ActivityController extends Controller
                 $invitationNotifications = [];
                 foreach ($participants as $participant) {
                     $participantUser = User::find($participant->user_id);
-                    if (!$participantUser) continue;
+                    if (! $participantUser) {
+                        continue;
+                    }
 
                     $leadOrg = $activity->leadOrganization;
                     $invitationNotifications[] = [
                         'id' => Str::uuid()->toString(),
                         'user_id' => $participantUser->id,
                         'title' => 'Lời mời tham dự hoạt động',
-                        'message' => "Bạn được mời tham dự hoạt động \"{$activity->title}\" vào ngày " .
+                        'message' => "Bạn được mời tham dự hoạt động \"{$activity->title}\" vào ngày ".
                             ($activity->start_date ? date('d/m/Y H:i', strtotime($activity->start_date)) : 'chưa xác định'),
                         'category' => 'activity',
                         'notification_type' => 'activity_invitation',
@@ -1697,7 +1713,7 @@ class ActivityController extends Controller
                             'organization_id' => $leadOrg ? $leadOrg->id : null,
                             'organization_name' => $leadOrg ? $leadOrg->name : null,
                             'organization_short_name' => $leadOrg ? $leadOrg->short_name : null,
-                            'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/' . $leadOrg->avatar) : null,
+                            'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/'.$leadOrg->avatar) : null,
                             'start_date' => $activity->start_date,
                             'end_date' => $activity->end_date,
                             'location' => $activity->location,
@@ -1710,7 +1726,7 @@ class ActivityController extends Controller
                     $invitationsSent++;
                 }
 
-                if (!empty($invitationNotifications)) {
+                if (! empty($invitationNotifications)) {
                     DB::table('notifications')->insert($invitationNotifications);
 
                     // Update invited_at for participants
@@ -1745,6 +1761,7 @@ class ActivityController extends Controller
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy hoạt động',
@@ -1777,7 +1794,7 @@ class ActivityController extends Controller
         $user = $request->user();
 
         // Only MANAGER, OPERATOR, ADMIN can reject
-        if (!in_array($user->role, ['MANAGER', 'OPERATOR', 'ADMIN'])) {
+        if (! in_array($user->role, ['MANAGER', 'OPERATOR', 'ADMIN'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn không có quyền từ chối hoạt động',
@@ -1838,52 +1855,52 @@ class ActivityController extends Controller
 
                 $notifications = [
                     [
-                        "id" => Str::uuid()->toString(),
-                        "user_id" => $activity->created_by,
-                        "title" => "Hoạt động đã bị xóa",
-                        "message" => "Hoạt động {$activity->code} bị từ chối và xóa. Lý do: {$reason}",
-                        "category" => "activity",
-                        "notification_type" => "activity_rejected_deleted",
-                        "icon" => "DeleteOutlined",
-                        "color" => "error",
-                        "action_url" => "/dashboard?tab=activity-management",
-                        "actor_id" => $activity->created_by,
-                        "is_read" => false,
-                        "priority" => "high",
-                        "data" => json_encode([
-                            "activity_id" => $activity->id,
-                            "activity_code" => $activity->code,
-                            "activity_title" => $activity->title,
-                            "rejector_id" => $user->id,
-                            "rejector_name" => $user->getNameAttribute(),
-                            "rejected_at" => now(),
-                            "reason" => $reason,
-                            "action" => "delete",
-                            "organization_id" => $leadOrg ? $leadOrg->id : null,
-                            "organization_name" => $leadOrg ? $leadOrg->name : null,
-                            "organization_short_name" => $leadOrg ? $leadOrg->short_name : null,
-                            "organization_avatar" => $leadOrg && $leadOrg->avatar ? asset('storage/' . $leadOrg->avatar) : null,
+                        'id' => Str::uuid()->toString(),
+                        'user_id' => $activity->created_by,
+                        'title' => 'Hoạt động đã bị xóa',
+                        'message' => "Hoạt động {$activity->code} bị từ chối và xóa. Lý do: {$reason}",
+                        'category' => 'activity',
+                        'notification_type' => 'activity_rejected_deleted',
+                        'icon' => 'DeleteOutlined',
+                        'color' => 'error',
+                        'action_url' => '/dashboard?tab=activity-management',
+                        'actor_id' => $activity->created_by,
+                        'is_read' => false,
+                        'priority' => 'high',
+                        'data' => json_encode([
+                            'activity_id' => $activity->id,
+                            'activity_code' => $activity->code,
+                            'activity_title' => $activity->title,
+                            'rejector_id' => $user->id,
+                            'rejector_name' => $user->getNameAttribute(),
+                            'rejected_at' => now(),
+                            'reason' => $reason,
+                            'action' => 'delete',
+                            'organization_id' => $leadOrg ? $leadOrg->id : null,
+                            'organization_name' => $leadOrg ? $leadOrg->name : null,
+                            'organization_short_name' => $leadOrg ? $leadOrg->short_name : null,
+                            'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/'.$leadOrg->avatar) : null,
                         ]),
-                        "created_at" => now(),
-                        "updated_at" => now()
+                        'created_at' => now(),
+                        'updated_at' => now(),
                     ],
                     [
-                        "id" => Str::uuid()->toString(),
-                        "user_id" => $user->id,
-                        "title" => "Xác nhận xóa",
-                        "message" => "Bạn đã từ chối và xóa hoạt động {$activity->code}",
-                        "category" => "activity",
-                        "notification_type" => "activity_deleted_confirm",
-                        "icon" => "DeleteOutlined",
-                        "color" => "error",
-                        "action_url" => "/dashboard?tab=activity-management",
-                        "actor_id" => $activity->created_by,
-                        "is_read" => false,
-                        "priority" => "low",
-                        "data" => null,
-                        "created_at" => now(),
-                        "updated_at" => now()
-                    ]
+                        'id' => Str::uuid()->toString(),
+                        'user_id' => $user->id,
+                        'title' => 'Xác nhận xóa',
+                        'message' => "Bạn đã từ chối và xóa hoạt động {$activity->code}",
+                        'category' => 'activity',
+                        'notification_type' => 'activity_deleted_confirm',
+                        'icon' => 'DeleteOutlined',
+                        'color' => 'error',
+                        'action_url' => '/dashboard?tab=activity-management',
+                        'actor_id' => $activity->created_by,
+                        'is_read' => false,
+                        'priority' => 'low',
+                        'data' => null,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ],
                 ];
 
                 DB::table('notifications')->insert($notifications);
@@ -1928,52 +1945,52 @@ class ActivityController extends Controller
                 $leadOrg = $activity->leadOrganization;
                 $notifications = [
                     [
-                        "id" => Str::uuid()->toString(),
-                        "user_id" => $activity->created_by,
-                        "title" => "Hoạt động bị trả về",
-                        "message" => "Hoạt động {$activity->code} bị từ chối và trả về nháp. Lý do: {$reason}",
-                        "category" => "activity",
-                        "notification_type" => "activity_rejected_draft",
-                        "icon" => "CloseCircleOutlined",
-                        "color" => "error",
-                        "action_url" => "/dashboard?tab=activity-management",
-                        "actor_id" => $activity->created_by,
-                        "is_read" => false,
-                        "priority" => "high",
-                        "data" => json_encode([
-                            "activity_id" => $activity->id,
-                            "activity_code" => $activity->code,
-                            "activity_title" => $activity->title,
-                            "rejector_id" => $user->id,
-                            "rejector_name" => $user->getNameAttribute(),
-                            "rejected_at" => now(),
-                            "reason" => $reason,
-                            "action" => "return_to_draft",
-                            "organization_id" => $leadOrg ? $leadOrg->id : null,
-                            "organization_name" => $leadOrg ? $leadOrg->name : null,
-                            "organization_short_name" => $leadOrg ? $leadOrg->short_name : null,
-                            "organization_avatar" => $leadOrg && $leadOrg->avatar ? asset('storage/' . $leadOrg->avatar) : null,
+                        'id' => Str::uuid()->toString(),
+                        'user_id' => $activity->created_by,
+                        'title' => 'Hoạt động bị trả về',
+                        'message' => "Hoạt động {$activity->code} bị từ chối và trả về nháp. Lý do: {$reason}",
+                        'category' => 'activity',
+                        'notification_type' => 'activity_rejected_draft',
+                        'icon' => 'CloseCircleOutlined',
+                        'color' => 'error',
+                        'action_url' => '/dashboard?tab=activity-management',
+                        'actor_id' => $activity->created_by,
+                        'is_read' => false,
+                        'priority' => 'high',
+                        'data' => json_encode([
+                            'activity_id' => $activity->id,
+                            'activity_code' => $activity->code,
+                            'activity_title' => $activity->title,
+                            'rejector_id' => $user->id,
+                            'rejector_name' => $user->getNameAttribute(),
+                            'rejected_at' => now(),
+                            'reason' => $reason,
+                            'action' => 'return_to_draft',
+                            'organization_id' => $leadOrg ? $leadOrg->id : null,
+                            'organization_name' => $leadOrg ? $leadOrg->name : null,
+                            'organization_short_name' => $leadOrg ? $leadOrg->short_name : null,
+                            'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/'.$leadOrg->avatar) : null,
                         ]),
-                        "created_at" => now(),
-                        "updated_at" => now()
+                        'created_at' => now(),
+                        'updated_at' => now(),
                     ],
                     [
-                        "id" => Str::uuid()->toString(),
-                        "user_id" => $user->id,
-                        "title" => "Xác nhận từ chối",
-                        "message" => "Bạn đã từ chối hoạt động {$activity->code}",
-                        "category" => "activity",
-                        "notification_type" => "activity_rejected_confirm",
-                        "icon" => "CloseCircleOutlined",
-                        "color" => "error",
-                        "action_url" => "/dashboard?tab=activity-management",
-                        "actor_id" => $activity->created_by,
-                        "is_read" => false,
-                        "priority" => "low",
-                        "data" => null,
-                        "created_at" => now(),
-                        "updated_at" => now()
-                    ]
+                        'id' => Str::uuid()->toString(),
+                        'user_id' => $user->id,
+                        'title' => 'Xác nhận từ chối',
+                        'message' => "Bạn đã từ chối hoạt động {$activity->code}",
+                        'category' => 'activity',
+                        'notification_type' => 'activity_rejected_confirm',
+                        'icon' => 'CloseCircleOutlined',
+                        'color' => 'error',
+                        'action_url' => '/dashboard?tab=activity-management',
+                        'actor_id' => $activity->created_by,
+                        'is_read' => false,
+                        'priority' => 'low',
+                        'data' => null,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ],
                 ];
 
                 DB::table('notifications')->insert($notifications);
@@ -1991,6 +2008,7 @@ class ActivityController extends Controller
             }
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy hoạt động',
@@ -2058,7 +2076,7 @@ class ActivityController extends Controller
                         'message' => 'Bạn chỉ có thể tạm hoãn hoạt động của đơn vị mình',
                     ], 403);
                 }
-            } elseif (!in_array($user->role, ['OPERATOR', 'ADMIN'])) {
+            } elseif (! in_array($user->role, ['OPERATOR', 'ADMIN'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bạn không có quyền tạm hoãn hoạt động',
@@ -2068,7 +2086,7 @@ class ActivityController extends Controller
             // Only APPROVED activities (including computed IN_PROGRESS/COMPLETED) can be postponed
             $computedStatus = $this->getComputedStatus($activity);
             $allowedStatuses = [self::STATUS_APPROVED, self::STATUS_IN_PROGRESS, self::STATUS_COMPLETED];
-            if (!in_array($computedStatus, $allowedStatuses)) {
+            if (! in_array($computedStatus, $allowedStatuses)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Chỉ có thể tạm hoãn hoạt động đã được phê duyệt.',
@@ -2088,7 +2106,7 @@ class ActivityController extends Controller
                 'activityField:id,name',
                 'leadOrganization:id,name,short_name',
                 'creator:id,email,first_name,last_name',
-                'approver:id,email,first_name,last_name'
+                'approver:id,email,first_name,last_name',
             ]);
 
             // Log postpone action
@@ -2108,7 +2126,7 @@ class ActivityController extends Controller
                     'id' => Str::uuid()->toString(),
                     'user_id' => $activity->created_by,
                     'title' => 'Hoạt động đã bị tạm hoãn',
-                    'message' => "Hoạt động {$activity->code} đã bị tạm hoãn bởi {$user->getNameAttribute()}." . ($reason ? " Lý do: {$reason}" : ''),
+                    'message' => "Hoạt động {$activity->code} đã bị tạm hoãn bởi {$user->getNameAttribute()}.".($reason ? " Lý do: {$reason}" : ''),
                     'category' => 'activity',
                     'notification_type' => 'activity_postponed',
                     'icon' => 'PauseCircleOutlined',
@@ -2124,14 +2142,14 @@ class ActivityController extends Controller
                         'organization_id' => $leadOrg ? $leadOrg->id : null,
                         'organization_name' => $leadOrg ? $leadOrg->name : null,
                         'organization_short_name' => $leadOrg ? $leadOrg->short_name : null,
-                        'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/' . $leadOrg->avatar) : null,
+                        'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/'.$leadOrg->avatar) : null,
                         'postponed_by' => $user->id,
                         'postponed_by_name' => $user->getNameAttribute(),
                         'reason' => $reason,
                     ]),
                     'created_at' => now(),
                     'updated_at' => now(),
-                ]
+                ],
             ];
 
             // Notify all participants with user_id
@@ -2161,7 +2179,7 @@ class ActivityController extends Controller
                         'organization_id' => $leadOrg ? $leadOrg->id : null,
                         'organization_name' => $leadOrg ? $leadOrg->name : null,
                         'organization_short_name' => $leadOrg ? $leadOrg->short_name : null,
-                        'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/' . $leadOrg->avatar) : null,
+                        'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/'.$leadOrg->avatar) : null,
                     ]),
                     'created_at' => now(),
                     'updated_at' => now(),
@@ -2179,6 +2197,7 @@ class ActivityController extends Controller
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy hoạt động',
@@ -2247,7 +2266,7 @@ class ActivityController extends Controller
                         'message' => 'Bạn chỉ có thể hủy hoạt động của đơn vị mình',
                     ], 403);
                 }
-            } elseif (!in_array($user->role, ['OPERATOR', 'ADMIN'])) {
+            } elseif (! in_array($user->role, ['OPERATOR', 'ADMIN'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bạn không có quyền hủy hoạt động',
@@ -2257,7 +2276,7 @@ class ActivityController extends Controller
             // Only APPROVED or POSTPONED can be cancelled
             $computedStatus = $this->getComputedStatus($activity);
             $allowedStatuses = [self::STATUS_APPROVED, self::STATUS_IN_PROGRESS, self::STATUS_COMPLETED, self::STATUS_POSTPONED];
-            if (!in_array($computedStatus, $allowedStatuses) && $activity->status !== self::STATUS_POSTPONED) {
+            if (! in_array($computedStatus, $allowedStatuses) && $activity->status !== self::STATUS_POSTPONED) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Chỉ có thể hủy hoạt động đã được phê duyệt hoặc đang tạm hoãn.',
@@ -2277,7 +2296,7 @@ class ActivityController extends Controller
                 'activityField:id,name',
                 'leadOrganization:id,name,short_name',
                 'creator:id,email,first_name,last_name',
-                'approver:id,email,first_name,last_name'
+                'approver:id,email,first_name,last_name',
             ]);
 
             // Apply computed status for response
@@ -2316,14 +2335,14 @@ class ActivityController extends Controller
                         'organization_id' => $leadOrg ? $leadOrg->id : null,
                         'organization_name' => $leadOrg ? $leadOrg->name : null,
                         'organization_short_name' => $leadOrg ? $leadOrg->short_name : null,
-                        'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/' . $leadOrg->avatar) : null,
+                        'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/'.$leadOrg->avatar) : null,
                         'cancelled_by' => $user->id,
                         'cancelled_by_name' => $user->getNameAttribute(),
                         'reason' => $reason,
                     ]),
                     'created_at' => now(),
                     'updated_at' => now(),
-                ]
+                ],
             ];
 
             // Notify all participants with user_id
@@ -2353,7 +2372,7 @@ class ActivityController extends Controller
                         'organization_id' => $leadOrg ? $leadOrg->id : null,
                         'organization_name' => $leadOrg ? $leadOrg->name : null,
                         'organization_short_name' => $leadOrg ? $leadOrg->short_name : null,
-                        'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/' . $leadOrg->avatar) : null,
+                        'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/'.$leadOrg->avatar) : null,
                         'reason' => $reason,
                     ]),
                     'created_at' => now(),
@@ -2372,6 +2391,7 @@ class ActivityController extends Controller
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy hoạt động',
@@ -2436,7 +2456,7 @@ class ActivityController extends Controller
                 'activityField:id,name',
                 'leadOrganization:id,name,short_name',
                 'creator:id,email,first_name,last_name',
-                'approver:id,email,first_name,last_name'
+                'approver:id,email,first_name,last_name',
             ]);
 
             // Apply computed status for response
@@ -2484,6 +2504,7 @@ class ActivityController extends Controller
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy hoạt động',
@@ -2593,7 +2614,7 @@ class ActivityController extends Controller
             $newNumber = 1;
         }
 
-        return sprintf("ACT-%s-%03d", $year, $newNumber);
+        return sprintf('ACT-%s-%03d', $year, $newNumber);
     }
 
     /**
@@ -2611,7 +2632,7 @@ class ActivityController extends Controller
         $user = $request->user();
 
         // Only MANAGER, OPERATOR, ADMIN can lock
-        if (!in_array($user->role, ['MANAGER', 'OPERATOR', 'ADMIN'])) {
+        if (! in_array($user->role, ['MANAGER', 'OPERATOR', 'ADMIN'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Chỉ Quản lý (MANAGER) trở lên mới có quyền khóa hoạt động',
@@ -2625,7 +2646,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -2647,7 +2668,7 @@ class ActivityController extends Controller
             $computedStatus = $this->getComputedStatus($activity);
             $lockableComputedStatuses = [self::STATUS_APPROVED, self::STATUS_IN_PROGRESS, self::STATUS_POSTPONED, self::STATUS_COMPLETED, self::STATUS_CANCELLED];
 
-            if (!in_array($activity->status, $lockableStatuses) && !in_array($computedStatus, $lockableComputedStatuses)) {
+            if (! in_array($activity->status, $lockableStatuses) && ! in_array($computedStatus, $lockableComputedStatuses)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Chỉ có thể khóa hoạt động đã được phê duyệt (đang thực hiện, tạm hoãn, hoàn thành hoặc đã hủy)',
@@ -2678,25 +2699,25 @@ class ActivityController extends Controller
 
             $leadOrg = $activity->leadOrganization;
             Notification::create([
-                "user_id" => $activity->created_by,
-                "title" => "Khóa hoạt động",
-                "message" => "Hoạt động {$activity->code} đã bị khóa bởi {$user->getNameAttribute()}",
-                "category" => "activity",
-                "notification_type" => "activity_locked",
-                "icon" => "LockOutlined",
-                "color" => "warning",
-                "action_url" => "/dashboard?tab=activity-management",
-                "actor_id" => $activity->created_by,
-                "is_read" => false,
-                "priority" => "normal",
-                "data" => json_encode([
-                    "activity_id" => $activity->id,
-                    "activity_code" => $activity->code,
-                    "activity_title" => $activity->title,
-                    "organization_id" => $leadOrg ? $leadOrg->id : null,
-                    "organization_name" => $leadOrg ? $leadOrg->name : null,
-                    "organization_short_name" => $leadOrg ? $leadOrg->short_name : null,
-                    "organization_avatar" => $leadOrg && $leadOrg->avatar ? asset('storage/' . $leadOrg->avatar) : null,
+                'user_id' => $activity->created_by,
+                'title' => 'Khóa hoạt động',
+                'message' => "Hoạt động {$activity->code} đã bị khóa bởi {$user->getNameAttribute()}",
+                'category' => 'activity',
+                'notification_type' => 'activity_locked',
+                'icon' => 'LockOutlined',
+                'color' => 'warning',
+                'action_url' => '/dashboard?tab=activity-management',
+                'actor_id' => $activity->created_by,
+                'is_read' => false,
+                'priority' => 'normal',
+                'data' => json_encode([
+                    'activity_id' => $activity->id,
+                    'activity_code' => $activity->code,
+                    'activity_title' => $activity->title,
+                    'organization_id' => $leadOrg ? $leadOrg->id : null,
+                    'organization_name' => $leadOrg ? $leadOrg->name : null,
+                    'organization_short_name' => $leadOrg ? $leadOrg->short_name : null,
+                    'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/'.$leadOrg->avatar) : null,
                 ]),
             ]);
 
@@ -2712,6 +2733,7 @@ class ActivityController extends Controller
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy hoạt động',
@@ -2779,7 +2801,7 @@ class ActivityController extends Controller
                     ->where('end_date', '<', now())
                     ->where(function ($q) {
                         $q->whereNull('result_summary')
-                          ->orWhere('result_summary', '');
+                            ->orWhere('result_summary', '');
                     });
 
                 // All staff in organization can see organization's activities needing action
@@ -2821,7 +2843,7 @@ class ActivityController extends Controller
         $user = $request->user();
 
         // Only OPERATOR, ADMIN can unlock
-        if (!in_array($user->role, ['OPERATOR', 'ADMIN'])) {
+        if (! in_array($user->role, ['OPERATOR', 'ADMIN'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Chỉ Điều hành viên (OPERATOR) hoặc Quản trị viên (ADMIN) mới có quyền mở khóa hoạt động',
@@ -2833,7 +2855,7 @@ class ActivityController extends Controller
             $activity = Activity::findOrFail($id);
 
             // Check if not locked
-            if (!$activity->is_locked) {
+            if (! $activity->is_locked) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Hoạt động này chưa bị khóa',
@@ -2854,56 +2876,56 @@ class ActivityController extends Controller
                 'unlocked_by' => $user->id,
             ]);
 
-            $OrgManagers = User::where("organization_id", $activity->lead_organization_id)->where("role", "MANAGER")->get();
+            $OrgManagers = User::where('organization_id', $activity->lead_organization_id)->where('role', 'MANAGER')->get();
             $leadOrg = $activity->leadOrganization;
 
             $notificationData = json_encode([
-                "activity_id" => $activity->id,
-                "activity_code" => $activity->code,
-                "activity_title" => $activity->title,
-                "organization_id" => $leadOrg ? $leadOrg->id : null,
-                "organization_name" => $leadOrg ? $leadOrg->name : null,
-                "organization_short_name" => $leadOrg ? $leadOrg->short_name : null,
-                "organization_avatar" => $leadOrg && $leadOrg->avatar ? asset('storage/' . $leadOrg->avatar) : null,
+                'activity_id' => $activity->id,
+                'activity_code' => $activity->code,
+                'activity_title' => $activity->title,
+                'organization_id' => $leadOrg ? $leadOrg->id : null,
+                'organization_name' => $leadOrg ? $leadOrg->name : null,
+                'organization_short_name' => $leadOrg ? $leadOrg->short_name : null,
+                'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/'.$leadOrg->avatar) : null,
             ]);
 
             $notifications = [
                 [
-                    "id" => Str::uuid()->toString(),
-                    "user_id" => $activity->created_by,
-                    "title" => "Mở khóa hoạt động",
-                    "message" => "Hoạt động {$activity->code} đã được mở khóa bởi {$user->getNameAttribute()}",
-                    "category" => "activity",
-                    "notification_type" => "activity_unlocked",
-                    "icon" => "UnlockOutlined",
-                    "color" => "success",
-                    "action_url" => "/dashboard?tab=activity-management",
-                    "actor_id" => $user->id,
-                    "is_read" => false,
-                    "priority" => "normal",
-                    "data" => $notificationData,
-                    "created_at" => now(),
-                    "updated_at" => now()
-                ]
+                    'id' => Str::uuid()->toString(),
+                    'user_id' => $activity->created_by,
+                    'title' => 'Mở khóa hoạt động',
+                    'message' => "Hoạt động {$activity->code} đã được mở khóa bởi {$user->getNameAttribute()}",
+                    'category' => 'activity',
+                    'notification_type' => 'activity_unlocked',
+                    'icon' => 'UnlockOutlined',
+                    'color' => 'success',
+                    'action_url' => '/dashboard?tab=activity-management',
+                    'actor_id' => $user->id,
+                    'is_read' => false,
+                    'priority' => 'normal',
+                    'data' => $notificationData,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
             ];
 
-            foreach($OrgManagers as $manager) {
+            foreach ($OrgManagers as $manager) {
                 $notifications[] = [
-                    "id" => Str::uuid()->toString(),
-                    "user_id" => $manager->id,
-                    "title" => "Mở khóa hoạt động",
-                    "message" => "Hoạt động {$activity->code} đã được mở khóa bởi {$user->getNameAttribute()}",
-                    "category" => "activity",
-                    "notification_type" => "activity_unlocked",
-                    "icon" => "UnlockOutlined",
-                    "color" => "success",
-                    "action_url" => "/dashboard?tab=activity-management",
-                    "actor_id" => $user->id,
-                    "is_read" => false,
-                    "priority" => "normal",
-                    "data" => $notificationData,
-                    "created_at" => now(),
-                    "updated_at" => now()
+                    'id' => Str::uuid()->toString(),
+                    'user_id' => $manager->id,
+                    'title' => 'Mở khóa hoạt động',
+                    'message' => "Hoạt động {$activity->code} đã được mở khóa bởi {$user->getNameAttribute()}",
+                    'category' => 'activity',
+                    'notification_type' => 'activity_unlocked',
+                    'icon' => 'UnlockOutlined',
+                    'color' => 'success',
+                    'action_url' => '/dashboard?tab=activity-management',
+                    'actor_id' => $user->id,
+                    'is_read' => false,
+                    'priority' => 'normal',
+                    'data' => $notificationData,
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ];
             }
 
@@ -2921,6 +2943,7 @@ class ActivityController extends Controller
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy hoạt động',
@@ -2954,7 +2977,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -3049,7 +3072,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -3068,7 +3091,7 @@ class ActivityController extends Controller
                 self::STATUS_POSTPONED,
             ];
 
-            if (!\in_array($computedStatus, $allowedFileUploadStatuses)) {
+            if (! \in_array($computedStatus, $allowedFileUploadStatuses)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Không thể thêm tập tin cho hoạt động ở trạng thái này',
@@ -3082,13 +3105,14 @@ class ActivityController extends Controller
             $fileSize = $file->getSize();
 
             // Security: Validate actual MIME type (not just extension)
-            if (!\in_array($mimeType, $allowedMimes, true)) {
+            if (! \in_array($mimeType, $allowedMimes, true)) {
                 Log::warning('File upload rejected: Invalid MIME type', [
                     'activity_id' => $id,
                     'file_name' => $originalName,
                     'mime_type' => $mimeType,
                     'user_id' => $user->id,
                 ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Loại tập tin không được phép',
@@ -3097,11 +3121,11 @@ class ActivityController extends Controller
 
             // Generate unique filename
             $fileName = pathinfo($originalName, PATHINFO_FILENAME);
-            $uniqueName = Str::slug($fileName) . '_' . time() . '.' . $extension;
+            $uniqueName = Str::slug($fileName).'_'.time().'.'.$extension;
 
             // Store file in activities/{activity_id}/ directory
             $path = $file->storeAs(
-                'public/activities/' . $id,
+                'public/activities/'.$id,
                 $uniqueName
             );
 
@@ -3188,7 +3212,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -3206,7 +3230,7 @@ class ActivityController extends Controller
                 self::STATUS_POSTPONED,
             ];
 
-            if (!\in_array($computedStatus, $allowedFileUploadStatuses)) {
+            if (! \in_array($computedStatus, $allowedFileUploadStatuses)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Không thể thêm liên kết cho hoạt động ở trạng thái này',
@@ -3292,7 +3316,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -3312,7 +3336,7 @@ class ActivityController extends Controller
                 self::STATUS_POSTPONED,
             ];
 
-            if (!\in_array($computedStatus, $allowedFileEditStatuses)) {
+            if (! \in_array($computedStatus, $allowedFileEditStatuses)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Không thể chỉnh sửa tập tin cho hoạt động ở trạng thái này',
@@ -3390,7 +3414,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -3410,7 +3434,7 @@ class ActivityController extends Controller
                 self::STATUS_POSTPONED,
             ];
 
-            if (!\in_array($computedStatus, $allowedFileDeleteStatuses)) {
+            if (! \in_array($computedStatus, $allowedFileDeleteStatuses)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Không thể xóa tập tin cho hoạt động ở trạng thái này',
@@ -3423,7 +3447,7 @@ class ActivityController extends Controller
                 $isOrgManager = $user->role === 'MANAGER' && $activity->lead_organization_id === $user->organization_id;
                 $isOperatorAdmin = in_array($user->role, ['OPERATOR', 'ADMIN']);
 
-                if (!$isCreator && !$isOrgManager && !$isOperatorAdmin) {
+                if (! $isCreator && ! $isOrgManager && ! $isOperatorAdmin) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Bạn không có quyền xóa tập tin của hoạt động đã hoàn thành',
@@ -3498,7 +3522,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -3544,6 +3568,7 @@ class ActivityController extends Controller
             ], 201);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy hoạt động',
@@ -3576,7 +3601,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -3600,9 +3625,10 @@ class ActivityController extends Controller
                         'email' => $user->email,
                         'first_name' => $user->first_name,
                         'last_name' => $user->last_name,
-                        'name' => $user->first_name . ' ' . $user->last_name,
+                        'name' => $user->first_name.' '.$user->last_name,
                     ];
                 }
+
                 return $data;
             });
 
@@ -3637,6 +3663,7 @@ class ActivityController extends Controller
             ], 404);
         } catch (\Exception $e) {
             Log::error('Get participants failed', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể tải danh sách tham dự',
@@ -3664,7 +3691,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -3687,7 +3714,7 @@ class ActivityController extends Controller
 
             // Get DSTT file type
             $dsttFileType = FileType::where('code', 'DSTT')->first();
-            if (!$dsttFileType) {
+            if (! $dsttFileType) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Loại tập tin DSTT chưa được cấu hình trong hệ thống',
@@ -3750,7 +3777,7 @@ class ActivityController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'File Excel phải có cột "email" để xác định người tham dự',
-                    'hint' => 'Các cột tìm thấy: ' . implode(', ', $rows[0]),
+                    'hint' => 'Các cột tìm thấy: '.implode(', ', $rows[0]),
                 ], 422);
             }
 
@@ -3811,12 +3838,13 @@ class ActivityController extends Controller
                 }
 
                 // Validate email format
-                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
                     $errors[] = [
                         'row' => $i + 1,
                         'email' => $email,
                         'error' => 'Email không hợp lệ',
                     ];
+
                     continue;
                 }
 
@@ -3854,8 +3882,8 @@ class ActivityController extends Controller
             }
 
             // Save file
-            $directory = 'public/activities/' . $id;
-            $fileName = 'DSTT_' . date('YmdHis') . '.' . $extension;
+            $directory = 'public/activities/'.$id;
+            $fileName = 'DSTT_'.date('YmdHis').'.'.$extension;
             $path = $file->storeAs($directory, $fileName);
 
             // Create activity file record
@@ -3870,7 +3898,7 @@ class ActivityController extends Controller
                 'file_size' => $size,
                 'file_extension' => $extension,
                 'mime_type' => $mimeType,
-                'description' => 'Danh sách tham dự - ' . count($participants) . ' người',
+                'description' => 'Danh sách tham dự - '.count($participants).' người',
                 'uploaded_by' => $request->user()->id,
                 'is_public' => false,
             ]);
@@ -3918,6 +3946,7 @@ class ActivityController extends Controller
             ], 201);
         } catch (\PhpOffice\PhpSpreadsheet\Reader\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể đọc file Excel. Vui lòng kiểm tra định dạng file.',
@@ -3925,6 +3954,7 @@ class ActivityController extends Controller
             ], 422);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy hoạt động',
@@ -3932,6 +3962,7 @@ class ActivityController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Upload attendance list failed', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể tải lên danh sách tham dự',
@@ -3952,7 +3983,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -3996,6 +4027,7 @@ class ActivityController extends Controller
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy hoạt động',
@@ -4003,6 +4035,7 @@ class ActivityController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Delete attendance list failed', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể xóa danh sách tham dự',
@@ -4030,10 +4063,11 @@ class ActivityController extends Controller
             // Only approved/in_progress activities can send invitations (not completed)
             // Check computed status (APPROVED becomes IN_PROGRESS or COMPLETED based on dates)
             $computedStatus = $this->getComputedStatus($activity);
-            if (!in_array($computedStatus, [self::STATUS_APPROVED, self::STATUS_IN_PROGRESS])) {
+            if (! in_array($computedStatus, [self::STATUS_APPROVED, self::STATUS_IN_PROGRESS])) {
                 $errorMessage = $computedStatus === self::STATUS_COMPLETED
                     ? 'Không thể gửi lời mời cho hoạt động đã hoàn thành'
                     : 'Chỉ có thể gửi lời mời cho hoạt động đã được phê duyệt';
+
                 return response()->json([
                     'success' => false,
                     'message' => $errorMessage,
@@ -4063,12 +4097,13 @@ class ActivityController extends Controller
             foreach ($participants as $participant) {
                 // Check if user still exists
                 $user = User::find($participant->user_id);
-                if (!$user) {
+                if (! $user) {
                     $failedCount++;
                     $failedEmails[] = [
                         'user_id' => $participant->user_id,
                         'reason' => 'Người dùng không tồn tại trong hệ thống',
                     ];
+
                     continue;
                 }
 
@@ -4078,7 +4113,7 @@ class ActivityController extends Controller
                     'id' => Str::uuid()->toString(),
                     'user_id' => $user->id,
                     'title' => 'Lời mời tham dự hoạt động',
-                    'message' => "Bạn được mời tham dự hoạt động \"{$activity->title}\" vào ngày " .
+                    'message' => "Bạn được mời tham dự hoạt động \"{$activity->title}\" vào ngày ".
                         ($activity->start_date ? date('d/m/Y H:i', strtotime($activity->start_date)) : 'chưa xác định'),
                     'category' => 'activity',
                     'notification_type' => 'activity_invitation',
@@ -4096,7 +4131,7 @@ class ActivityController extends Controller
                         'organization_id' => $leadOrg ? $leadOrg->id : null,
                         'organization_name' => $leadOrg ? $leadOrg->name : null,
                         'organization_short_name' => $leadOrg ? $leadOrg->short_name : null,
-                        'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/' . $leadOrg->avatar) : null,
+                        'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/'.$leadOrg->avatar) : null,
                         'start_date' => $activity->start_date,
                         'end_date' => $activity->end_date,
                         'location' => $activity->location,
@@ -4111,7 +4146,7 @@ class ActivityController extends Controller
             }
 
             // Insert notifications
-            if (!empty($notifications)) {
+            if (! empty($notifications)) {
                 DB::table('notifications')->insert($notifications);
             }
 
@@ -4135,6 +4170,7 @@ class ActivityController extends Controller
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy hoạt động',
@@ -4142,6 +4178,7 @@ class ActivityController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Send invitations failed', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể gửi lời mời',
@@ -4176,10 +4213,11 @@ class ActivityController extends Controller
             // Only approved/in_progress activities can send invitations (not completed)
             // Check computed status (APPROVED becomes IN_PROGRESS or COMPLETED based on dates)
             $computedStatus = $this->getComputedStatus($activity);
-            if (!in_array($computedStatus, [self::STATUS_APPROVED, self::STATUS_IN_PROGRESS])) {
+            if (! in_array($computedStatus, [self::STATUS_APPROVED, self::STATUS_IN_PROGRESS])) {
                 $errorMessage = $computedStatus === self::STATUS_COMPLETED
                     ? 'Không thể gửi lại lời mời cho hoạt động đã hoàn thành'
                     : 'Chỉ có thể gửi lời mời cho hoạt động đã được phê duyệt';
+
                 return response()->json([
                     'success' => false,
                     'message' => $errorMessage,
@@ -4208,7 +4246,7 @@ class ActivityController extends Controller
 
             foreach ($participants as $participant) {
                 $user = User::find($participant->user_id);
-                if (!$user) {
+                if (! $user) {
                     continue;
                 }
 
@@ -4218,7 +4256,7 @@ class ActivityController extends Controller
                     'id' => Str::uuid()->toString(),
                     'user_id' => $user->id,
                     'title' => 'Lời mời tham dự hoạt động (nhắc nhở)',
-                    'message' => "Bạn được mời tham dự hoạt động \"{$activity->title}\" vào ngày " .
+                    'message' => "Bạn được mời tham dự hoạt động \"{$activity->title}\" vào ngày ".
                         ($activity->start_date ? date('d/m/Y H:i', strtotime($activity->start_date)) : 'chưa xác định'),
                     'category' => 'activity',
                     'notification_type' => 'activity_invitation',
@@ -4236,7 +4274,7 @@ class ActivityController extends Controller
                         'organization_id' => $leadOrg ? $leadOrg->id : null,
                         'organization_name' => $leadOrg ? $leadOrg->name : null,
                         'organization_short_name' => $leadOrg ? $leadOrg->short_name : null,
-                        'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/' . $leadOrg->avatar) : null,
+                        'organization_avatar' => $leadOrg && $leadOrg->avatar ? asset('storage/'.$leadOrg->avatar) : null,
                         'start_date' => $activity->start_date,
                         'end_date' => $activity->end_date,
                         'location' => $activity->location,
@@ -4260,7 +4298,7 @@ class ActivityController extends Controller
             }
 
             // Insert notifications
-            if (!empty($notifications)) {
+            if (! empty($notifications)) {
                 DB::table('notifications')->insert($notifications);
             }
 
@@ -4275,6 +4313,7 @@ class ActivityController extends Controller
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy hoạt động',
@@ -4282,6 +4321,7 @@ class ActivityController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Resend invitation failed', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể gửi lại lời mời',
@@ -4316,7 +4356,7 @@ class ActivityController extends Controller
                 ->where('user_id', $user->id)
                 ->first();
 
-            if (!$participant) {
+            if (! $participant) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bạn không có trong danh sách tham dự hoạt động này',
@@ -4328,6 +4368,7 @@ class ActivityController extends Controller
                 $statusMessage = $participant->invitation_status === 'accepted'
                     ? 'đã xác nhận tham dự'
                     : 'đã từ chối';
+
                 return response()->json([
                     'success' => false,
                     'message' => "Bạn đã phản hồi lời mời này rồi (${statusMessage})",
@@ -4374,6 +4415,7 @@ class ActivityController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('Respond to invitation failed', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể phản hồi lời mời',
@@ -4387,7 +4429,7 @@ class ActivityController extends Controller
      */
     public function downloadAttendanceTemplate(): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Danh sách tham dự');
 
@@ -4396,7 +4438,7 @@ class ActivityController extends Controller
         $headerTitles = ['Email (*)', 'Họ tên', 'Số điện thoại', 'Đơn vị', 'Ghi chú'];
 
         foreach ($headers as $col => $header) {
-            $cell = chr(65 + $col) . '1';
+            $cell = chr(65 + $col).'1';
             $sheet->setCellValue($cell, $headerTitles[$col]);
 
             // Style header
@@ -4428,7 +4470,7 @@ class ActivityController extends Controller
         $row = 2;
         foreach ($sampleData as $data) {
             foreach ($data as $col => $value) {
-                $sheet->setCellValue(chr(65 + $col) . $row, $value);
+                $sheet->setCellValue(chr(65 + $col).$row, $value);
             }
             $row++;
         }
@@ -4472,7 +4514,7 @@ class ActivityController extends Controller
     {
         $activity = Activity::with(['leadOrganization'])->find($id);
 
-        if (!$activity) {
+        if (! $activity) {
             abort(404, 'Không tìm thấy hoạt động');
         }
 
@@ -4481,7 +4523,7 @@ class ActivityController extends Controller
             ->orderBy('created_at', 'asc')
             ->get();
 
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Danh sách tham dự');
 
@@ -4497,12 +4539,12 @@ class ActivityController extends Controller
             'Thời gian phản hồi',
             'Đã điểm danh',
             'Thời gian điểm danh',
-            'Ghi chú'
+            'Ghi chú',
         ];
 
         // Style headers
         foreach ($headers as $col => $header) {
-            $cell = chr(65 + $col) . '1';
+            $cell = chr(65 + $col).'1';
             $sheet->setCellValue($cell, $header);
             $sheet->getStyle($cell)->applyFromArray([
                 'font' => [
@@ -4526,7 +4568,7 @@ class ActivityController extends Controller
         foreach ($participants as $participant) {
             // Determine name and other info
             if ($participant->user_id && $participant->user) {
-                $name = trim($participant->user->first_name . ' ' . $participant->user->last_name);
+                $name = trim($participant->user->first_name.' '.$participant->user->last_name);
                 $email = $participant->user->email;
                 $phone = $participant->user->phone ?? '';
                 $organization = $participant->user->organization ?
@@ -4555,17 +4597,17 @@ class ActivityController extends Controller
             ];
             $role = $roleMap[strtolower($participant->role ?? 'participant')] ?? $participant->role;
 
-            $sheet->setCellValue('A' . $row, $stt);
-            $sheet->setCellValue('B' . $row, $name);
-            $sheet->setCellValue('C' . $row, $email);
-            $sheet->setCellValue('D' . $row, $phone);
-            $sheet->setCellValue('E' . $row, $organization);
-            $sheet->setCellValue('F' . $row, $role);
-            $sheet->setCellValue('G' . $row, $invitationStatus);
-            $sheet->setCellValue('H' . $row, $participant->responded_at ? date('d/m/Y H:i', strtotime($participant->responded_at)) : '');
-            $sheet->setCellValue('I' . $row, $participant->attended ? 'Có' : 'Không');
-            $sheet->setCellValue('J' . $row, $participant->attendance_time ? date('d/m/Y H:i', strtotime($participant->attendance_time)) : '');
-            $sheet->setCellValue('K' . $row, $participant->notes ?? '');
+            $sheet->setCellValue('A'.$row, $stt);
+            $sheet->setCellValue('B'.$row, $name);
+            $sheet->setCellValue('C'.$row, $email);
+            $sheet->setCellValue('D'.$row, $phone);
+            $sheet->setCellValue('E'.$row, $organization);
+            $sheet->setCellValue('F'.$row, $role);
+            $sheet->setCellValue('G'.$row, $invitationStatus);
+            $sheet->setCellValue('H'.$row, $participant->responded_at ? date('d/m/Y H:i', strtotime($participant->responded_at)) : '');
+            $sheet->setCellValue('I'.$row, $participant->attended ? 'Có' : 'Không');
+            $sheet->setCellValue('J'.$row, $participant->attendance_time ? date('d/m/Y H:i', strtotime($participant->attendance_time)) : '');
+            $sheet->setCellValue('K'.$row, $participant->notes ?? '');
 
             $row++;
             $stt++;
@@ -4579,25 +4621,25 @@ class ActivityController extends Controller
         $pendingCount = $participants->where('invitation_status', 'pending')->count();
         $attendedCount = $participants->where('attended', true)->count();
 
-        $sheet->setCellValue('A' . $summaryRow, 'THỐNG KÊ:');
-        $sheet->getStyle('A' . $summaryRow)->getFont()->setBold(true);
-        $sheet->setCellValue('A' . ($summaryRow + 1), "Tổng số: {$totalParticipants} | Xác nhận: {$acceptedCount} | Từ chối: {$declinedCount} | Chờ phản hồi: {$pendingCount} | Đã điểm danh: {$attendedCount}");
-        $sheet->mergeCells('A' . ($summaryRow + 1) . ':K' . ($summaryRow + 1));
+        $sheet->setCellValue('A'.$summaryRow, 'THỐNG KÊ:');
+        $sheet->getStyle('A'.$summaryRow)->getFont()->setBold(true);
+        $sheet->setCellValue('A'.($summaryRow + 1), "Tổng số: {$totalParticipants} | Xác nhận: {$acceptedCount} | Từ chối: {$declinedCount} | Chờ phản hồi: {$pendingCount} | Đã điểm danh: {$attendedCount}");
+        $sheet->mergeCells('A'.($summaryRow + 1).':K'.($summaryRow + 1));
 
         // Activity info header
         $infoRow = $summaryRow + 3;
-        $sheet->setCellValue('A' . $infoRow, 'THÔNG TIN HOẠT ĐỘNG:');
-        $sheet->getStyle('A' . $infoRow)->getFont()->setBold(true);
-        $sheet->setCellValue('A' . ($infoRow + 1), "Mã hoạt động: {$activity->code}");
-        $sheet->setCellValue('A' . ($infoRow + 2), "Tên hoạt động: {$activity->title}");
-        $sheet->setCellValue('A' . ($infoRow + 3), "Đơn vị chủ trì: " . ($activity->leadOrganization ? $activity->leadOrganization->name : 'N/A'));
-        $sheet->setCellValue('A' . ($infoRow + 4), "Thời gian: " .
-            ($activity->start_date ? date('d/m/Y H:i', strtotime($activity->start_date)) : 'N/A') .
-            ' - ' .
+        $sheet->setCellValue('A'.$infoRow, 'THÔNG TIN HOẠT ĐỘNG:');
+        $sheet->getStyle('A'.$infoRow)->getFont()->setBold(true);
+        $sheet->setCellValue('A'.($infoRow + 1), "Mã hoạt động: {$activity->code}");
+        $sheet->setCellValue('A'.($infoRow + 2), "Tên hoạt động: {$activity->title}");
+        $sheet->setCellValue('A'.($infoRow + 3), 'Đơn vị chủ trì: '.($activity->leadOrganization ? $activity->leadOrganization->name : 'N/A'));
+        $sheet->setCellValue('A'.($infoRow + 4), 'Thời gian: '.
+            ($activity->start_date ? date('d/m/Y H:i', strtotime($activity->start_date)) : 'N/A').
+            ' - '.
             ($activity->end_date ? date('d/m/Y H:i', strtotime($activity->end_date)) : 'N/A'));
 
         // Create file
-        $fileName = "danh_sach_tham_du_{$activity->code}_" . date('Ymd_His') . '.xlsx';
+        $fileName = "danh_sach_tham_du_{$activity->code}_".date('Ymd_His').'.xlsx';
         $tempFile = tempnam(sys_get_temp_dir(), 'participants_export_');
 
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
@@ -4668,7 +4710,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -4697,7 +4739,7 @@ class ActivityController extends Controller
                 });
 
             // If no organization selected, return list of organizations
-            if (!$organizationId) {
+            if (! $organizationId) {
                 return response()->json([
                     'success' => true,
                     'data' => [
@@ -4711,7 +4753,7 @@ class ActivityController extends Controller
 
             // Get organization info
             $organization = Organization::find($organizationId);
-            if (!$organization) {
+            if (! $organization) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Không tìm thấy tổ chức',
@@ -4777,6 +4819,7 @@ class ActivityController extends Controller
             ], 404);
         } catch (\Exception $e) {
             Log::error('Get organization user groups failed', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể lấy danh sách nhóm user',
@@ -4804,7 +4847,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -4841,7 +4884,7 @@ class ActivityController extends Controller
             $query = User::where('organization_id', $organizationId)
                 ->whereNotIn('id', $existingUserIds);
 
-            if (!in_array('all', $groups)) {
+            if (! in_array('all', $groups)) {
                 // Filter by specific roles
                 $roles = array_map('strtoupper', $groups);
                 $query->whereIn('role', $roles);
@@ -4851,6 +4894,7 @@ class ActivityController extends Controller
 
             if ($users->isEmpty()) {
                 DB::rollBack();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Không tìm thấy user mới để thêm. Có thể tất cả user đã có trong danh sách tham dự.',
@@ -4876,7 +4920,7 @@ class ActivityController extends Controller
                     'responded_at' => null,
                     'attended' => false,
                     'attendance_time' => null,
-                    'notes' => 'Thêm từ nhóm: ' . implode(', ', $groups),
+                    'notes' => 'Thêm từ nhóm: '.implode(', ', $groups),
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
@@ -4897,7 +4941,7 @@ class ActivityController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Đã thêm ' . count($participants) . ' người tham dự từ tổ chức',
+                'message' => 'Đã thêm '.count($participants).' người tham dự từ tổ chức',
                 'data' => [
                     'added_count' => count($participants),
                     'groups_added' => $groups,
@@ -4906,6 +4950,7 @@ class ActivityController extends Controller
             ], 201);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy hoạt động',
@@ -4913,6 +4958,7 @@ class ActivityController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Add participants from group failed', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể thêm người tham dự',
@@ -4956,7 +5002,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -4967,7 +5013,7 @@ class ActivityController extends Controller
             // Note: IN_PROGRESS, COMPLETED are computed from APPROVED based on dates
             $computedStatus = $this->getComputedStatus($activity);
             $allowedStatuses = [self::STATUS_APPROVED, self::STATUS_IN_PROGRESS, self::STATUS_COMPLETED];
-            if (!in_array($computedStatus, $allowedStatuses)) {
+            if (! in_array($computedStatus, $allowedStatuses)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Chỉ có thể cập nhật điểm danh khi hoạt động đã được phê duyệt hoặc hoàn thành',
@@ -5000,7 +5046,7 @@ class ActivityController extends Controller
                 ]);
 
             // Then mark selected participants as attended
-            if (!empty($participantIds)) {
+            if (! empty($participantIds)) {
                 DB::table('activity_participants')
                     ->where('activity_id', $id)
                     ->whereIn('id', $participantIds)
@@ -5038,6 +5084,7 @@ class ActivityController extends Controller
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy hoạt động',
@@ -5045,6 +5092,7 @@ class ActivityController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Update participants attendance failed', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể cập nhật điểm danh',
@@ -5068,7 +5116,7 @@ class ActivityController extends Controller
 
             // Security check
             $accessCheck = $this->canAccessActivity($request, $activity);
-            if (!$accessCheck['allowed']) {
+            if (! $accessCheck['allowed']) {
                 return response()->json([
                     'success' => false,
                     'message' => $accessCheck['reason'],
@@ -5079,7 +5127,7 @@ class ActivityController extends Controller
             // Note: IN_PROGRESS, COMPLETED are computed from APPROVED based on dates
             $computedStatus = $this->getComputedStatus($activity);
             $allowedStatuses = [self::STATUS_APPROVED, self::STATUS_IN_PROGRESS, self::STATUS_COMPLETED];
-            if (!in_array($computedStatus, $allowedStatuses)) {
+            if (! in_array($computedStatus, $allowedStatuses)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Chỉ có thể cập nhật điểm danh khi hoạt động đã được phê duyệt hoặc hoàn thành',
@@ -5099,7 +5147,9 @@ class ActivityController extends Controller
             // Add new external participants
             foreach ($newParticipants as $participant) {
                 $email = trim($participant['email'] ?? '');
-                if (empty($email)) continue;
+                if (empty($email)) {
+                    continue;
+                }
 
                 // Check if already exists
                 $existing = DB::table('activity_participants')
@@ -5107,7 +5157,7 @@ class ActivityController extends Controller
                     ->where('external_email', $email)
                     ->first();
 
-                if (!$existing) {
+                if (! $existing) {
                     $participantId = (string) \Illuminate\Support\Str::uuid();
                     DB::table('activity_participants')->insert([
                         'id' => $participantId,
@@ -5141,7 +5191,7 @@ class ActivityController extends Controller
                 ]);
 
             // Mark attended participants (from existing list)
-            if (!empty($attendedParticipantIds)) {
+            if (! empty($attendedParticipantIds)) {
                 DB::table('activity_participants')
                     ->where('activity_id', $id)
                     ->whereIn('id', $attendedParticipantIds)
@@ -5167,10 +5217,10 @@ class ActivityController extends Controller
                     $originalName = $file->getClientOriginalName();
                     $extension = $file->getClientOriginalExtension();
                     $mimeType = $file->getMimeType();
-                    $storedName = 'attendance_' . $id . '_' . time() . '.' . $extension;
+                    $storedName = 'attendance_'.$id.'_'.time().'.'.$extension;
 
                     // Store file
-                    $path = $file->storeAs('activity_files/' . $id, $storedName, 'public');
+                    $path = $file->storeAs('activity_files/'.$id, $storedName, 'public');
 
                     // Create file record (activity_files table has no timestamps)
                     DB::table('activity_files')->insert([
@@ -5205,9 +5255,9 @@ class ActivityController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => "Đã cập nhật điểm danh: {$attendedCount} người tham dự" .
-                    (count($newParticipantIds) > 0 ? ", thêm " . count($newParticipantIds) . " người mới" : "") .
-                    ($fileUploaded ? ", đã lưu file điểm danh" : ""),
+                'message' => "Đã cập nhật điểm danh: {$attendedCount} người tham dự".
+                    (count($newParticipantIds) > 0 ? ', thêm '.count($newParticipantIds).' người mới' : '').
+                    ($fileUploaded ? ', đã lưu file điểm danh' : ''),
                 'data' => [
                     'attended_count' => $attendedCount,
                     'new_participants_count' => count($newParticipantIds),
@@ -5216,6 +5266,7 @@ class ActivityController extends Controller
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy hoạt động',
@@ -5223,6 +5274,7 @@ class ActivityController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Process attendance failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể xử lý điểm danh',
@@ -5247,17 +5299,17 @@ class ActivityController extends Controller
             $user = $request->user();
 
             // Only STAFF and MANAGER can use this endpoint
-            if (!in_array($user->role, ['STAFF', 'MANAGER'])) {
+            if (! in_array($user->role, ['STAFF', 'MANAGER'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Chỉ nhân viên hoặc quản lý mới có thể truy cập chức năng này'
+                    'message' => 'Chỉ nhân viên hoặc quản lý mới có thể truy cập chức năng này',
                 ], 403);
             }
 
-            if (!$user->organization_id) {
+            if (! $user->organization_id) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Bạn chưa thuộc đơn vị nào'
+                    'message' => 'Bạn chưa thuộc đơn vị nào',
                 ], 400);
             }
 
@@ -5273,7 +5325,7 @@ class ActivityController extends Controller
 
             foreach ($permissions as $permission) {
                 // Check if user's role is allowed
-                if (!$permission->isRoleAllowed($user->role)) {
+                if (! $permission->isRoleAllowed($user->role)) {
                     continue;
                 }
 
@@ -5289,7 +5341,7 @@ class ActivityController extends Controller
             }
 
             // If no permissions found and not view all
-            if (!$canViewAll && empty($accessibleOrgIds)) {
+            if (! $canViewAll && empty($accessibleOrgIds)) {
                 return response()->json([
                     'success' => true,
                     'message' => 'Bạn chưa được cấp quyền xem hoạt động của phòng ban khác',
@@ -5318,7 +5370,7 @@ class ActivityController extends Controller
                 ]);
 
             // Filter by accessible organizations
-            if (!$canViewAll) {
+            if (! $canViewAll) {
                 $query->whereIn('lead_organization_id', $accessibleOrgIds);
             }
 
@@ -5358,8 +5410,8 @@ class ActivityController extends Controller
             if ($request->has('search') && $request->search) {
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
-                    $q->where('code', 'like', '%' . $search . '%')
-                      ->orWhere('title', 'like', '%' . $search . '%');
+                    $q->where('code', 'like', '%'.$search.'%')
+                        ->orWhere('title', 'like', '%'.$search.'%');
                 });
             }
 
@@ -5412,6 +5464,118 @@ class ActivityController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể tải danh sách hoạt động',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get activities where user's organization is a collaborating organization (phối hợp)
+     * Returns activities where the user's org is NOT the lead but IS in collaborating_organizations
+     */
+    public function getCoordinatingActivities(Request $request): JsonResponse
+    {
+        Log::info('=== Activity Management: Fetch Coordinating Activities ===', [
+            'requester_id' => $request->user()->id,
+            'requester_email' => $request->user()->email,
+            'requester_role' => $request->user()->role,
+        ]);
+
+        try {
+            $user = $request->user();
+
+            // User must have an organization
+            if (! $user->organization_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bạn chưa thuộc đơn vị nào',
+                ], 400);
+            }
+
+            // Build query for activities where user's org is a collaborating organization
+            $query = Activity::query()
+                ->with([
+                    'activityType:id,name',
+                    'activityField:id,name',
+                    'leadOrganization:id,name,short_name,code,avatar',
+                    'creator:id,email,first_name,last_name',
+                    'collaboratingOrganizations:id,name,short_name',
+                ])
+                ->whereHas('collaboratingOrganizations', function ($q) use ($user) {
+                    $q->where('organizations.id', $user->organization_id);
+                });
+
+            // Exclude activities where user's org is also the lead (to avoid duplicates)
+            $query->where('lead_organization_id', '!=', $user->organization_id);
+
+            // Filter by activity type
+            if ($request->has('activity_type_id') && $request->activity_type_id) {
+                $query->where('activity_type_id', $request->activity_type_id);
+            }
+
+            // Filter by activity field
+            if ($request->has('activity_field_id') && $request->activity_field_id) {
+                $query->where('activity_field_id', $request->activity_field_id);
+            }
+
+            // Filter by status
+            if ($request->has('status') && $request->status) {
+                $query->where('status', $request->status);
+            }
+
+            // Search by code or title
+            if ($request->has('search') && $request->search) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('code', 'like', '%'.$search.'%')
+                        ->orWhere('title', 'like', '%'.$search.'%');
+                });
+            }
+
+            // Filter by date range
+            if ($request->has('date_from') && $request->date_from) {
+                $query->where('start_date', '>=', $request->date_from);
+            }
+            if ($request->has('date_to') && $request->date_to) {
+                $query->where('end_date', '<=', $request->date_to);
+            }
+
+            // Order by start_date desc
+            $query->orderBy('start_date', 'desc');
+
+            // Pagination
+            $perPage = $request->input('per_page', 15);
+            $activities = $query->paginate($perPage);
+
+            // Apply computed status to all activities
+            $this->applyComputedStatusToCollection($activities->items());
+
+            Log::info('Coordinating activities fetch successful', [
+                'total' => $activities->total(),
+                'organization_id' => $user->organization_id,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $activities->items(),
+                'pagination' => [
+                    'total' => $activities->total(),
+                    'per_page' => $activities->perPage(),
+                    'current_page' => $activities->currentPage(),
+                    'last_page' => $activities->lastPage(),
+                    'from' => $activities->firstItem(),
+                    'to' => $activities->lastItem(),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Coordinating activities fetch failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể tải danh sách hoạt động phối hợp',
                 'error' => $e->getMessage(),
             ], 500);
         }

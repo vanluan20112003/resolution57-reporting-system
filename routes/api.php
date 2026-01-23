@@ -1,29 +1,29 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\API\GoogleAuthController;
+use App\Http\Controllers\API\ActivityController;
+use App\Http\Controllers\API\ActivityFieldController;
+use App\Http\Controllers\API\ActivityLogController;
+use App\Http\Controllers\API\ActivityShareLinkController;
+use App\Http\Controllers\API\ActivityTypeController;
 use App\Http\Controllers\API\AuthController;
-use App\Http\Controllers\API\UserController;
+use App\Http\Controllers\API\DocumentController;
+use App\Http\Controllers\API\FileTypeController;
+use App\Http\Controllers\API\GoogleAuthController;
+use App\Http\Controllers\API\ImportController;
+use App\Http\Controllers\API\KpiCategoryController;
 use App\Http\Controllers\API\KpiController;
+use App\Http\Controllers\API\KpiTaskController;
+use App\Http\Controllers\API\MaintenanceController;
+use App\Http\Controllers\API\NotificationController;
+use App\Http\Controllers\API\OrganizationAccessPermissionController;
 use App\Http\Controllers\API\OrganizationController;
 use App\Http\Controllers\API\ProfileController;
-use App\Http\Controllers\API\ActivityTypeController;
-use App\Http\Controllers\API\ActivityFieldController;
-use App\Http\Controllers\API\ActivityController;
-use App\Http\Controllers\API\FileTypeController;
-use App\Http\Controllers\API\KpiCategoryController;
-use App\Http\Controllers\API\ImportController;
-use App\Http\Controllers\API\NotificationController;
-use App\Http\Controllers\API\ReportController;
-use App\Http\Controllers\API\ActivityShareLinkController;
-use App\Http\Controllers\API\OrganizationAccessPermissionController;
-use App\Http\Controllers\API\KpiTaskController;
-use App\Http\Controllers\API\DocumentController;
-use App\Http\Controllers\API\ActivityLogController;
 use App\Http\Controllers\API\ReportBatchController;
-use App\Http\Controllers\API\MaintenanceController;
+use App\Http\Controllers\API\ReportController;
+use App\Http\Controllers\API\UserController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -50,7 +50,7 @@ Route::prefix('v1')->group(function () {
             return response()->json([
                 'success' => true,
                 'message' => "View scopes already exist ($count records)",
-                'data' => \DB::table('organization_view_scopes')->get()
+                'data' => \DB::table('organization_view_scopes')->get(),
             ]);
         }
 
@@ -99,176 +99,158 @@ Route::prefix('v1')->group(function () {
 
         return response()->json([
             'success' => true,
-            'message' => 'Seeded ' . count($scopes) . ' view scopes',
-            'data' => \DB::table('organization_view_scopes')->get()
+            'message' => 'Seeded '.count($scopes).' view scopes',
+            'data' => \DB::table('organization_view_scopes')->get(),
         ]);
     });
 
     // Temporary route to seed all required data (remove after use)
     Route::get('/seed-all-data', function () {
         try {
-        $results = [];
+            $results = [];
 
-        // 1. Seed Activity Types if empty
-        if (\DB::table('activity_types')->count() === 0) {
-            $activityTypes = [
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Hội thảo/Hội nghị', 'code' => 'CONFERENCE', 'description' => 'Tổ chức hội thảo, hội nghị khoa học', 'is_active' => true, 'display_order' => 1],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Đào tạo/Tập huấn', 'code' => 'TRAINING', 'description' => 'Chương trình đào tạo, tập huấn nâng cao năng lực', 'is_active' => true, 'display_order' => 2],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Nghiên cứu khoa học', 'code' => 'RESEARCH', 'description' => 'Đề tài nghiên cứu khoa học các cấp', 'is_active' => true, 'display_order' => 3],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Dự án triển khai', 'code' => 'PROJECT', 'description' => 'Dự án triển khai ứng dụng công nghệ', 'is_active' => true, 'display_order' => 4],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Hợp tác quốc tế', 'code' => 'INTL_COOP', 'description' => 'Hoạt động hợp tác với đối tác quốc tế', 'is_active' => true, 'display_order' => 5],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Chuyển giao công nghệ', 'code' => 'TECH_TRANSFER', 'description' => 'Hoạt động chuyển giao công nghệ', 'is_active' => true, 'display_order' => 6],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Xây dựng hạ tầng', 'code' => 'INFRASTRUCTURE', 'description' => 'Xây dựng cơ sở hạ tầng KHCN', 'is_active' => true, 'display_order' => 7],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Khác', 'code' => 'OTHER', 'description' => 'Các hoạt động khác', 'is_active' => true, 'display_order' => 99],
-            ];
-            foreach ($activityTypes as $type) {
-                $type['created_at'] = now();
-                $type['updated_at'] = now();
-                \DB::table('activity_types')->insert($type);
+            // 1. Seed Activity Types if empty
+            if (\DB::table('activity_types')->count() === 0) {
+                $activityTypes = [
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Hội thảo/Hội nghị', 'code' => 'CONFERENCE', 'description' => 'Tổ chức hội thảo, hội nghị khoa học', 'is_active' => true, 'display_order' => 1],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Đào tạo/Tập huấn', 'code' => 'TRAINING', 'description' => 'Chương trình đào tạo, tập huấn nâng cao năng lực', 'is_active' => true, 'display_order' => 2],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Nghiên cứu khoa học', 'code' => 'RESEARCH', 'description' => 'Đề tài nghiên cứu khoa học các cấp', 'is_active' => true, 'display_order' => 3],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Dự án triển khai', 'code' => 'PROJECT', 'description' => 'Dự án triển khai ứng dụng công nghệ', 'is_active' => true, 'display_order' => 4],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Hợp tác quốc tế', 'code' => 'INTL_COOP', 'description' => 'Hoạt động hợp tác với đối tác quốc tế', 'is_active' => true, 'display_order' => 5],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Chuyển giao công nghệ', 'code' => 'TECH_TRANSFER', 'description' => 'Hoạt động chuyển giao công nghệ', 'is_active' => true, 'display_order' => 6],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Xây dựng hạ tầng', 'code' => 'INFRASTRUCTURE', 'description' => 'Xây dựng cơ sở hạ tầng KHCN', 'is_active' => true, 'display_order' => 7],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Khác', 'code' => 'OTHER', 'description' => 'Các hoạt động khác', 'is_active' => true, 'display_order' => 99],
+                ];
+                foreach ($activityTypes as $type) {
+                    $type['created_at'] = now();
+                    $type['updated_at'] = now();
+                    \DB::table('activity_types')->insert($type);
+                }
+                $results['activity_types'] = count($activityTypes).' types created';
+            } else {
+                $results['activity_types'] = 'Already exists ('.\DB::table('activity_types')->count().')';
             }
-            $results['activity_types'] = count($activityTypes) . ' types created';
-        } else {
-            $results['activity_types'] = 'Already exists (' . \DB::table('activity_types')->count() . ')';
-        }
 
-        // 2. Seed Activity Fields if empty
-        if (\DB::table('activity_fields')->count() === 0) {
-            $activityFields = [
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Trí tuệ nhân tạo (AI)', 'description' => 'Lĩnh vực AI, Machine Learning, Deep Learning', 'is_active' => true, 'display_order' => 1],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Công nghệ bán dẫn', 'description' => 'Vi mạch, chip, semiconductor', 'is_active' => true, 'display_order' => 2],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Công nghệ sinh học', 'description' => 'Biotechnology, y sinh', 'is_active' => true, 'display_order' => 3],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Năng lượng tái tạo', 'description' => 'Solar, wind, hydrogen', 'is_active' => true, 'display_order' => 4],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Vật liệu mới', 'description' => 'Advanced materials, nanomaterials', 'is_active' => true, 'display_order' => 5],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Internet vạn vật (IoT)', 'description' => 'IoT, embedded systems, sensors', 'is_active' => true, 'display_order' => 6],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Điện toán đám mây', 'description' => 'Cloud computing, distributed systems', 'is_active' => true, 'display_order' => 7],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'An ninh mạng', 'description' => 'Cybersecurity, information security', 'is_active' => true, 'display_order' => 8],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Dữ liệu lớn', 'description' => 'Big Data, Data Analytics', 'is_active' => true, 'display_order' => 9],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Chuyển đổi số', 'description' => 'Digital transformation', 'is_active' => true, 'display_order' => 10],
-            ];
-            foreach ($activityFields as $field) {
-                $field['created_at'] = now();
-                $field['updated_at'] = now();
-                \DB::table('activity_fields')->insert($field);
+            // 2. Seed Activity Fields if empty
+            if (\DB::table('activity_fields')->count() === 0) {
+                $activityFields = [
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Trí tuệ nhân tạo (AI)', 'description' => 'Lĩnh vực AI, Machine Learning, Deep Learning', 'is_active' => true, 'display_order' => 1],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Công nghệ bán dẫn', 'description' => 'Vi mạch, chip, semiconductor', 'is_active' => true, 'display_order' => 2],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Công nghệ sinh học', 'description' => 'Biotechnology, y sinh', 'is_active' => true, 'display_order' => 3],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Năng lượng tái tạo', 'description' => 'Solar, wind, hydrogen', 'is_active' => true, 'display_order' => 4],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Vật liệu mới', 'description' => 'Advanced materials, nanomaterials', 'is_active' => true, 'display_order' => 5],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Internet vạn vật (IoT)', 'description' => 'IoT, embedded systems, sensors', 'is_active' => true, 'display_order' => 6],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Điện toán đám mây', 'description' => 'Cloud computing, distributed systems', 'is_active' => true, 'display_order' => 7],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'An ninh mạng', 'description' => 'Cybersecurity, information security', 'is_active' => true, 'display_order' => 8],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Dữ liệu lớn', 'description' => 'Big Data, Data Analytics', 'is_active' => true, 'display_order' => 9],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Chuyển đổi số', 'description' => 'Digital transformation', 'is_active' => true, 'display_order' => 10],
+                ];
+                foreach ($activityFields as $field) {
+                    $field['created_at'] = now();
+                    $field['updated_at'] = now();
+                    \DB::table('activity_fields')->insert($field);
+                }
+                $results['activity_fields'] = count($activityFields).' fields created';
+            } else {
+                $results['activity_fields'] = 'Already exists ('.\DB::table('activity_fields')->count().')';
             }
-            $results['activity_fields'] = count($activityFields) . ' fields created';
-        } else {
-            $results['activity_fields'] = 'Already exists (' . \DB::table('activity_fields')->count() . ')';
-        }
 
-        // 3. Seed Organizations if less than 5
-        if (\DB::table('organizations')->count() < 5) {
-            $organizations = [
-                ['name' => 'Trường Đại học Bách khoa', 'short_name' => 'HCMUT', 'code' => 'HCMUT', 'type' => 'UNIVERSITY', 'description' => 'Trường Đại học Bách khoa - ĐHQG-HCM'],
-                ['name' => 'Trường Đại học Khoa học Tự nhiên', 'short_name' => 'HCMUS', 'code' => 'HCMUS', 'type' => 'UNIVERSITY', 'description' => 'Trường Đại học Khoa học Tự nhiên - ĐHQG-HCM'],
-                ['name' => 'Trường Đại học Công nghệ Thông tin', 'short_name' => 'UIT', 'code' => 'UIT', 'type' => 'UNIVERSITY', 'description' => 'Trường Đại học Công nghệ Thông tin - ĐHQG-HCM'],
-                ['name' => 'Trường Đại học Kinh tế - Luật', 'short_name' => 'UEL', 'code' => 'UEL', 'type' => 'UNIVERSITY', 'description' => 'Trường Đại học Kinh tế - Luật - ĐHQG-HCM'],
-                ['name' => 'Trường Đại học Khoa học Xã hội và Nhân văn', 'short_name' => 'USSH', 'code' => 'USSH', 'type' => 'UNIVERSITY', 'description' => 'Trường Đại học KHXH&NV - ĐHQG-HCM'],
-                ['name' => 'Trường Đại học Quốc tế', 'short_name' => 'IU', 'code' => 'IU', 'type' => 'UNIVERSITY', 'description' => 'Trường Đại học Quốc tế - ĐHQG-HCM'],
-                ['name' => 'Trường Đại học An Giang', 'short_name' => 'AGU', 'code' => 'AGU', 'type' => 'UNIVERSITY', 'description' => 'Trường Đại học An Giang - ĐHQG-HCM'],
-                ['name' => 'Viện Môi trường và Tài nguyên', 'short_name' => 'IER', 'code' => 'IER', 'type' => 'INSTITUTE', 'description' => 'Viện Môi trường và Tài nguyên - ĐHQG-HCM'],
-                ['name' => 'Viện Công nghệ Nano', 'short_name' => 'INT', 'code' => 'INT', 'type' => 'INSTITUTE', 'description' => 'Viện Công nghệ Nano - ĐHQG-HCM'],
-                ['name' => 'Phòng Khoa học Công nghệ', 'short_name' => 'KHCN', 'code' => 'KHCN', 'type' => 'OFFICE', 'description' => 'Phòng Khoa học Công nghệ - ĐHQG-HCM'],
-                ['name' => 'Phòng Đào tạo', 'short_name' => 'PDT', 'code' => 'PDT', 'type' => 'OFFICE', 'description' => 'Phòng Đào tạo - ĐHQG-HCM'],
-                ['name' => 'Phòng Kế hoạch Tài chính', 'short_name' => 'KHTC', 'code' => 'KHTC', 'type' => 'OFFICE', 'description' => 'Phòng Kế hoạch Tài chính - ĐHQG-HCM'],
-                ['name' => 'Trung tâm Công nghệ Thông tin', 'short_name' => 'TTCNTT', 'code' => 'TTCNTT', 'type' => 'CENTER', 'description' => 'Trung tâm CNTT - ĐHQG-HCM'],
-                ['name' => 'Trung tâm Sở hữu Trí tuệ', 'short_name' => 'SHTT', 'code' => 'SHTT', 'type' => 'CENTER', 'description' => 'Trung tâm Sở hữu Trí tuệ và Chuyển giao Công nghệ'],
-                ['name' => 'Khu Công nghệ Phần mềm', 'short_name' => 'ITP', 'code' => 'ITP', 'type' => 'CENTER', 'description' => 'Khu Công nghệ Phần mềm ĐHQG-HCM'],
-            ];
+            // 3. Seed Organizations if less than 5
+            if (\DB::table('organizations')->count() < 5) {
+                $organizations = [
+                    ['name' => 'Trường Đại học Bách khoa', 'short_name' => 'HCMUT', 'code' => 'HCMUT', 'type' => 'UNIVERSITY', 'description' => 'Trường Đại học Bách khoa - ĐHQG-HCM'],
+                    ['name' => 'Trường Đại học Khoa học Tự nhiên', 'short_name' => 'HCMUS', 'code' => 'HCMUS', 'type' => 'UNIVERSITY', 'description' => 'Trường Đại học Khoa học Tự nhiên - ĐHQG-HCM'],
+                    ['name' => 'Trường Đại học Công nghệ Thông tin', 'short_name' => 'UIT', 'code' => 'UIT', 'type' => 'UNIVERSITY', 'description' => 'Trường Đại học Công nghệ Thông tin - ĐHQG-HCM'],
+                    ['name' => 'Trường Đại học Kinh tế - Luật', 'short_name' => 'UEL', 'code' => 'UEL', 'type' => 'UNIVERSITY', 'description' => 'Trường Đại học Kinh tế - Luật - ĐHQG-HCM'],
+                    ['name' => 'Trường Đại học Khoa học Xã hội và Nhân văn', 'short_name' => 'USSH', 'code' => 'USSH', 'type' => 'UNIVERSITY', 'description' => 'Trường Đại học KHXH&NV - ĐHQG-HCM'],
+                    ['name' => 'Trường Đại học Quốc tế', 'short_name' => 'IU', 'code' => 'IU', 'type' => 'UNIVERSITY', 'description' => 'Trường Đại học Quốc tế - ĐHQG-HCM'],
+                    ['name' => 'Trường Đại học An Giang', 'short_name' => 'AGU', 'code' => 'AGU', 'type' => 'UNIVERSITY', 'description' => 'Trường Đại học An Giang - ĐHQG-HCM'],
+                    ['name' => 'Viện Môi trường và Tài nguyên', 'short_name' => 'IER', 'code' => 'IER', 'type' => 'INSTITUTE', 'description' => 'Viện Môi trường và Tài nguyên - ĐHQG-HCM'],
+                    ['name' => 'Viện Công nghệ Nano', 'short_name' => 'INT', 'code' => 'INT', 'type' => 'INSTITUTE', 'description' => 'Viện Công nghệ Nano - ĐHQG-HCM'],
+                    ['name' => 'Phòng Khoa học Công nghệ', 'short_name' => 'KHCN', 'code' => 'KHCN', 'type' => 'OFFICE', 'description' => 'Phòng Khoa học Công nghệ - ĐHQG-HCM'],
+                    ['name' => 'Phòng Đào tạo', 'short_name' => 'PDT', 'code' => 'PDT', 'type' => 'OFFICE', 'description' => 'Phòng Đào tạo - ĐHQG-HCM'],
+                    ['name' => 'Phòng Kế hoạch Tài chính', 'short_name' => 'KHTC', 'code' => 'KHTC', 'type' => 'OFFICE', 'description' => 'Phòng Kế hoạch Tài chính - ĐHQG-HCM'],
+                    ['name' => 'Trung tâm Công nghệ Thông tin', 'short_name' => 'TTCNTT', 'code' => 'TTCNTT', 'type' => 'CENTER', 'description' => 'Trung tâm CNTT - ĐHQG-HCM'],
+                    ['name' => 'Trung tâm Sở hữu Trí tuệ', 'short_name' => 'SHTT', 'code' => 'SHTT', 'type' => 'CENTER', 'description' => 'Trung tâm Sở hữu Trí tuệ và Chuyển giao Công nghệ'],
+                    ['name' => 'Khu Công nghệ Phần mềm', 'short_name' => 'ITP', 'code' => 'ITP', 'type' => 'CENTER', 'description' => 'Khu Công nghệ Phần mềm ĐHQG-HCM'],
+                ];
 
-            $existingCount = \DB::table('organizations')->count();
-            $newOrgs = 0;
-            $updatedOrgs = 0;
-            foreach ($organizations as $org) {
-                // Check if already exists by code (unique field)
-                $existing = \DB::table('organizations')->where('code', $org['code'])->first();
-                if (!$existing) {
-                    // Insert new organization
-                    \DB::table('organizations')->insert([
-                        'id' => \Illuminate\Support\Str::uuid()->toString(),
-                        'name' => $org['name'],
-                        'short_name' => $org['short_name'],
-                        'code' => $org['code'],
-                        'type' => $org['type'],
-                        'description' => $org['description'],
-                        'status' => 'active',
-                        'is_vnuhcm' => true,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                    $newOrgs++;
-                } else {
-                    // Update existing organization if missing type
-                    if (empty($existing->type)) {
-                        \DB::table('organizations')->where('id', $existing->id)->update([
+                $existingCount = \DB::table('organizations')->count();
+                $newOrgs = 0;
+                $updatedOrgs = 0;
+                foreach ($organizations as $org) {
+                    // Check if already exists by code (unique field)
+                    $existing = \DB::table('organizations')->where('code', $org['code'])->first();
+                    if (! $existing) {
+                        // Insert new organization
+                        \DB::table('organizations')->insert([
+                            'id' => \Illuminate\Support\Str::uuid()->toString(),
+                            'name' => $org['name'],
+                            'short_name' => $org['short_name'],
+                            'code' => $org['code'],
                             'type' => $org['type'],
+                            'description' => $org['description'],
+                            'status' => 'active',
+                            'is_vnuhcm' => true,
+                            'created_at' => now(),
                             'updated_at' => now(),
                         ]);
-                        $updatedOrgs++;
+                        $newOrgs++;
+                    } else {
+                        // Update existing organization if missing type
+                        if (empty($existing->type)) {
+                            \DB::table('organizations')->where('id', $existing->id)->update([
+                                'type' => $org['type'],
+                                'updated_at' => now(),
+                            ]);
+                            $updatedOrgs++;
+                        }
                     }
                 }
+                $results['organizations'] = $newOrgs.' new, '.$updatedOrgs.' updated (total: '.\DB::table('organizations')->count().')';
+            } else {
+                $results['organizations'] = 'Already exists ('.\DB::table('organizations')->count().')';
             }
-            $results['organizations'] = $newOrgs . ' new, ' . $updatedOrgs . ' updated (total: ' . \DB::table('organizations')->count() . ')';
-        } else {
-            $results['organizations'] = 'Already exists (' . \DB::table('organizations')->count() . ')';
-        }
 
-        // 4. Seed File Types if empty
-        if (\DB::table('file_types')->count() === 0) {
-            $fileTypes = [
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Báo cáo', 'code' => 'REPORT', 'description' => 'File báo cáo hoạt động', 'allowed_extensions' => json_encode(['pdf', 'doc', 'docx']), 'is_active' => true],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Hình ảnh', 'code' => 'IMAGE', 'description' => 'Hình ảnh minh họa', 'allowed_extensions' => json_encode(['jpg', 'jpeg', 'png', 'gif']), 'is_active' => true],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Tài liệu', 'code' => 'DOCUMENT', 'description' => 'Tài liệu đính kèm', 'allowed_extensions' => json_encode(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']), 'is_active' => true],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Video', 'code' => 'VIDEO', 'description' => 'Video ghi hình', 'allowed_extensions' => json_encode(['mp4', 'avi', 'mov']), 'is_active' => true],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Khác', 'code' => 'OTHER', 'description' => 'Loại file khác', 'allowed_extensions' => json_encode(['*']), 'is_active' => true],
-            ];
-            foreach ($fileTypes as $type) {
-                $type['created_at'] = now();
-                $type['updated_at'] = now();
-                \DB::table('file_types')->insert($type);
+            // 4. Seed File Types if empty
+            if (\DB::table('file_types')->count() === 0) {
+                $fileTypes = [
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Báo cáo', 'code' => 'REPORT', 'description' => 'File báo cáo hoạt động', 'allowed_extensions' => json_encode(['pdf', 'doc', 'docx']), 'is_active' => true],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Hình ảnh', 'code' => 'IMAGE', 'description' => 'Hình ảnh minh họa', 'allowed_extensions' => json_encode(['jpg', 'jpeg', 'png', 'gif']), 'is_active' => true],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Tài liệu', 'code' => 'DOCUMENT', 'description' => 'Tài liệu đính kèm', 'allowed_extensions' => json_encode(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']), 'is_active' => true],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Video', 'code' => 'VIDEO', 'description' => 'Video ghi hình', 'allowed_extensions' => json_encode(['mp4', 'avi', 'mov']), 'is_active' => true],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'Khác', 'code' => 'OTHER', 'description' => 'Loại file khác', 'allowed_extensions' => json_encode(['*']), 'is_active' => true],
+                ];
+                foreach ($fileTypes as $type) {
+                    $type['created_at'] = now();
+                    $type['updated_at'] = now();
+                    \DB::table('file_types')->insert($type);
+                }
+                $results['file_types'] = count($fileTypes).' file types created';
+            } else {
+                $results['file_types'] = 'Already exists ('.\DB::table('file_types')->count().')';
             }
-            $results['file_types'] = count($fileTypes) . ' file types created';
-        } else {
-            $results['file_types'] = 'Already exists (' . \DB::table('file_types')->count() . ')';
-        }
 
-        // 5. Seed sample Users for organizations without users
-        $orgsWithoutUsers = \DB::table('organizations')
-            ->whereNotIn('id', function($query) {
-                $query->select('organization_id')->from('nq57_users')->whereNotNull('organization_id');
-            })
-            ->where('status', 'active')
-            ->get();
+            // 5. Seed sample Users for organizations without users
+            $orgsWithoutUsers = \DB::table('organizations')
+                ->whereNotIn('id', function ($query) {
+                    $query->select('organization_id')->from('nq57_users')->whereNotNull('organization_id');
+                })
+                ->where('status', 'active')
+                ->get();
 
-        $newUsers = 0;
-        foreach ($orgsWithoutUsers as $org) {
-            // Create a MANAGER for each org
-            $managerId = \Illuminate\Support\Str::uuid()->toString();
-            $shortName = strtolower($org->short_name ?? 'org');
-            \DB::table('nq57_users')->insert([
-                'id' => $managerId,
-                'email' => "manager.{$shortName}@vnuhcm.edu.vn",
-                'password_hash' => bcrypt('password123'),
-                'first_name' => 'Quản lý',
-                'last_name' => $org->short_name,
-                'role' => 'MANAGER',
-                'organization_id' => $org->id,
-                'status' => 'active',
-                'is_vnuhcm' => true,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-            $newUsers++;
-
-            // Create 2-3 STAFF for each org
-            $numStaff = rand(2, 3);
-            for ($i = 1; $i <= $numStaff; $i++) {
+            $newUsers = 0;
+            foreach ($orgsWithoutUsers as $org) {
+                // Create a MANAGER for each org
+                $managerId = \Illuminate\Support\Str::uuid()->toString();
+                $shortName = strtolower($org->short_name ?? 'org');
                 \DB::table('nq57_users')->insert([
-                    'id' => \Illuminate\Support\Str::uuid()->toString(),
-                    'email' => "staff{$i}.{$shortName}@vnuhcm.edu.vn",
+                    'id' => $managerId,
+                    'email' => "manager.{$shortName}@vnuhcm.edu.vn",
                     'password_hash' => bcrypt('password123'),
-                    'first_name' => "Nhân viên {$i}",
+                    'first_name' => 'Quản lý',
                     'last_name' => $org->short_name,
-                    'role' => 'STAFF',
+                    'role' => 'MANAGER',
                     'organization_id' => $org->id,
                     'status' => 'active',
                     'is_vnuhcm' => true,
@@ -276,37 +258,55 @@ Route::prefix('v1')->group(function () {
                     'updated_at' => now(),
                 ]);
                 $newUsers++;
-            }
-        }
-        $results['users'] = $newUsers . ' new users created (total: ' . \DB::table('nq57_users')->count() . ')';
 
-        // 6. Seed View Scopes
-        if (\DB::table('organization_view_scopes')->count() === 0) {
-            $scopes = [
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'ALL_ORGANIZATIONS', 'display_name' => 'Xem tất cả phòng ban', 'description' => 'Có quyền xem hoạt động của tất cả các phòng ban trong hệ thống', 'is_system' => true, 'requires_specific_orgs' => false, 'scope_type' => 'all', 'status' => 'active'],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'SPECIFIC_ORGANIZATIONS', 'display_name' => 'Xem phòng ban được chỉ định', 'description' => 'Chỉ xem hoạt động của các phòng ban được chỉ định cụ thể', 'is_system' => true, 'requires_specific_orgs' => true, 'scope_type' => 'custom', 'status' => 'active'],
-                ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'PARENT_AND_CHILDREN', 'display_name' => 'Xem phòng ban và các phòng ban con', 'description' => 'Xem hoạt động của phòng ban và tất cả phòng ban trực thuộc', 'is_system' => true, 'requires_specific_orgs' => false, 'scope_type' => 'group', 'status' => 'active'],
-            ];
-            foreach ($scopes as $scope) {
-                $scope['created_at'] = now();
-                $scope['updated_at'] = now();
-                \DB::table('organization_view_scopes')->insert($scope);
+                // Create 2-3 STAFF for each org
+                $numStaff = rand(2, 3);
+                for ($i = 1; $i <= $numStaff; $i++) {
+                    \DB::table('nq57_users')->insert([
+                        'id' => \Illuminate\Support\Str::uuid()->toString(),
+                        'email' => "staff{$i}.{$shortName}@vnuhcm.edu.vn",
+                        'password_hash' => bcrypt('password123'),
+                        'first_name' => "Nhân viên {$i}",
+                        'last_name' => $org->short_name,
+                        'role' => 'STAFF',
+                        'organization_id' => $org->id,
+                        'status' => 'active',
+                        'is_vnuhcm' => true,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                    $newUsers++;
+                }
             }
-            $results['view_scopes'] = count($scopes) . ' view scopes created';
-        } else {
-            $results['view_scopes'] = 'Already exists (' . \DB::table('organization_view_scopes')->count() . ')';
-        }
+            $results['users'] = $newUsers.' new users created (total: '.\DB::table('nq57_users')->count().')';
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Seed completed',
-            'results' => $results
-        ]);
+            // 6. Seed View Scopes
+            if (\DB::table('organization_view_scopes')->count() === 0) {
+                $scopes = [
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'ALL_ORGANIZATIONS', 'display_name' => 'Xem tất cả phòng ban', 'description' => 'Có quyền xem hoạt động của tất cả các phòng ban trong hệ thống', 'is_system' => true, 'requires_specific_orgs' => false, 'scope_type' => 'all', 'status' => 'active'],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'SPECIFIC_ORGANIZATIONS', 'display_name' => 'Xem phòng ban được chỉ định', 'description' => 'Chỉ xem hoạt động của các phòng ban được chỉ định cụ thể', 'is_system' => true, 'requires_specific_orgs' => true, 'scope_type' => 'custom', 'status' => 'active'],
+                    ['id' => \Illuminate\Support\Str::uuid()->toString(), 'name' => 'PARENT_AND_CHILDREN', 'display_name' => 'Xem phòng ban và các phòng ban con', 'description' => 'Xem hoạt động của phòng ban và tất cả phòng ban trực thuộc', 'is_system' => true, 'requires_specific_orgs' => false, 'scope_type' => 'group', 'status' => 'active'],
+                ];
+                foreach ($scopes as $scope) {
+                    $scope['created_at'] = now();
+                    $scope['updated_at'] = now();
+                    \DB::table('organization_view_scopes')->insert($scope);
+                }
+                $results['view_scopes'] = count($scopes).' view scopes created';
+            } else {
+                $results['view_scopes'] = 'Already exists ('.\DB::table('organization_view_scopes')->count().')';
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Seed completed',
+                'results' => $results,
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Seed failed: ' . $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'message' => 'Seed failed: '.$e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ], 500);
         }
     });
@@ -378,7 +378,9 @@ Route::prefix('v1')->group(function () {
             $orgUsers = $users->where('organization_id', $org->id);
             $creator = $orgUsers->first() ?? $users->first();
 
-            if (!$creator) continue;
+            if (! $creator) {
+                continue;
+            }
 
             // Generate 5-15 activities per organization
             $numActivities = rand(5, 15);
@@ -414,7 +416,7 @@ Route::prefix('v1')->group(function () {
                 }
 
                 // Generate unique code
-                $code = 'NQ57-' . strtoupper(substr($org->short_name ?? $org->name, 0, 3)) . '-' . $year . '-' . str_pad($createdCount + 1, 4, '0', STR_PAD_LEFT);
+                $code = 'NQ57-'.strtoupper(substr($org->short_name ?? $org->name, 0, 3)).'-'.$year.'-'.str_pad($createdCount + 1, 4, '0', STR_PAD_LEFT);
 
                 $activityId = \Illuminate\Support\Str::uuid()->toString();
 
@@ -425,13 +427,13 @@ Route::prefix('v1')->group(function () {
                         'title' => $title,
                         'description' => "Hoạt động triển khai theo Nghị quyết 57-NQ/TW về đột phá phát triển khoa học, công nghệ, đổi mới sáng tạo và chuyển đổi số quốc gia. Hoạt động này thuộc đơn vị {$org->name}.",
                         'focus_content' => "Tập trung vào {$topic} với mục tiêu nâng cao năng lực nghiên cứu và ứng dụng công nghệ mới.",
-                        'qualitative_target' => "Nâng cao năng lực đội ngũ, hoàn thiện quy trình, tăng cường hợp tác.",
-                        'quantitative_target' => rand(1, 5) . " sản phẩm/báo cáo, " . rand(10, 100) . " người tham gia",
+                        'qualitative_target' => 'Nâng cao năng lực đội ngũ, hoàn thiện quy trình, tăng cường hợp tác.',
+                        'quantitative_target' => rand(1, 5).' sản phẩm/báo cáo, '.rand(10, 100).' người tham gia',
                         'activity_type_id' => $activityType->id,
                         'activity_field_id' => $activityField?->id,
                         'status' => $status,
                         'lead_organization_id' => $org->id,
-                        'leader_names' => json_encode(['Trưởng đơn vị ' . $org->short_name]),
+                        'leader_names' => json_encode(['Trưởng đơn vị '.$org->short_name]),
                         'start_date' => $startDate,
                         'end_date' => $endDate,
                         'actual_start_date' => $actualStartDate,
@@ -443,7 +445,7 @@ Route::prefix('v1')->group(function () {
                         'approved_by' => $status !== 'DRAFT' ? $creator->id : null,
                         'approved_at' => $status !== 'DRAFT' ? now() : null,
                         'completion_percentage' => $completionPercentage,
-                        'result_summary' => $status === 'COMPLETED' ? "Hoàn thành đúng tiến độ với kết quả đạt yêu cầu." : null,
+                        'result_summary' => $status === 'COMPLETED' ? 'Hoàn thành đúng tiến độ với kết quả đạt yêu cầu.' : null,
                         'created_at' => now()->subDays(rand(1, 180)),
                         'updated_at' => now(),
                     ]);
@@ -458,12 +460,12 @@ Route::prefix('v1')->group(function () {
 
         return response()->json([
             'success' => true,
-            'message' => "Created {$createdCount} sample activities across " . $organizations->count() . " organizations",
+            'message' => "Created {$createdCount} sample activities across ".$organizations->count().' organizations',
             'data' => [
                 'total_activities' => \DB::table('activities')->count(),
                 'organizations_count' => $organizations->count(),
                 'new_activities' => $createdCount,
-            ]
+            ],
         ]);
     });
 
@@ -483,7 +485,7 @@ Route::prefix('v1')->group(function () {
             ->where('name', 'SPECIFIC_ORGANIZATIONS')
             ->first();
 
-        if (!$allOrgScope || !$specificOrgScope) {
+        if (! $allOrgScope || ! $specificOrgScope) {
             return response()->json(['success' => false, 'message' => 'View scopes not found. Please run migrations first.']);
         }
 
@@ -497,7 +499,7 @@ Route::prefix('v1')->group(function () {
                 ->where('organization_id', $vnuhcm->id)
                 ->first();
 
-            if (!$existingPerm) {
+            if (! $existingPerm) {
                 \DB::table('organization_access_permissions')->insert([
                     'id' => \Illuminate\Support\Str::uuid()->toString(),
                     'organization_id' => $vnuhcm->id,
@@ -543,7 +545,9 @@ Route::prefix('v1')->group(function () {
             shuffle($otherOrgIds);
             $targetOrgIds = array_slice($otherOrgIds, 0, min(5, count($otherOrgIds)));
 
-            if (empty($targetOrgIds)) continue;
+            if (empty($targetOrgIds)) {
+                continue;
+            }
 
             \DB::table('organization_access_permissions')->insert([
                 'id' => \Illuminate\Support\Str::uuid()->toString(),
@@ -578,7 +582,7 @@ Route::prefix('v1')->group(function () {
                 'organizations_with_permissions' => \DB::table('organization_access_permissions')
                     ->distinct('organization_id')
                     ->count('organization_id'),
-            ]
+            ],
         ]);
     });
 
@@ -623,7 +627,7 @@ Route::prefix('v1')->group(function () {
                 'database' => $dbHealth,
                 'cache' => 'up',
             ],
-            'timestamp' => now()->toIso8601String()
+            'timestamp' => now()->toIso8601String(),
         ]);
     });
 
@@ -634,6 +638,9 @@ Route::prefix('v1')->group(function () {
     // Activity Management Routes
     // All authenticated users can access (security handled in controller based on role/organization)
     Route::middleware('auth:sanctum')->prefix('activities')->group(function () {
+        // Coordinating Activities Route (activities where user's org is a collaborating organization)
+        Route::get('/coordinating', [ActivityController::class, 'getCoordinatingActivities']);
+
         // Get form data (dropdown options) for creating/editing
         Route::get('/form-data', [ActivityController::class, 'getFormData']);
 
@@ -864,23 +871,23 @@ Route::prefix('v1')->group(function () {
         Route::delete('/{id}', [KpiCategoryController::class, 'destroy']);
     });
 
-   // Organization simple list (all authenticated users - for filters/dropdowns)
+    // Organization simple list (all authenticated users - for filters/dropdowns)
     Route::middleware('auth:sanctum')->get('/organizations/list-simple', [OrganizationController::class, 'listSimple']);
 
-   // Organization Management Routes (OPERATOR and ADMIN only)
-    Route::middleware('auth:sanctum', 'role:OPERATOR,ADMIN')->prefix('organizations')->group(function(){
-        Route::get("/",[OrganizationController::class,'index'])->middleware('permission:organizations.view');
-        Route::get("/{id}",[OrganizationController::class,'show'])->middleware('permission:organizations.view');
-        Route::post("/",[OrganizationController::class,'store'])->middleware('permission:organizations.create');
-        Route::put("/{id}",[OrganizationController::class,'update'])->middleware('permission:organizations.update');
-        Route::delete("/{id}",[OrganizationController::class,'destroy'])->middleware('permission:organizations.update');
+    // Organization Management Routes (OPERATOR and ADMIN only)
+    Route::middleware('auth:sanctum', 'role:OPERATOR,ADMIN')->prefix('organizations')->group(function () {
+        Route::get('/', [OrganizationController::class, 'index'])->middleware('permission:organizations.view');
+        Route::get('/{id}', [OrganizationController::class, 'show'])->middleware('permission:organizations.view');
+        Route::post('/', [OrganizationController::class, 'store'])->middleware('permission:organizations.create');
+        Route::put('/{id}', [OrganizationController::class, 'update'])->middleware('permission:organizations.update');
+        Route::delete('/{id}', [OrganizationController::class, 'destroy'])->middleware('permission:organizations.update');
     });
 
-    // Notification Management Routes 
-    Route::middleware('auth:sanctum')->prefix("notifications")->group(function(){
-        Route::get("/", [NotificationController::class, 'show']);
-        Route::put("/{id}/read", [NotificationController::class, 'read']);
-        Route::put("/readAll", [NotificationController::class, 'readAll']);
+    // Notification Management Routes
+    Route::middleware('auth:sanctum')->prefix('notifications')->group(function () {
+        Route::get('/', [NotificationController::class, 'show']);
+        Route::put('/{id}/read', [NotificationController::class, 'read']);
+        Route::put('/readAll', [NotificationController::class, 'readAll']);
     });
 
     // My Organization Routes (STAFF, MANAGER can view/edit their own organization)
@@ -1052,14 +1059,14 @@ Route::prefix('v1')->group(function () {
                 $url = "{$baseUrl}/realms/{$realm}/.well-known/openid-configuration";
                 $results[$realm] = [
                     'url' => $url,
-                    'exists' => '❓ Check manually'
+                    'exists' => '❓ Check manually',
                 ];
             }
 
             return response()->json([
                 'message' => 'Test these URLs to find the correct realm',
                 'realms' => $results,
-                'instruction' => 'Try opening each URL in browser. The one that returns JSON (not 404) is the correct realm.'
+                'instruction' => 'Try opening each URL in browser. The one that returns JSON (not 404) is the correct realm.',
             ]);
         });
 
@@ -1070,7 +1077,7 @@ Route::prefix('v1')->group(function () {
             $clientId = config('keycloak.client_id');
             $redirectUri = config('keycloak.redirect_uri');
 
-            $authUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/auth?" . http_build_query([
+            $authUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/auth?".http_build_query([
                 'client_id' => $clientId,
                 'redirect_uri' => $redirectUri,
                 'response_type' => 'code',
@@ -1084,7 +1091,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/callback-debug', function (Request $request) {
             $code = $request->query('code');
 
-            if (!$code) {
+            if (! $code) {
                 return response()->json(['error' => 'No code provided']);
             }
 
@@ -1116,8 +1123,8 @@ Route::prefix('v1')->group(function () {
             $code = $request->query('code');
             $frontendUrl = config('app.frontend_url', 'https://nq57.vnuhcm.edu.vn');
 
-            if (!$code) {
-                return redirect($frontendUrl . '?error=no_code');
+            if (! $code) {
+                return redirect($frontendUrl.'?error=no_code');
             }
 
             try {
@@ -1140,11 +1147,11 @@ Route::prefix('v1')->group(function () {
 
                 $response = \Illuminate\Support\Facades\Http::asForm()->post($tokenUrl, $tokenParams);
 
-                if (!$response->successful()) {
+                if (! $response->successful()) {
                     \Log::error('Token exchange failed', [
                         'status' => $response->status(),
                         'body' => $response->body(),
-                        'error' => $response->json()
+                        'error' => $response->json(),
                     ]);
 
                     // Return detailed error in development
@@ -1152,11 +1159,11 @@ Route::prefix('v1')->group(function () {
                         return response()->json([
                             'error' => 'token_exchange_failed',
                             'status' => $response->status(),
-                            'details' => $response->json()
+                            'details' => $response->json(),
                         ], 400);
                     }
 
-                    return redirect($frontendUrl . '?error=token_exchange_failed');
+                    return redirect($frontendUrl.'?error=token_exchange_failed');
                 }
 
                 $tokenData = $response->json();
@@ -1168,12 +1175,13 @@ Route::prefix('v1')->group(function () {
                 $userInfoUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/userinfo";
                 $userInfoResponse = \Illuminate\Support\Facades\Http::withToken($accessToken)->get($userInfoUrl);
 
-                if (!$userInfoResponse->successful()) {
+                if (! $userInfoResponse->successful()) {
                     \Log::error('User info fetch failed', [
                         'status' => $userInfoResponse->status(),
-                        'body' => $userInfoResponse->body()
+                        'body' => $userInfoResponse->body(),
                     ]);
-                    return redirect($frontendUrl . '?error=userinfo_failed');
+
+                    return redirect($frontendUrl.'?error=userinfo_failed');
                 }
 
                 $userInfo = $userInfoResponse->json();
@@ -1214,18 +1222,19 @@ Route::prefix('v1')->group(function () {
                     'access_token' => $accessToken,
                     'refresh_token' => $refreshToken,
                     'expires_in' => $expiresIn,
-                    'user' => $userInfo
+                    'user' => $userInfo,
                 ]));
 
                 // Redirect to frontend with token data
-                return redirect($frontendUrl . '?sso_success=1&data=' . $data);
+                return redirect($frontendUrl.'?sso_success=1&data='.$data);
 
             } catch (\Exception $e) {
                 \Log::error('SSO callback error', [
                     'message' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
+                    'trace' => $e->getTraceAsString(),
                 ]);
-                return redirect($frontendUrl . '?error=server_error');
+
+                return redirect($frontendUrl.'?error=server_error');
             }
         });
 
@@ -1233,11 +1242,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/user', function (Request $request) {
             $token = $request->bearerToken();
 
-            if (!$token) {
+            if (! $token) {
                 return response()->json([
                     'authenticated' => false,
                     'user' => null,
-                    'message' => 'No token provided'
+                    'message' => 'No token provided',
                 ]);
             }
 
@@ -1249,11 +1258,11 @@ Route::prefix('v1')->group(function () {
 
                 $response = \Illuminate\Support\Facades\Http::withToken($token)->get($userInfoUrl);
 
-                if (!$response->successful()) {
+                if (! $response->successful()) {
                     return response()->json([
                         'authenticated' => false,
                         'user' => null,
-                        'message' => 'Invalid or expired token'
+                        'message' => 'Invalid or expired token',
                     ], 401);
                 }
 
@@ -1281,14 +1290,14 @@ Route::prefix('v1')->group(function () {
 
                 return response()->json([
                     'authenticated' => true,
-                    'user' => $userInfo
+                    'user' => $userInfo,
                 ]);
 
             } catch (\Exception $e) {
                 return response()->json([
                     'authenticated' => false,
                     'user' => null,
-                    'message' => 'Token verification failed'
+                    'message' => 'Token verification failed',
                 ], 401);
             }
         });
@@ -1297,9 +1306,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/refresh', function (Request $request) {
             $refreshToken = $request->input('refresh_token');
 
-            if (!$refreshToken) {
+            if (! $refreshToken) {
                 return response()->json([
-                    'error' => 'Refresh token required'
+                    'error' => 'Refresh token required',
                 ], 400);
             }
 
@@ -1317,9 +1326,9 @@ Route::prefix('v1')->group(function () {
                     'refresh_token' => $refreshToken,
                 ]);
 
-                if (!$response->successful()) {
+                if (! $response->successful()) {
                     return response()->json([
-                        'error' => 'Token refresh failed'
+                        'error' => 'Token refresh failed',
                     ], 401);
                 }
 
@@ -1333,7 +1342,7 @@ Route::prefix('v1')->group(function () {
 
             } catch (\Exception $e) {
                 return response()->json([
-                    'error' => 'Token refresh failed'
+                    'error' => 'Token refresh failed',
                 ], 500);
             }
         });
@@ -1363,7 +1372,7 @@ Route::prefix('v1')->group(function () {
 
             return response()->json([
                 'success' => true,
-                'message' => 'Logged out successfully'
+                'message' => 'Logged out successfully',
             ]);
         });
     });

@@ -18,7 +18,9 @@
     "next": "Next",
     "submit": "Submit",
     "reset": "Reset",
-    "logout": "Logout"
+    "logout": "Logout",
+    "refresh": "Refresh",
+    "actions": "Actions"
   },
   "login": {
     "title": "Login",
@@ -84,6 +86,7 @@
     "pendingApprovalDescription": "Approve activities",
     "organizationProfile": "Department Profile",
     "organizationProfileDescription": "Manage department information",
+    "accessibleActivities": "View activities of other departments",
     "reportsMenu": "Reports & KPI",
     "reportsDescription": "Reports and analytics",
     "reports": "Reports",
@@ -102,12 +105,14 @@
     "organizationManagementDescription": "Manage VNU-HCM organizations",
     "activityConfig": "Activity Configuration",
     "activityConfigDescription": "Manage activity types and fields",
+    "organizationPermissions": "Department Permissions",
     "fileTypes": "File Types",
     "fileTypesDescription": "Manage file types for activities",
     "systemAdmin": "System Administration",
     "systemAdminDescription": "Configure and administer system",
     "profile": "Personal Information",
     "profileDescription": "Manage personal information",
+    "documentLibrary": "Documentation",
     "collapse": "Collapse",
     "underDevelopment": "Under development"
   },
@@ -294,5 +299,15 @@
     },
     "accessDenied": "Access Denied",
     "accessDeniedMessage": "Only ADMIN can manage maintenance mode"
+  },
+  "documentLibrary": {
+    "uploadFile": "Upload file",
+    "document": "Document",
+    "category": "Category",
+    "size": "Size",
+    "scope": "Scope",
+    "department": "Department",
+    "uploadedBy": "Uploaded by",
+    "uploadDate": "Upload date"
   }
 }

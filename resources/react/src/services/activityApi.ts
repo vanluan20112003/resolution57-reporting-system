@@ -308,6 +308,34 @@ export const getActivities = async (filters?: ActivityFilters): Promise<Activity
 }
 
 /**
+ * Get coordinating activities (activities where user's org is a collaborating organization)
+ */
+export const getCoordinatingActivities = async (filters?: ActivityFilters): Promise<ActivityListResponse> => {
+  const params = new URLSearchParams()
+
+  if (filters?.status) params.append('status', filters.status)
+  if (filters?.activity_type_id) params.append('activity_type_id', filters.activity_type_id)
+  if (filters?.activity_field_id) params.append('activity_field_id', filters.activity_field_id)
+  if (filters?.search) params.append('search', filters.search)
+  if (filters?.per_page) params.append('per_page', String(filters.per_page))
+  if (filters?.page) params.append('page', String(filters.page))
+
+  const queryString = params.toString()
+  const url = `${API_CONFIG.BASE_URL}/activities/coordinating${queryString ? `?${queryString}` : ''}`
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch coordinating activities: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+/**
  * Get a single Activity by ID
  */
 export const getActivityById = async (id: string): Promise<ActivityResponse> => {

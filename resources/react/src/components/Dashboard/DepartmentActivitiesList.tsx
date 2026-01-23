@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from "react"
 import {
   Card,
   Typography,
@@ -17,8 +17,8 @@ import {
   Tooltip,
   Row,
   Col,
-  Tabs,
-} from 'antd'
+  Tabs
+} from "antd"
 import {
   FileTextOutlined,
   TeamOutlined,
@@ -28,20 +28,21 @@ import {
   ReloadOutlined,
   EyeOutlined,
   GlobalOutlined,
-  BankOutlined,
-} from '@ant-design/icons'
-import type { ColumnsType } from 'antd/es/table'
-import dayjs from 'dayjs'
-import 'dayjs/locale/vi'
-import { useAuth } from '../../shared/hooks'
-import * as activityApi from '../../services/activityApi'
+  BankOutlined
+} from "@ant-design/icons"
+import type { ColumnsType } from "antd/es/table"
+import dayjs from "dayjs"
+import "dayjs/locale/vi"
+import { useAuth } from "../../shared/hooks"
+import * as activityApi from "../../services/activityApi"
 import type {
   Activity,
   ActivityStatus,
-  ActivityFormData,
-} from '../../services/activityApi'
+  ActivityFormData
+} from "../../services/activityApi"
+import { t } from "i18next"
 
-dayjs.locale('vi')
+dayjs.locale("vi")
 
 const { Text, Title, Paragraph } = Typography
 const { Option } = Select
@@ -49,13 +50,19 @@ const { Option } = Select
 function DepartmentActivitiesList() {
   const [loading, setLoading] = useState(false)
   const [activities, setActivities] = useState<Activity[]>([])
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 15, total: 0 })
-  const [searchText, setSearchText] = useState('')
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 15,
+    total: 0
+  })
+  const [searchText, setSearchText] = useState("")
   const [statusFilter, setStatusFilter] = useState<ActivityStatus | undefined>()
   const [typeFilter, setTypeFilter] = useState<string | undefined>()
   const [formData, setFormData] = useState<ActivityFormData | null>(null)
   const [viewModalVisible, setViewModalVisible] = useState(false)
-  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
+    null
+  )
 
   const { user } = useAuth()
   const hasOrganization = user?.organization_id
@@ -72,20 +79,27 @@ function DepartmentActivitiesList() {
         organization_id: user.organization_id, // Always filter by user's organization
         search: searchText || undefined,
         page: pagination.current,
-        per_page: pagination.pageSize,
+        per_page: pagination.pageSize
       })
 
       setActivities(response.data)
-      setPagination(prev => ({
+      setPagination((prev) => ({
         ...prev,
-        total: response.pagination.total,
+        total: response.pagination.total
       }))
     } catch (error: any) {
-      message.error(error.message || 'Không thể tải danh sách hoạt động')
+      message.error(error.message || "Không thể tải danh sách hoạt động")
     } finally {
       setLoading(false)
     }
-  }, [user?.organization_id, statusFilter, typeFilter, searchText, pagination.current, pagination.pageSize])
+  }, [
+    user?.organization_id,
+    statusFilter,
+    typeFilter,
+    searchText,
+    pagination.current,
+    pagination.pageSize
+  ])
 
   // Fetch form data (dropdowns)
   const fetchFormData = async () => {
@@ -93,7 +107,7 @@ function DepartmentActivitiesList() {
       const response = await activityApi.getActivityFormData()
       setFormData(response.data)
     } catch (error: any) {
-      console.error('Failed to fetch form data:', error)
+      console.error("Failed to fetch form data:", error)
     }
   }
 
@@ -106,7 +120,7 @@ function DepartmentActivitiesList() {
     setPagination({
       ...pagination,
       current: newPagination.current,
-      pageSize: newPagination.pageSize,
+      pageSize: newPagination.pageSize
     })
   }
 
@@ -116,7 +130,7 @@ function DepartmentActivitiesList() {
       setSelectedActivity(response.data)
       setViewModalVisible(true)
     } catch (error: any) {
-      message.error(error.message || 'Không thể tải thông tin hoạt động')
+      message.error(error.message || "Không thể tải thông tin hoạt động")
     }
   }
 
@@ -130,113 +144,116 @@ function DepartmentActivitiesList() {
   // Calculate statistics
   const stats = {
     total: pagination.total,
-    completed: activities.filter(a => a.status === 'COMPLETED').length,
-    inProgress: activities.filter(a => a.status === 'IN_PROGRESS').length,
-    pending: activities.filter(a => a.status === 'PENDING_APPROVAL').length,
+    completed: activities.filter((a) => a.status === "COMPLETED").length,
+    inProgress: activities.filter((a) => a.status === "IN_PROGRESS").length,
+    pending: activities.filter((a) => a.status === "PENDING_APPROVAL").length
   }
 
   const columns: ColumnsType<Activity> = [
     {
-      title: 'STT',
-      key: 'index',
+      title: "STT",
+      key: "index",
       width: 60,
-      align: 'center',
+      align: "center",
       render: (_: any, __: any, index: number) =>
-        (pagination.current - 1) * pagination.pageSize + index + 1,
+        (pagination.current - 1) * pagination.pageSize + index + 1
     },
     {
-      title: 'Mã hoạt động',
-      dataIndex: 'code',
-      key: 'code',
+      title: "Mã hoạt động",
+      dataIndex: "code",
+      key: "code",
       width: 130,
       render: (code: string) => (
-        <Text strong style={{ color: '#1890ff' }}>
-          {code || '-'}
+        <Text strong style={{ color: "#1890ff" }}>
+          {code || "-"}
         </Text>
-      ),
+      )
     },
     {
-      title: 'Tên hoạt động',
-      dataIndex: 'title',
-      key: 'title',
+      title: "Tên hoạt động",
+      dataIndex: "title",
+      key: "title",
       ellipsis: true,
       render: (title: string, record: Activity) => (
         <Tooltip title={title}>
           <a onClick={() => handleView(record)}>{title}</a>
         </Tooltip>
-      ),
+      )
     },
     {
-      title: 'Loại hoạt động',
-      dataIndex: ['activity_type', 'name'],
-      key: 'activity_type',
+      title: "Loại hoạt động",
+      dataIndex: ["activity_type", "name"],
+      key: "activity_type",
       width: 150,
       render: (name: string) =>
-        name ? <Tag color="blue">{name}</Tag> : <Text type="secondary">-</Text>,
+        name ? <Tag color="blue">{name}</Tag> : <Text type="secondary">-</Text>
     },
     {
-      title: 'Trạng thái',
-      dataIndex: 'status',
-      key: 'status',
+      title: "Trạng thái",
+      dataIndex: "status",
+      key: "status",
       width: 130,
-      align: 'center',
-      render: (status: ActivityStatus) => getStatusTag(status),
+      align: "center",
+      render: (status: ActivityStatus) => getStatusTag(status)
     },
     {
-      title: 'Tiến độ',
-      dataIndex: 'completion_percentage',
-      key: 'completion_percentage',
+      title: "Tiến độ",
+      dataIndex: "completion_percentage",
+      key: "completion_percentage",
       width: 100,
-      align: 'center',
+      align: "center",
       render: (percentage: number) => (
         <Progress
           percent={percentage || 0}
           size="small"
-          status={percentage === 100 ? 'success' : 'active'}
+          status={percentage === 100 ? "success" : "active"}
         />
-      ),
+      )
     },
     {
-      title: 'Thời gian',
-      key: 'date_range',
+      title: "Thời gian",
+      key: "date_range",
       width: 180,
       render: (_: any, record: Activity) => (
         <Text type="secondary">
           {record.start_date
-            ? `${dayjs(record.start_date).format('DD/MM/YYYY')} - ${
-                record.end_date ? dayjs(record.end_date).format('DD/MM/YYYY') : '...'
+            ? `${dayjs(record.start_date).format("DD/MM/YYYY")} - ${
+                record.end_date
+                  ? dayjs(record.end_date).format("DD/MM/YYYY")
+                  : "..."
               }`
-            : '-'}
+            : "-"}
         </Text>
-      ),
+      )
     },
     {
-      title: 'Thao tác',
-      key: 'actions',
+      title: t("common.actions"),
+      key: "actions",
       width: 100,
-      fixed: 'right',
-      align: 'center',
+      fixed: "right",
+      align: "center",
       render: (_: any, record: Activity) => (
         <Tooltip title="Xem chi tiết">
           <Button
             type="link"
             size="small"
             icon={<EyeOutlined />}
-            onClick={() => handleView(record)}
-          >
+            onClick={() => handleView(record)}>
             Xem
           </Button>
         </Tooltip>
-      ),
-    },
+      )
+    }
   ]
 
   // No organization warning
   if (!hasOrganization) {
     return (
       <Card>
-        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-          <ApartmentOutlined style={{ fontSize: 48, color: '#d9d9d9', marginBottom: 16 }} />
+        <div style={{ textAlign: "center", padding: "60px 20px" }}>
+          <ApartmentOutlined
+            style={{ fontSize: 48, color: "#d9d9d9", marginBottom: 16 }}
+          />
           <Title level={4} type="secondary">
             Bạn chưa thuộc đơn vị nào
           </Title>
@@ -249,46 +266,73 @@ function DepartmentActivitiesList() {
   }
 
   return (
-    <div style={{ padding: '0' }}>
+    <div style={{ padding: "0" }}>
       <Card>
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
           {/* Header */}
           <div>
             <Space align="center" style={{ marginBottom: 8 }}>
-              <ApartmentOutlined style={{ fontSize: 24, color: '#1890ff' }} />
+              <ApartmentOutlined style={{ fontSize: 24, color: "#1890ff" }} />
               <Title level={3} style={{ margin: 0 }}>
-                Hoạt động của {formData?.user_organization?.short_name || user?.organization_name || 'Đơn vị'}
+                Hoạt động của{" "}
+                {formData?.user_organization?.short_name ||
+                  user?.organization_name ||
+                  "Đơn vị"}
               </Title>
             </Space>
             {formData?.user_organization?.name && (
               <div style={{ marginLeft: 32, marginBottom: 8 }}>
-                <Tag color="blue" style={{ fontSize: 13, padding: '4px 12px' }}>
+                <Tag color="blue" style={{ fontSize: 13, padding: "4px 12px" }}>
                   <TeamOutlined /> {formData.user_organization.name}
                 </Tag>
               </div>
             )}
-            <Text type="secondary" style={{ marginLeft: 32, display: 'block' }}>
+            <Text type="secondary" style={{ marginLeft: 32, display: "block" }}>
               Hiển thị các hoạt động do đơn vị của bạn chủ trì
             </Text>
           </div>
 
           {/* Statistics */}
           <Space size="large" wrap>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span
+              style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
               <Text strong>Tổng số:</Text>
-              <Badge count={stats.total} showZero color="blue" style={{ marginLeft: 4 }} />
+              <Badge
+                count={stats.total}
+                showZero
+                color="blue"
+                style={{ marginLeft: 4 }}
+              />
             </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span
+              style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
               <Text strong>Hoàn thành:</Text>
-              <Badge count={stats.completed} showZero color="green" style={{ marginLeft: 4 }} />
+              <Badge
+                count={stats.completed}
+                showZero
+                color="green"
+                style={{ marginLeft: 4 }}
+              />
             </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span
+              style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
               <Text strong>Đang thực hiện:</Text>
-              <Badge count={stats.inProgress} showZero color="orange" style={{ marginLeft: 4 }} />
+              <Badge
+                count={stats.inProgress}
+                showZero
+                color="orange"
+                style={{ marginLeft: 4 }}
+              />
             </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span
+              style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
               <Text strong>Chờ duyệt:</Text>
-              <Badge count={stats.pending} showZero color="gold" style={{ marginLeft: 4 }} />
+              <Badge
+                count={stats.pending}
+                showZero
+                color="gold"
+                style={{ marginLeft: 4 }}
+              />
             </span>
           </Space>
 
@@ -309,9 +353,8 @@ function DepartmentActivitiesList() {
                 placeholder="Trạng thái"
                 value={statusFilter}
                 onChange={setStatusFilter}
-                style={{ width: '100%' }}
-                allowClear
-              >
+                style={{ width: "100%" }}
+                allowClear>
                 {formData?.statuses.map((s) => (
                   <Option key={s.value} value={s.value}>
                     {s.label}
@@ -325,9 +368,8 @@ function DepartmentActivitiesList() {
                 placeholder="Loại hoạt động"
                 value={typeFilter}
                 onChange={setTypeFilter}
-                style={{ width: '100%' }}
-                allowClear
-              >
+                style={{ width: "100%" }}
+                allowClear>
                 {formData?.activity_types.map((t) => (
                   <Option key={t.id} value={t.id}>
                     {t.name}
@@ -340,22 +382,25 @@ function DepartmentActivitiesList() {
               <Button
                 icon={<ReloadOutlined />}
                 onClick={() => {
-                  setSearchText('')
+                  setSearchText("")
                   setStatusFilter(undefined)
                   setTypeFilter(undefined)
                   fetchActivities()
-                }}
-              >
-                Làm mới
+                }}>
+                {t("common.refresh")}
               </Button>
             </Col>
           </Row>
 
           {/* Empty State */}
           {activities.length === 0 && !loading && (
-            <div style={{ textAlign: 'center', padding: '40px' }}>
-              <FileTextOutlined style={{ fontSize: '48px', color: '#d9d9d9' }} />
-              <Title level={4} type="secondary">Chưa có hoạt động nào</Title>
+            <div style={{ textAlign: "center", padding: "40px" }}>
+              <FileTextOutlined
+                style={{ fontSize: "48px", color: "#d9d9d9" }}
+              />
+              <Title level={4} type="secondary">
+                Chưa có hoạt động nào
+              </Title>
               <Text type="secondary">
                 Đơn vị chưa có hoạt động nào được tạo
               </Text>
@@ -372,7 +417,7 @@ function DepartmentActivitiesList() {
               pagination={{
                 ...pagination,
                 showSizeChanger: true,
-                showTotal: (total) => `Tổng ${total} hoạt động`,
+                showTotal: (total) => `Tổng ${total} hoạt động`
               }}
               onChange={handleTableChange}
               scroll={{ x: 1200 }}
@@ -392,16 +437,15 @@ function DepartmentActivitiesList() {
         footer={[
           <Button key="close" onClick={() => setViewModalVisible(false)}>
             Đóng
-          </Button>,
+          </Button>
         ]}
-        width={800}
-      >
+        width={800}>
         {selectedActivity && (
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
             {/* Header */}
             <div>
               <Text type="secondary">Mã hoạt động</Text>
-              <Title level={4} style={{ margin: '4px 0 8px' }}>
+              <Title level={4} style={{ margin: "4px 0 8px" }}>
                 {selectedActivity.code}
               </Title>
               <Space>
@@ -420,7 +464,7 @@ function DepartmentActivitiesList() {
             <div>
               <Title level={5}>{selectedActivity.title}</Title>
               <Paragraph type="secondary">
-                {selectedActivity.description || 'Không có mô tả'}
+                {selectedActivity.description || "Không có mô tả"}
               </Paragraph>
             </div>
 
@@ -429,19 +473,23 @@ function DepartmentActivitiesList() {
               <Col span={12}>
                 <Text type="secondary">Loại hoạt động</Text>
                 <div>
-                  <Tag color="blue">{selectedActivity.activity_type?.name || '-'}</Tag>
+                  <Tag color="blue">
+                    {selectedActivity.activity_type?.name || "-"}
+                  </Tag>
                 </div>
               </Col>
               <Col span={12}>
                 <Text type="secondary">Lĩnh vực</Text>
                 <div>
-                  <Tag>{selectedActivity.activity_field?.name || '-'}</Tag>
+                  <Tag>{selectedActivity.activity_field?.name || "-"}</Tag>
                 </div>
               </Col>
               <Col span={12}>
                 <Text type="secondary">Đơn vị chủ trì</Text>
                 <div>
-                  <Text strong>{selectedActivity.lead_organization?.name || '-'}</Text>
+                  <Text strong>
+                    {selectedActivity.lead_organization?.name || "-"}
+                  </Text>
                 </div>
               </Col>
               <Col span={12}>
@@ -450,7 +498,7 @@ function DepartmentActivitiesList() {
                   <Text>
                     {selectedActivity.creator
                       ? `${selectedActivity.creator.first_name} ${selectedActivity.creator.last_name}`
-                      : '-'}
+                      : "-"}
                   </Text>
                 </div>
               </Col>
@@ -459,26 +507,30 @@ function DepartmentActivitiesList() {
                 <div>
                   <Text>
                     {selectedActivity.start_date
-                      ? `${dayjs(selectedActivity.start_date).format('DD/MM/YYYY HH:mm')} - ${
+                      ? `${dayjs(selectedActivity.start_date).format("DD/MM/YYYY HH:mm")} - ${
                           selectedActivity.end_date
-                            ? dayjs(selectedActivity.end_date).format('DD/MM/YYYY HH:mm')
-                            : '...'
+                            ? dayjs(selectedActivity.end_date).format(
+                                "DD/MM/YYYY HH:mm"
+                              )
+                            : "..."
                         }`
-                      : '-'}
+                      : "-"}
                   </Text>
                   {selectedActivity.start_date && selectedActivity.end_date && (
                     <div style={{ marginTop: 4 }}>
                       <Text type="secondary" style={{ fontSize: 12 }}>
-                        (Thời lượng: {(() => {
+                        (Thời lượng:{" "}
+                        {(() => {
                           const start = dayjs(selectedActivity.start_date)
                           const end = dayjs(selectedActivity.end_date)
-                          const diffDays = end.diff(start, 'day')
-                          const diffHours = end.diff(start, 'hour') % 24
-                          let text = ''
+                          const diffDays = end.diff(start, "day")
+                          const diffHours = end.diff(start, "hour") % 24
+                          let text = ""
                           if (diffDays > 0) text += `${diffDays} ngày `
                           if (diffHours > 0) text += `${diffHours} giờ`
-                          return text || 'Cùng thời điểm'
-                        })()})
+                          return text || "Cùng thời điểm"
+                        })()}
+                        )
                       </Text>
                     </div>
                   )}
@@ -487,7 +539,7 @@ function DepartmentActivitiesList() {
               <Col span={12}>
                 <Text type="secondary">Địa điểm</Text>
                 <div>
-                  <Text>{selectedActivity.location || '-'}</Text>
+                  <Text>{selectedActivity.location || "-"}</Text>
                 </div>
               </Col>
               <Col span={12}>
@@ -495,15 +547,15 @@ function DepartmentActivitiesList() {
                 <div>
                   <Text>
                     {selectedActivity.budget
-                      ? `${selectedActivity.budget.toLocaleString('vi-VN')} VNĐ`
-                      : '-'}
+                      ? `${selectedActivity.budget.toLocaleString("vi-VN")} VNĐ`
+                      : "-"}
                   </Text>
                 </div>
               </Col>
               <Col span={12}>
                 <Text type="secondary">Nguồn kinh phí</Text>
                 <div>
-                  <Text>{selectedActivity.budget_source || '-'}</Text>
+                  <Text>{selectedActivity.budget_source || "-"}</Text>
                 </div>
               </Col>
             </Row>
@@ -513,7 +565,9 @@ function DepartmentActivitiesList() {
               <>
                 <Divider />
                 <div>
-                  <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+                  <Text
+                    type="secondary"
+                    style={{ display: "block", marginBottom: 8 }}>
                     <GlobalOutlined style={{ marginRight: 4 }} />
                     Chỉ tiêu KPI liên quan ({selectedActivity.kpis.length})
                   </Text>
@@ -521,51 +575,99 @@ function DepartmentActivitiesList() {
                     size="small"
                     items={[
                       {
-                        key: 'central',
+                        key: "central",
                         label: (
                           <span>
                             <GlobalOutlined style={{ marginRight: 4 }} />
-                            Trung ương ({selectedActivity.kpis.filter(k => k.source === 'CENTRAL').length})
+                            Trung ương (
+                            {
+                              selectedActivity.kpis.filter(
+                                (k) => k.source === "CENTRAL"
+                              ).length
+                            }
+                            )
                           </span>
                         ),
                         children: (
-                          <div style={{ maxHeight: 150, overflowY: 'auto' }}>
-                            {selectedActivity.kpis.filter(k => k.source === 'CENTRAL').length === 0 ? (
-                              <Text type="secondary">Không có KPI Trung ương</Text>
+                          <div style={{ maxHeight: 150, overflowY: "auto" }}>
+                            {selectedActivity.kpis.filter(
+                              (k) => k.source === "CENTRAL"
+                            ).length === 0 ? (
+                              <Text type="secondary">
+                                Không có KPI Trung ương
+                              </Text>
                             ) : (
-                              selectedActivity.kpis.filter(k => k.source === 'CENTRAL').map(kpi => (
-                                <Tag key={kpi.id} color="purple" style={{ marginBottom: 4, marginRight: 4 }}>
-                                  {kpi.code && <Text code style={{ marginRight: 4, fontSize: 11 }}>{kpi.code}</Text>}
-                                  {kpi.title}
-                                </Tag>
-                              ))
+                              selectedActivity.kpis
+                                .filter((k) => k.source === "CENTRAL")
+                                .map((kpi) => (
+                                  <Tag
+                                    key={kpi.id}
+                                    color="purple"
+                                    style={{ marginBottom: 4, marginRight: 4 }}>
+                                    {kpi.code && (
+                                      <Text
+                                        code
+                                        style={{
+                                          marginRight: 4,
+                                          fontSize: 11
+                                        }}>
+                                        {kpi.code}
+                                      </Text>
+                                    )}
+                                    {kpi.title}
+                                  </Tag>
+                                ))
                             )}
                           </div>
-                        ),
+                        )
                       },
                       {
-                        key: 'vnu',
+                        key: "vnu",
                         label: (
                           <span>
                             <BankOutlined style={{ marginRight: 4 }} />
-                            ĐHQG-HCM ({selectedActivity.kpis.filter(k => k.source === 'VNU').length})
+                            ĐHQG-HCM (
+                            {
+                              selectedActivity.kpis.filter(
+                                (k) => k.source === "VNU"
+                              ).length
+                            }
+                            )
                           </span>
                         ),
                         children: (
-                          <div style={{ maxHeight: 150, overflowY: 'auto' }}>
-                            {selectedActivity.kpis.filter(k => k.source === 'VNU').length === 0 ? (
-                              <Text type="secondary">Không có KPI ĐHQG-HCM</Text>
+                          <div style={{ maxHeight: 150, overflowY: "auto" }}>
+                            {selectedActivity.kpis.filter(
+                              (k) => k.source === "VNU"
+                            ).length === 0 ? (
+                              <Text type="secondary">
+                                Không có KPI ĐHQG-HCM
+                              </Text>
                             ) : (
-                              selectedActivity.kpis.filter(k => k.source === 'VNU').map(kpi => (
-                                <Tag key={kpi.id} color="blue" style={{ marginBottom: 4, marginRight: 4 }}>
-                                  {kpi.code && <Text code style={{ marginRight: 4, fontSize: 11 }}>{kpi.code}</Text>}
-                                  {kpi.title}
-                                </Tag>
-                              ))
+                              selectedActivity.kpis
+                                .filter((k) => k.source === "VNU")
+                                .map((kpi) => (
+                                  <Tag
+                                    key={kpi.id}
+                                    color="blue"
+                                    style={{ marginBottom: 4, marginRight: 4 }}>
+                                    {kpi.code && (
+                                      <Text
+                                        code
+                                        style={{
+                                          marginRight: 4,
+                                          fontSize: 11
+                                        }}>
+                                        {kpi.code}
+                                      </Text>
+                                    )}
+                                    {kpi.title}
+                                  </Tag>
+                                ))
                             )}
                           </div>
-                        ),
-                      },
+                        )
+                      }
                     ]}
                   />
                 </div>
@@ -591,17 +693,19 @@ function DepartmentActivitiesList() {
                   <Text type="secondary">Thông tin phê duyệt</Text>
                   <div>
                     <Text>
-                      Người phê duyệt:{' '}
+                      Người phê duyệt:{" "}
                       {selectedActivity.approver
                         ? `${selectedActivity.approver.first_name} ${selectedActivity.approver.last_name}`
-                        : '-'}
+                        : "-"}
                     </Text>
                     <br />
                     <Text>
-                      Thời gian:{' '}
+                      Thời gian:{" "}
                       {selectedActivity.approved_at
-                        ? dayjs(selectedActivity.approved_at).format('DD/MM/YYYY HH:mm')
-                        : '-'}
+                        ? dayjs(selectedActivity.approved_at).format(
+                            "DD/MM/YYYY HH:mm"
+                          )
+                        : "-"}
                     </Text>
                   </div>
                 </div>

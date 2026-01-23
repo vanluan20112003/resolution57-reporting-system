@@ -115,9 +115,9 @@ function CollaboratorReportView() {
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
-    total: 0,
+    total: 0
   })
-  const [searchText, setSearchText] = useState('')
+  const [searchText, setSearchText] = useState("")
 
   // Summary state
   const [summary, setSummary] = useState<CollaboratorSummary | null>(null)
@@ -125,7 +125,8 @@ function CollaboratorReportView() {
 
   // Detail modal state
   const [detailVisible, setDetailVisible] = useState(false)
-  const [detailBatch, setDetailBatch] = useState<CollaboratorBatchDetail | null>(null)
+  const [detailBatch, setDetailBatch] =
+    useState<CollaboratorBatchDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
   // Response form state
@@ -157,7 +158,7 @@ function CollaboratorReportView() {
       const response = await reportBatchApi.getCollaboratorSummary()
       setSummary(response.data)
     } catch (error: any) {
-      console.error('Failed to fetch summary:', error)
+      console.error("Failed to fetch summary:", error)
     } finally {
       setSummaryLoading(false)
     }
@@ -170,15 +171,15 @@ function CollaboratorReportView() {
       const response = await reportBatchApi.getCollaboratorBatches({
         search: searchText || undefined,
         page: pagination.current,
-        per_page: pagination.pageSize,
+        per_page: pagination.pageSize
       })
       setBatches(response.data)
-      setPagination(prev => ({
+      setPagination((prev) => ({
         ...prev,
-        total: response.pagination.total,
+        total: response.pagination.total
       }))
     } catch (error: any) {
-      message.error(error.message || 'Không thể tải danh sách đợt báo cáo')
+      message.error(error.message || "Không thể tải danh sách đợt báo cáo")
     } finally {
       setLoading(false)
     }
@@ -200,7 +201,7 @@ function CollaboratorReportView() {
       setOwnerFiles(filesResponse.data.owner_files || [])
       setActivityFiles(filesResponse.data.collaborator_files_by_activity || [])
     } catch (error: any) {
-      message.error(error.message || 'Không thể tải thông tin đợt báo cáo')
+      message.error(error.message || "Không thể tải thông tin đợt báo cáo")
     } finally {
       setDetailLoading(false)
     }
@@ -454,7 +455,7 @@ function CollaboratorReportView() {
     if (!detailBatch || !selectedActivity) return
 
     if (!responseContent.trim()) {
-      message.warning('Vui lòng nhập nội dung báo cáo')
+      message.warning("Vui lòng nhập nội dung báo cáo")
       return
     }
 
@@ -490,7 +491,7 @@ function CollaboratorReportView() {
       fetchSummary()
       fetchBatches()
     } catch (error: any) {
-      message.error(error.message || 'Không thể gửi báo cáo')
+      message.error(error.message || "Không thể gửi báo cáo")
     } finally {
       setSubmittingResponse(false)
     }
@@ -554,106 +555,141 @@ function CollaboratorReportView() {
 
   // Status tag colors
   const getStatusTag = (status: BatchStatus) => {
-    const config: Record<BatchStatus, { color: string; icon: React.ReactNode; label: string }> = {
-      upcoming: { color: 'default', icon: <ClockCircleOutlined />, label: 'Sắp tới' },
-      ongoing: { color: 'processing', icon: <ClockCircleOutlined />, label: 'Đang diễn ra' },
-      completed: { color: 'success', icon: <CheckCircleOutlined />, label: 'Kết thúc' },
+    const config: Record<
+      BatchStatus,
+      { color: string; icon: React.ReactNode; label: string }
+    > = {
+      upcoming: {
+        color: "default",
+        icon: <ClockCircleOutlined />,
+        label: "Sắp tới"
+      },
+      ongoing: {
+        color: "processing",
+        icon: <ClockCircleOutlined />,
+        label: "Đang diễn ra"
+      },
+      completed: {
+        color: "success",
+        icon: <CheckCircleOutlined />,
+        label: "Kết thúc"
+      }
     }
     const { color, icon, label } = config[status] || config.upcoming
-    return <Tag color={color} icon={icon}>{label}</Tag>
+    return (
+      <Tag color={color} icon={icon}>
+        {label}
+      </Tag>
+    )
   }
 
   // Table columns
   const columns: ColumnsType<CollaboratorBatch> = [
     {
-      title: 'STT',
-      key: 'index',
+      title: "STT",
+      key: "index",
       width: 50,
-      align: 'center',
-      render: (_, __, index) => (pagination.current - 1) * pagination.pageSize + index + 1,
+      align: "center",
+      render: (_, __, index) =>
+        (pagination.current - 1) * pagination.pageSize + index + 1
     },
     {
-      title: 'Tên đợt báo cáo',
-      dataIndex: 'name',
-      key: 'name',
+      title: "Tên đợt báo cáo",
+      dataIndex: "name",
+      key: "name",
       render: (name: string, record) => (
         <div>
           <Space>
-            <Text strong style={{ cursor: 'pointer' }} onClick={() => handleViewDetail(record)}>
+            <Text
+              strong
+              style={{ cursor: "pointer" }}
+              onClick={() => handleViewDetail(record)}>
               {name}
             </Text>
-            {record.my_response_stats && record.my_response_stats.pending > 0 && !record.is_overdue && (
-              <Badge dot color="orange" />
-            )}
-            {record.is_overdue && record.my_response_stats && record.my_response_stats.pending > 0 && (
-              <Badge dot color="red" />
-            )}
+            {record.my_response_stats &&
+              record.my_response_stats.pending > 0 &&
+              !record.is_overdue && <Badge dot color="orange" />}
+            {record.is_overdue &&
+              record.my_response_stats &&
+              record.my_response_stats.pending > 0 && <Badge dot color="red" />}
           </Space>
           {record.organization && (
-            <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+            <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
               <TeamOutlined style={{ marginRight: 4 }} />
               {record.organization.short_name || record.organization.name}
             </Text>
           )}
         </div>
-      ),
+      )
     },
     {
-      title: 'Hạn nộp',
-      key: 'deadline',
+      title: "Hạn nộp",
+      key: "deadline",
       width: 130,
       render: (_, record) => {
         if (!record.deadline) return <Text type="secondary">Không có hạn</Text>
         const isOverdue = dayjs().isAfter(dayjs(record.deadline))
         return (
-          <Tooltip title={dayjs(record.deadline).format('DD/MM/YYYY HH:mm')}>
+          <Tooltip title={dayjs(record.deadline).format("DD/MM/YYYY HH:mm")}>
             <Tag
-              icon={isOverdue ? <ExclamationCircleOutlined /> : <CalendarOutlined />}
-              color={isOverdue ? 'error' : 'warning'}
-            >
-              {dayjs(record.deadline).format('DD/MM/YY HH:mm')}
+              icon={
+                isOverdue ? <ExclamationCircleOutlined /> : <CalendarOutlined />
+              }
+              color={isOverdue ? "error" : "warning"}>
+              {dayjs(record.deadline).format("DD/MM/YY HH:mm")}
             </Tag>
           </Tooltip>
         )
-      },
+      }
     },
     {
-      title: 'Tiến độ',
-      key: 'progress',
+      title: "Tiến độ",
+      key: "progress",
       width: 150,
       render: (_, record) => {
-        if (!record.my_response_stats) return '-'
+        if (!record.my_response_stats) return "-"
         const { submitted, total_required, pending } = record.my_response_stats
-        const percent = total_required > 0 ? Math.round((submitted / total_required) * 100) : 0
+        const percent =
+          total_required > 0
+            ? Math.round((submitted / total_required) * 100)
+            : 0
         return (
           <div>
             <Progress
               percent={percent}
               size="small"
-              status={percent === 100 ? 'success' : record.is_overdue ? 'exception' : 'active'}
+              status={
+                percent === 100
+                  ? "success"
+                  : record.is_overdue
+                    ? "exception"
+                    : "active"
+              }
               format={() => `${submitted}/${total_required}`}
             />
             {pending > 0 && (
-              <Text type={record.is_overdue ? 'danger' : 'warning'} style={{ fontSize: 11 }}>
-                {record.is_overdue ? 'Quá hạn' : `Còn ${pending} chưa nộp`}
+              <Text
+                type={record.is_overdue ? "danger" : "warning"}
+                style={{ fontSize: 11 }}>
+                {record.is_overdue ? "Quá hạn" : `Còn ${pending} chưa nộp`}
               </Text>
             )}
           </div>
         )
-      },
+      }
     },
     {
-      title: 'Trạng thái',
-      dataIndex: 'status',
-      key: 'status',
+      title: "Trạng thái",
+      dataIndex: "status",
+      key: "status",
       width: 130,
-      render: (status: BatchStatus) => getStatusTag(status),
+      render: (status: BatchStatus) => getStatusTag(status)
     },
     {
-      title: 'Thao tác',
-      key: 'actions',
+      title: t("common.actions"),
+      key: "actions",
       width: 100,
-      fixed: 'right',
+      fixed: "right",
       render: (_, record) => (
         <Space size={4}>
           <Tooltip title="Xem chi tiết & Nhập báo cáo">
@@ -662,14 +698,15 @@ function CollaboratorReportView() {
               icon={<EditOutlined />}
               size="small"
               onClick={() => handleViewDetail(record)}
-              disabled={record.is_overdue && record.my_response_stats?.pending === 0}
-            >
+              disabled={
+                record.is_overdue && record.my_response_stats?.pending === 0
+              }>
               Báo cáo
             </Button>
           </Tooltip>
         </Space>
-      ),
-    },
+      )
+    }
   ]
 
   return (
@@ -686,7 +723,7 @@ function CollaboratorReportView() {
                 </Space>
               }
               value={summary?.pending || 0}
-              valueStyle={{ color: '#faad14' }}
+              valueStyle={{ color: "#faad14" }}
               suffix="đợt"
             />
           </Card>
@@ -701,7 +738,7 @@ function CollaboratorReportView() {
                 </Space>
               }
               value={summary?.overdue || 0}
-              valueStyle={{ color: '#ff4d4f' }}
+              valueStyle={{ color: "#ff4d4f" }}
               suffix="đợt"
             />
           </Card>
@@ -716,7 +753,7 @@ function CollaboratorReportView() {
                 </Space>
               }
               value={summary?.completed || 0}
-              valueStyle={{ color: '#52c41a' }}
+              valueStyle={{ color: "#52c41a" }}
               suffix="đợt"
             />
           </Card>
@@ -757,9 +794,8 @@ function CollaboratorReportView() {
                 fetchBatches()
                 fetchSummary()
               }}
-              loading={loading}
-            >
-              Làm mới
+              loading={loading}>
+              {t("common.refresh")}
             </Button>
           </Col>
         </Row>
@@ -775,14 +811,15 @@ function CollaboratorReportView() {
           pagination={{
             ...pagination,
             showSizeChanger: true,
-            showTotal: (total, range) => `${range[0]}-${range[1]} của ${total} đợt`,
+            showTotal: (total, range) =>
+              `${range[0]}-${range[1]} của ${total} đợt`,
             onChange: (page, pageSize) => {
-              setPagination(prev => ({
+              setPagination((prev) => ({
                 ...prev,
                 current: page,
-                pageSize,
+                pageSize
               }))
-            },
+            }
           }}
           scroll={{ x: 900 }}
           locale={{
@@ -791,7 +828,7 @@ function CollaboratorReportView() {
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description="Không có đợt báo cáo nào cần bạn nhập"
               />
-            ),
+            )
           }}
         />
       </Card>
@@ -800,7 +837,7 @@ function CollaboratorReportView() {
       <Modal
         title={
           <Space>
-            <FileTextOutlined style={{ color: '#1890ff' }} />
+            <FileTextOutlined style={{ color: "#1890ff" }} />
             <span>Chi tiết đợt báo cáo - Nhập kết quả</span>
           </Space>
         }
@@ -811,16 +848,24 @@ function CollaboratorReportView() {
         }}
         width={1100}
         centered
-        styles={{ body: { padding: '16px 24px' } }}
+        styles={{ body: { padding: "16px 24px" } }}
         footer={
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }}>
             <Text type="secondary">
-              Đơn vị yêu cầu: <Text strong>{detailBatch?.organization?.short_name || detailBatch?.organization?.name}</Text>
+              Đơn vị yêu cầu:{" "}
+              <Text strong>
+                {detailBatch?.organization?.short_name ||
+                  detailBatch?.organization?.name}
+              </Text>
             </Text>
             <Button onClick={() => setDetailVisible(false)}>Đóng</Button>
           </div>
-        }
-      >
+        }>
         <Spin spinning={detailLoading}>
           {detailBatch && (
             <>
@@ -839,13 +884,20 @@ function CollaboratorReportView() {
               <Row gutter={24}>
                 {/* Left Column - Batch Info (Read-only) */}
                 <Col span={8}>
-                  <div style={{
-                    background: '#fafafa',
-                    padding: 16,
-                    borderRadius: 8,
-                    height: '100%'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                  <div
+                    style={{
+                      background: "#fafafa",
+                      padding: 16,
+                      borderRadius: 8,
+                      height: "100%"
+                    }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        marginBottom: 16
+                      }}>
                       <Title level={5} style={{ margin: 0 }}>
                         <FileTextOutlined style={{ marginRight: 8 }} />
                         Thông tin đợt
@@ -854,7 +906,9 @@ function CollaboratorReportView() {
                     </div>
 
                     <div style={{ marginBottom: 12 }}>
-                      <Text type="secondary" style={{ fontSize: 12 }}>Tên đợt báo cáo</Text>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        Tên đợt báo cáo
+                      </Text>
                       <div style={{ marginTop: 4 }}>
                         <Text strong>{detailBatch.name}</Text>
                       </div>
@@ -862,25 +916,42 @@ function CollaboratorReportView() {
 
                     {detailBatch.start_date && detailBatch.end_date && (
                       <div style={{ marginBottom: 12 }}>
-                        <Text type="secondary" style={{ fontSize: 12 }}>Thời gian</Text>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          Thời gian
+                        </Text>
                         <div style={{ marginTop: 4 }}>
                           <Tag icon={<CalendarOutlined />} color="blue">
-                            {dayjs(detailBatch.start_date).format('DD/MM/YYYY HH:mm')} - {dayjs(detailBatch.end_date).format('DD/MM/YYYY HH:mm')}
+                            {dayjs(detailBatch.start_date).format(
+                              "DD/MM/YYYY HH:mm"
+                            )}{" "}
+                            -{" "}
+                            {dayjs(detailBatch.end_date).format(
+                              "DD/MM/YYYY HH:mm"
+                            )}
                           </Tag>
                         </div>
                       </div>
                     )}
 
                     <div style={{ marginBottom: 12 }}>
-                      <Text type="secondary" style={{ fontSize: 12 }}>Hạn nộp</Text>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        Hạn nộp
+                      </Text>
                       <div style={{ marginTop: 4 }}>
                         {detailBatch.deadline ? (
                           <Tag
-                            icon={detailBatch.is_overdue ? <ExclamationCircleOutlined /> : <ClockCircleOutlined />}
-                            color={detailBatch.is_overdue ? 'error' : 'orange'}
-                          >
-                            {dayjs(detailBatch.deadline).format('DD/MM/YYYY HH:mm')}
-                            {detailBatch.is_overdue && ' (Quá hạn)'}
+                            icon={
+                              detailBatch.is_overdue ? (
+                                <ExclamationCircleOutlined />
+                              ) : (
+                                <ClockCircleOutlined />
+                              )
+                            }
+                            color={detailBatch.is_overdue ? "error" : "orange"}>
+                            {dayjs(detailBatch.deadline).format(
+                              "DD/MM/YYYY HH:mm"
+                            )}
+                            {detailBatch.is_overdue && " (Quá hạn)"}
                           </Tag>
                         ) : (
                           <Text type="secondary">Không có hạn</Text>
@@ -891,14 +962,26 @@ function CollaboratorReportView() {
                     {/* Progress */}
                     {detailBatch.my_response_stats && (
                       <div style={{ marginBottom: 12 }}>
-                        <Text type="secondary" style={{ fontSize: 12 }}>Tiến độ của bạn</Text>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          Tiến độ của bạn
+                        </Text>
                         <div style={{ marginTop: 8 }}>
                           <Progress
-                            percent={Math.round((detailBatch.my_response_stats.submitted / detailBatch.my_response_stats.total_required) * 100)}
-                            status={detailBatch.my_response_stats.pending === 0 ? 'success' : 'active'}
+                            percent={Math.round(
+                              (detailBatch.my_response_stats.submitted /
+                                detailBatch.my_response_stats.total_required) *
+                                100
+                            )}
+                            status={
+                              detailBatch.my_response_stats.pending === 0
+                                ? "success"
+                                : "active"
+                            }
                           />
                           <Text type="secondary" style={{ fontSize: 11 }}>
-                            Đã nộp {detailBatch.my_response_stats.submitted}/{detailBatch.my_response_stats.total_required} hoạt động
+                            Đã nộp {detailBatch.my_response_stats.submitted}/
+                            {detailBatch.my_response_stats.total_required} hoạt
+                            động
                           </Text>
                         </div>
                       </div>
@@ -906,8 +989,17 @@ function CollaboratorReportView() {
 
                     {detailBatch.description && (
                       <div style={{ marginBottom: 12 }}>
-                        <Text type="secondary" style={{ fontSize: 12 }}>Mô tả</Text>
-                        <div style={{ marginTop: 4, padding: '8px', background: '#fff', borderRadius: 4, fontSize: 12 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          Mô tả
+                        </Text>
+                        <div
+                          style={{
+                            marginTop: 4,
+                            padding: "8px",
+                            background: "#fff",
+                            borderRadius: 4,
+                            fontSize: 12
+                          }}>
                           {detailBatch.description}
                         </div>
                       </div>
@@ -985,56 +1077,85 @@ function CollaboratorReportView() {
 
                 {/* Right Column - Activities to Report */}
                 <Col span={16}>
-                  <div style={{
-                    border: '1px solid #d9d9d9',
-                    borderRadius: 8,
-                    overflow: 'hidden',
-                    height: '100%'
-                  }}>
-                    <div style={{
-                      background: '#e6f7ff',
-                      padding: '10px 14px',
-                      borderBottom: '1px solid #d9d9d9',
-                      fontWeight: 500
+                  <div
+                    style={{
+                      border: "1px solid #d9d9d9",
+                      borderRadius: 8,
+                      overflow: "hidden",
+                      height: "100%"
                     }}>
+                    <div
+                      style={{
+                        background: "#e6f7ff",
+                        padding: "10px 14px",
+                        borderBottom: "1px solid #d9d9d9",
+                        fontWeight: 500
+                      }}>
                       <Space>
                         <UnorderedListOutlined />
                         <span>Các hoạt động cần báo cáo</span>
                         <Badge
                           count={detailBatch.activities?.length || 0}
-                          style={{ backgroundColor: '#1890ff' }}
+                          style={{ backgroundColor: "#1890ff" }}
                         />
                       </Space>
                     </div>
 
-                    <div style={{ maxHeight: 450, overflow: 'auto' }}>
-                      {detailBatch.activities && detailBatch.activities.length > 0 ? (
+                    <div style={{ maxHeight: 450, overflow: "auto" }}>
+                      {detailBatch.activities &&
+                      detailBatch.activities.length > 0 ? (
                         detailBatch.activities.map((activity, idx) => (
                           <div
                             key={activity.id}
                             style={{
-                              padding: '12px 14px',
-                              background: idx % 2 === 0 ? '#fafafa' : '#fff',
-                              borderBottom: idx < detailBatch.activities!.length - 1 ? '1px solid #f0f0f0' : 'none'
-                            }}
-                          >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              padding: "12px 14px",
+                              background: idx % 2 === 0 ? "#fafafa" : "#fff",
+                              borderBottom:
+                                idx < detailBatch.activities!.length - 1
+                                  ? "1px solid #f0f0f0"
+                                  : "none"
+                            }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "flex-start"
+                              }}>
                               <div style={{ flex: 1 }}>
                                 <Space>
-                                  <Text strong style={{ fontSize: 13 }}>{idx + 1}. {activity.title}</Text>
+                                  <Text strong style={{ fontSize: 13 }}>
+                                    {idx + 1}. {activity.title}
+                                  </Text>
                                   {activity.my_response ? (
-                                    <Tag color="success" icon={<CheckCircleOutlined />}>Đã nộp</Tag>
+                                    <Tag
+                                      color="success"
+                                      icon={<CheckCircleOutlined />}>
+                                      Đã nộp
+                                    </Tag>
                                   ) : (
-                                    <Tag color="warning" icon={<ClockCircleOutlined />}>Chưa nộp</Tag>
+                                    <Tag
+                                      color="warning"
+                                      icon={<ClockCircleOutlined />}>
+                                      Chưa nộp
+                                    </Tag>
                                   )}
                                 </Space>
                                 <div style={{ marginTop: 4 }}>
                                   <Space size={8}>
                                     <Tag color="blue" style={{ fontSize: 10 }}>
-                                      {activity.lead_organization?.short_name || activity.lead_organization?.name}
+                                      {activity.lead_organization?.short_name ||
+                                        activity.lead_organization?.name}
                                     </Tag>
-                                    <Text type="secondary" style={{ fontSize: 11 }}>
-                                      {dayjs(activity.start_date).format('DD/MM/YY')} - {dayjs(activity.end_date).format('DD/MM/YY')}
+                                    <Text
+                                      type="secondary"
+                                      style={{ fontSize: 11 }}>
+                                      {dayjs(activity.start_date).format(
+                                        "DD/MM/YY"
+                                      )}{" "}
+                                      -{" "}
+                                      {dayjs(activity.end_date).format(
+                                        "DD/MM/YY"
+                                      )}
                                     </Text>
                                   </Space>
                                 </div>
@@ -1151,7 +1272,11 @@ function CollaboratorReportView() {
                               <div>
                                 <Space direction="vertical" size={4}>
                                   <Button
-                                    type={activity.my_response ? 'default' : 'primary'}
+                                    type={
+                                      activity.my_response
+                                        ? "default"
+                                        : "primary"
+                                    }
                                     size="small"
                                     icon={activity.my_response ? <EditOutlined /> : <SendOutlined />}
                                     onClick={() => handleOpenResponseForm(activity)}
@@ -1189,36 +1314,44 @@ function CollaboratorReportView() {
       <Modal
         title={
           <Space>
-            <SendOutlined style={{ color: '#52c41a' }} />
-            <span>{selectedActivity?.my_response ? 'Chỉnh sửa báo cáo' : 'Nhập nội dung báo cáo'}</span>
+            <SendOutlined style={{ color: "#52c41a" }} />
+            <span>
+              {selectedActivity?.my_response
+                ? "Chỉnh sửa báo cáo"
+                : "Nhập nội dung báo cáo"}
+            </span>
           </Space>
         }
         open={responseModalVisible}
         onCancel={handleCloseResponseModal}
         width={700}
         centered
-        okText={selectedActivity?.my_response ? 'Cập nhật' : 'Gửi báo cáo'}
+        okText={selectedActivity?.my_response ? "Cập nhật" : "Gửi báo cáo"}
         okButtonProps={{ loading: submittingResponse, icon: <SendOutlined /> }}
         onOk={handleSubmitResponse}
-        cancelText="Hủy"
-      >
+        cancelText="Hủy">
         {selectedActivity && (
           <div>
             {/* Activity Info */}
-            <div style={{
-              background: '#e6f7ff',
-              padding: '10px 12px',
-              borderRadius: 4,
-              marginBottom: 16
-            }}>
-              <Text strong style={{ fontSize: 13 }}>{selectedActivity.title}</Text>
+            <div
+              style={{
+                background: "#e6f7ff",
+                padding: "10px 12px",
+                borderRadius: 4,
+                marginBottom: 16
+              }}>
+              <Text strong style={{ fontSize: 13 }}>
+                {selectedActivity.title}
+              </Text>
               <div style={{ marginTop: 4 }}>
                 <Space>
                   <Tag color="blue" style={{ fontSize: 10 }}>
-                    {selectedActivity.lead_organization?.short_name || selectedActivity.lead_organization?.name}
+                    {selectedActivity.lead_organization?.short_name ||
+                      selectedActivity.lead_organization?.name}
                   </Tag>
                   <Text type="secondary" style={{ fontSize: 11 }}>
-                    {dayjs(selectedActivity.start_date).format('DD/MM/YYYY')} - {dayjs(selectedActivity.end_date).format('DD/MM/YYYY')}
+                    {dayjs(selectedActivity.start_date).format("DD/MM/YYYY")} -{" "}
+                    {dayjs(selectedActivity.end_date).format("DD/MM/YYYY")}
                   </Text>
                 </Space>
               </div>
