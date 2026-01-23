@@ -51,6 +51,7 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import type { UploadFile } from 'antd/es/upload/interface'
 import dayjs from 'dayjs'
+import { t } from 'i18next'
 import * as reportBatchApi from '../../services/reportBatchApi'
 import type {
   CollaboratorBatch,
