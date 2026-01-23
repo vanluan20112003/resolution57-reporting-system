@@ -1924,6 +1924,11 @@ function ActivityManagement({
           fetchActivities()
           window.dispatchEvent(new CustomEvent("activity-status-changed"))
         }}
+        readOnly={
+          selectedActivity
+            ? getActivityRole(selectedActivity) === "coordinator" && !isAdmin
+            : false
+        }
       />
 
       {/* Approval Wizard Modal */}
