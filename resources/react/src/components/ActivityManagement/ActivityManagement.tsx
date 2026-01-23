@@ -76,6 +76,7 @@ import ColumnToggle, {
 } from "../../shared/components/ColumnToggle"
 import "./ActivityManagement.css"
 import { t } from "i18next"
+import { useLocation, useSearchParams } from "react-router-dom"
 
 const { Title, Text, Paragraph } = Typography
 const { Option } = Select
@@ -170,6 +171,14 @@ function ActivityManagement({
     "actions"
   ])
 
+  const [searchParams] = useSearchParams()
+
+  useEffect(() => {
+    if (searchParams.get("tab") === "pending-approval") {
+      setViewMode("department")
+    }
+  }, [searchParams.get("tab")])
+
   // Watch start_date and end_date for duration calculation
   const watchStartDate = Form.useWatch("start_date", form)
   const watchEndDate = Form.useWatch("end_date", form)
@@ -234,7 +243,8 @@ function ActivityManagement({
 
       if (
         viewMode === "department" ||
-        (viewMode === "all" && filterValues.role === "lead")
+        (viewMode === "all" && filterValues.role === "lead") ||
+        searchParams.get("tab") === "pending-approval"
       ) {
         // Fetch only department activities (where my org is lead)
         const response = await activityApi.getActivities({
@@ -1149,35 +1159,37 @@ function ActivityManagement({
             </Tooltip>
           )}
           {/* Postpone button - for APPROVED/IN_PROGRESS/COMPLETED activities */}
-          {canPostponeOrCancel(record) && (
-            <Tooltip title="Tạm hoãn">
-              <Popconfirm
-                title="Tạm hoãn hoạt động này?"
-                description="Hoạt động sẽ chuyển sang trạng thái Tạm hoãn để chỉnh sửa ngày."
-                onConfirm={() => handlePostpone(record.id)}
-                okText="Tạm hoãn"
-                cancelText="Hủy">
+          {record.lead_organization_id === currentUser?.organization_id &&
+            canPostponeOrCancel(record) && (
+              <Tooltip title="Tạm hoãn">
+                <Popconfirm
+                  title="Tạm hoãn hoạt động này?"
+                  description="Hoạt động sẽ chuyển sang trạng thái Tạm hoãn để chỉnh sửa ngày."
+                  onConfirm={() => handlePostpone(record.id)}
+                  okText="Tạm hoãn"
+                  cancelText="Hủy">
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<PauseCircleOutlined />}
+                    style={{ color: "#fa8c16" }}
+                  />
+                </Popconfirm>
+              </Tooltip>
+            )}
+          {/* Cancel button - for APPROVED/IN_PROGRESS/COMPLETED activities */}
+          {record.lead_organization_id === currentUser?.organization_id &&
+            canPostponeOrCancel(record) && (
+              <Tooltip title="Hủy hoạt động">
                 <Button
                   type="link"
                   size="small"
-                  icon={<PauseCircleOutlined />}
-                  style={{ color: "#fa8c16" }}
+                  icon={<StopOutlined />}
+                  onClick={() => openCancelModal(record.id)}
+                  style={{ color: "#ff4d4f" }}
                 />
-              </Popconfirm>
-            </Tooltip>
-          )}
-          {/* Cancel button - for APPROVED/IN_PROGRESS/COMPLETED activities */}
-          {canPostponeOrCancel(record) && (
-            <Tooltip title="Hủy hoạt động">
-              <Button
-                type="link"
-                size="small"
-                icon={<StopOutlined />}
-                onClick={() => openCancelModal(record.id)}
-                style={{ color: "#ff4d4f" }}
-              />
-            </Tooltip>
-          )}
+              </Tooltip>
+            )}
           {/* Uncancel button - for CANCELLED activities, ADMIN only */}
           {canUncancelActivity(record) && (
             <Tooltip title="Khôi phục hoạt động">
@@ -1197,47 +1209,52 @@ function ActivityManagement({
             </Tooltip>
           )}
           {/* Lock button - for approved activities */}
-          {canLockActivity(record) && (
-            <Tooltip title="Khóa hoạt động">
-              <Popconfirm
-                title="Khóa hoạt động này?"
-                description="Sau khi khóa, hoạt động không thể chỉnh sửa được nữa."
-                onConfirm={() => handleLock(record.id)}
-                okText="Khóa"
-                cancelText="Hủy">
-                <Button
-                  type="link"
-                  size="small"
-                  icon={<LockOutlined />}
-                  style={{ color: "#faad14" }}
-                />
-              </Popconfirm>
-            </Tooltip>
-          )}
+          {record.lead_organization_id === currentUser?.organization_id &&
+            canLockActivity(record) && (
+              <Tooltip title="Khóa hoạt động">
+                <Popconfirm
+                  title="Khóa hoạt động này?"
+                  description="Sau khi khóa, hoạt động không thể chỉnh sửa được nữa."
+                  onConfirm={() => handleLock(record.id)}
+                  okText="Khóa"
+                  cancelText="Hủy">
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<LockOutlined />}
+                    style={{ color: "#faad14" }}
+                  />
+                </Popconfirm>
+              </Tooltip>
+            )}
           {/* Unlock button - only OPERATOR/ADMIN */}
-          {record.is_locked && isAdmin && (
-            <Tooltip title="Mở khóa hoạt động">
-              <Popconfirm
-                title="Mở khóa hoạt động này?"
-                description="Hoạt động sẽ có thể được chỉnh sửa lại."
-                onConfirm={() => handleUnlock(record.id)}
-                okText="Mở khóa"
-                cancelText="Hủy">
-                <Button
-                  type="link"
-                  size="small"
-                  icon={<UnlockOutlined />}
-                  style={{ color: "#1890ff" }}
-                />
-              </Popconfirm>
-            </Tooltip>
-          )}
+          {record.lead_organization_id === currentUser?.organization_id &&
+            record.is_locked &&
+            isAdmin && (
+              <Tooltip title="Mở khóa hoạt động">
+                <Popconfirm
+                  title="Mở khóa hoạt động này?"
+                  description="Hoạt động sẽ có thể được chỉnh sửa lại."
+                  onConfirm={() => handleUnlock(record.id)}
+                  okText="Mở khóa"
+                  cancelText="Hủy">
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<UnlockOutlined />}
+                    style={{ color: "#1890ff" }}
+                  />
+                </Popconfirm>
+              </Tooltip>
+            )}
           {/* Locked indicator */}
-          {record.is_locked && !isAdmin && (
-            <Tooltip title="Hoạt động đã bị khóa">
-              <LockOutlined style={{ color: "#999" }} />
-            </Tooltip>
-          )}
+          {record.lead_organization_id === currentUser?.organization_id &&
+            record.is_locked &&
+            !isAdmin && (
+              <Tooltip title="Hoạt động đã bị khóa">
+                <LockOutlined style={{ color: "#999" }} />
+              </Tooltip>
+            )}
           {/* Delete button - only DRAFT/PENDING_APPROVAL and own activities for STAFF */}
           {canDeleteActivity(record) && !record.is_locked && (
             <Tooltip title="Xóa">
@@ -1422,51 +1439,53 @@ function ActivityManagement({
           />
 
           {/* View Mode Selector */}
-          <Card size="small" styles={{ body: { padding: "12px 16px" } }}>
-            <Row justify="space-between" align="middle">
-              <Col>
-                <Space>
-                  <Text strong>Chế độ xem:</Text>
-                  <Segmented
-                    value={viewMode}
-                    onChange={handleViewModeChange}
-                    options={[
-                      {
-                        label: (
-                          <Space size={4}>
-                            <AppstoreOutlined />
-                            <span>Tất cả</span>
-                          </Space>
-                        ),
-                        value: "all"
-                      },
-                      {
-                        label: (
-                          <Space size={4}>
-                            <ApartmentOutlined />
-                            <span>Chủ trì</span>
-                          </Space>
-                        ),
-                        value: "department"
-                      },
-                      {
-                        label: (
-                          <Space size={4}>
-                            <UserSwitchOutlined />
-                            <span>Phối hợp</span>
-                          </Space>
-                        ),
-                        value: "coordinating"
-                      }
-                    ]}
-                  />
-                </Space>
-              </Col>
-              <Col>
-                <Text type="secondary">{getViewModeDescription()}</Text>
-              </Col>
-            </Row>
-          </Card>
+          {searchParams.get("tab") !== "pending-approval" && (
+            <Card size="small" styles={{ body: { padding: "12px 16px" } }}>
+              <Row justify="space-between" align="middle">
+                <Col>
+                  <Space>
+                    <Text strong>Chế độ xem:</Text>
+                    <Segmented
+                      value={viewMode}
+                      onChange={handleViewModeChange}
+                      options={[
+                        {
+                          label: (
+                            <Space size={4}>
+                              <AppstoreOutlined />
+                              <span>Tất cả</span>
+                            </Space>
+                          ),
+                          value: "all"
+                        },
+                        {
+                          label: (
+                            <Space size={4}>
+                              <ApartmentOutlined />
+                              <span>Chủ trì</span>
+                            </Space>
+                          ),
+                          value: "department"
+                        },
+                        {
+                          label: (
+                            <Space size={4}>
+                              <UserSwitchOutlined />
+                              <span>Phối hợp</span>
+                            </Space>
+                          ),
+                          value: "coordinating"
+                        }
+                      ]}
+                    />
+                  </Space>
+                </Col>
+                <Col>
+                  <Text type="secondary">{getViewModeDescription()}</Text>
+                </Col>
+              </Row>
+            </Card>
+          )}
 
           {/* Table */}
           <Table
