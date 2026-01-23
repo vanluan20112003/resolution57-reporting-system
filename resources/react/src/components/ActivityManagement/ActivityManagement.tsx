@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo } from "react"
 import {
   Table,
   Card,
@@ -23,7 +23,8 @@ import {
   Alert,
   Tabs,
   Badge,
-} from 'antd'
+  Segmented
+} from "antd"
 import {
   EditOutlined,
   DeleteOutlined,
@@ -45,26 +46,36 @@ import {
   UndoOutlined,
   FileExcelOutlined,
   DownloadOutlined,
-} from '@ant-design/icons'
-import type { ColumnsType } from 'antd/es/table'
-import dayjs from 'dayjs'
-import { useAuth } from '../../shared/hooks'
-import * as activityApi from '../../services/activityApi'
-import * as reportApi from '../../services/reportApi'
+  TeamOutlined,
+  AppstoreOutlined,
+  ApartmentOutlined,
+  UserSwitchOutlined
+} from "@ant-design/icons"
+import type { ColumnsType } from "antd/es/table"
+import dayjs from "dayjs"
+import { useAuth } from "../../shared/hooks"
+import * as activityApi from "../../services/activityApi"
+import * as reportApi from "../../services/reportApi"
 import type {
   Activity,
   ActivityStatus,
   ActivityFormData,
   CreateActivityRequest,
   UpdateActivityRequest,
-  KpiItem,
-} from '../../services/activityApi'
-import ApprovalWizardModal from './ApprovalWizardModal'
-import ActivityWizardModal from './ActivityWizardModal'
-import ActivityDetailModal from './ActivityDetailModal'
-import AdvancedFilter, { FilterField, FilterValues } from '../../shared/components/AdvancedFilter'
-import ColumnToggle, { ToggleableColumn } from '../../shared/components/ColumnToggle'
-import './ActivityManagement.css'
+  KpiItem
+} from "../../services/activityApi"
+import ApprovalWizardModal from "./ApprovalWizardModal"
+import ActivityWizardModal from "./ActivityWizardModal"
+import ActivityDetailModal from "./ActivityDetailModal"
+import AdvancedFilter, {
+  FilterField,
+  FilterValues
+} from "../../shared/components/AdvancedFilter"
+import ColumnToggle, {
+  ToggleableColumn
+} from "../../shared/components/ColumnToggle"
+import "./ActivityManagement.css"
+import { t } from "i18next"
 
 const { Title, Text, Paragraph } = Typography
 const { Option } = Select
@@ -75,43 +86,68 @@ interface ActivityManagementProps {
   showApprovalView?: boolean
 }
 
-function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityManagementProps) {
+// View mode type for activity source
+type ActivityViewMode = "all" | "department" | "coordinating"
+
+function ActivityManagement({
+  defaultStatusFilter,
+  showApprovalView
+}: ActivityManagementProps) {
   const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [activities, setActivities] = useState<Activity[]>([])
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 15, total: 0 })
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 15,
+    total: 0
+  })
 
-  // Advanced filter state
+  // View mode state: all, department (chủ trì), coordinating (phối hợp)
+  const [viewMode, setViewMode] = useState<ActivityViewMode>("all")
+
+  // Advanced filter state (includes role filter)
   const [filterValues, setFilterValues] = useState<FilterValues>({
-    search: '',
+    search: "",
     status: defaultStatusFilter,
     activity_type_id: undefined,
     activity_field_id: undefined,
     date_range: undefined,
     completion_range: undefined,
     is_locked: undefined,
+    role: undefined
   })
 
   const [editModalVisible, setEditModalVisible] = useState(false)
   const [detailModalVisible, setDetailModalVisible] = useState(false)
-  const [detailModalMode, setDetailModalMode] = useState<'view' | 'edit'>('view')
+  const [detailModalMode, setDetailModalMode] = useState<"view" | "edit">(
+    "view"
+  )
   const [approvalModalVisible, setApprovalModalVisible] = useState(false)
   const [wizardModalVisible, setWizardModalVisible] = useState(false)
   const [submitConfirmVisible, setSubmitConfirmVisible] = useState(false)
-  const [newlyCreatedActivityId, setNewlyCreatedActivityId] = useState<string | null>(null)
-  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
+  const [newlyCreatedActivityId, setNewlyCreatedActivityId] = useState<
+    string | null
+  >(null)
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
+    null
+  )
   // Cancel modal state
   const [showCancelModal, setShowCancelModal] = useState(false)
-  const [cancelReason, setCancelReason] = useState('')
+  const [cancelReason, setCancelReason] = useState("")
   const [cancelActivityId, setCancelActivityId] = useState<string | null>(null)
 
   // Export report modal state
   const [exportModalVisible, setExportModalVisible] = useState(false)
   const [exportMonth, setExportMonth] = useState(dayjs().month() + 1)
   const [exportYear, setExportYear] = useState(dayjs().year())
-  const [exportViewMode, setExportViewMode] = useState<reportApi.ViewMode>('activities')
-  const [exportColumns, setExportColumns] = useState<reportApi.ExportColumn[]>([])
-  const [selectedExportColumns, setSelectedExportColumns] = useState<string[]>([])
+  const [exportViewMode, setExportViewMode] =
+    useState<reportApi.ViewMode>("activities")
+  const [exportColumns, setExportColumns] = useState<reportApi.ExportColumn[]>(
+    []
+  )
+  const [selectedExportColumns, setSelectedExportColumns] = useState<string[]>(
+    []
+  )
   const [loadingColumns, setLoadingColumns] = useState(false)
   const [exporting, setExporting] = useState(false)
 
@@ -122,60 +158,186 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
 
   // Visible columns state
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
-    'index', 'code', 'title', 'activity_type', 'lead_organization', 'status', 'completion_percentage', 'date_range', 'actions'
+    "index",
+    "code",
+    "title",
+    "activity_type",
+    "role",
+    "lead_organization",
+    "status",
+    "completion_percentage",
+    "date_range",
+    "actions"
   ])
 
   // Watch start_date and end_date for duration calculation
-  const watchStartDate = Form.useWatch('start_date', form)
-  const watchEndDate = Form.useWatch('end_date', form)
+  const watchStartDate = Form.useWatch("start_date", form)
+  const watchEndDate = Form.useWatch("end_date", form)
 
   // Check if user has organization
   const hasOrganization = currentUser?.organization_id
 
   // Check permissions
-  const canCreate = hasOrganization && ['STAFF', 'MANAGER', 'OPERATOR', 'ADMIN'].includes(currentUser?.role || '')
-  const canApprove = ['MANAGER', 'OPERATOR', 'ADMIN'].includes(currentUser?.role || '')
-  const isAdmin = ['OPERATOR', 'ADMIN'].includes(currentUser?.role || '')
+  const canCreate =
+    hasOrganization &&
+    ["STAFF", "MANAGER", "OPERATOR", "ADMIN"].includes(currentUser?.role || "")
+  const canApprove = ["MANAGER", "OPERATOR", "ADMIN"].includes(
+    currentUser?.role || ""
+  )
+  const isAdmin = ["OPERATOR", "ADMIN"].includes(currentUser?.role || "")
 
-  // Fetch activities - always filter by user's organization
+  // Helper to determine activity role based on user's organization
+  const getActivityRole = useCallback(
+    (activity: Activity): "lead" | "coordinator" => {
+      if (activity.lead_organization_id === currentUser?.organization_id) {
+        return "lead"
+      }
+      // Check if user's org is in collaborating organizations
+      const isCollaborator = activity.collaborating_organizations?.some(
+        (org) => org.id === currentUser?.organization_id
+      )
+      if (isCollaborator) {
+        return "coordinator"
+      }
+      // Default to lead if we can't determine (shouldn't happen normally)
+      return "lead"
+    },
+    [currentUser?.organization_id]
+  )
+
+  // Fetch activities based on view mode
   const fetchActivities = useCallback(async () => {
     if (!currentUser?.organization_id) return // Don't fetch if no organization
 
     setLoading(true)
     try {
       // For approval view, default to PENDING_APPROVAL status
-      const effectiveStatus = showApprovalView && !filterValues.status ? 'PENDING_APPROVAL' : filterValues.status
+      const effectiveStatus =
+        showApprovalView && !filterValues.status
+          ? "PENDING_APPROVAL"
+          : filterValues.status
 
-      const response = await activityApi.getActivities({
+      const baseFilters = {
         status: effectiveStatus,
         activity_type_id: filterValues.activity_type_id,
         activity_field_id: filterValues.activity_field_id,
-        organization_id: currentUser.organization_id, // Always filter by user's organization
         search: filterValues.search || undefined,
-        start_date: filterValues.date_range?.[0]?.format('YYYY-MM-DD'),
-        end_date: filterValues.date_range?.[1]?.format('YYYY-MM-DD'),
+        start_date: filterValues.date_range?.[0]?.format("YYYY-MM-DD"),
+        end_date: filterValues.date_range?.[1]?.format("YYYY-MM-DD"),
         is_locked: filterValues.is_locked,
         page: pagination.current,
-        per_page: pagination.pageSize,
-      })
+        per_page: pagination.pageSize
+      }
+
+      let allActivities: Activity[] = []
+      let totalCount = 0
+
+      if (
+        viewMode === "department" ||
+        (viewMode === "all" && filterValues.role === "lead")
+      ) {
+        // Fetch only department activities (where my org is lead)
+        const response = await activityApi.getActivities({
+          ...baseFilters,
+          organization_id: currentUser.organization_id
+        })
+        allActivities = response.data.map((a) => ({
+          ...a,
+          _role: "lead" as const
+        }))
+        totalCount = response.pagination.total
+      } else if (
+        viewMode === "coordinating" ||
+        (viewMode === "all" && filterValues.role === "coordinator")
+      ) {
+        // Fetch only coordinating activities (where my org is collaborator)
+        const response =
+          await activityApi.getCoordinatingActivities(baseFilters)
+        allActivities = response.data.map((a) => ({
+          ...a,
+          _role: "coordinator" as const
+        }))
+        totalCount = response.pagination.total
+      } else {
+        // viewMode === 'all' and no role filter - fetch from both sources
+        // For "all" mode, we fetch both and combine (client-side pagination)
+        const [deptResponse, coordResponse] = await Promise.all([
+          activityApi.getActivities({
+            ...baseFilters,
+            organization_id: currentUser.organization_id,
+            per_page: 1000 // Get all for merging
+          }),
+          activityApi.getCoordinatingActivities({
+            ...baseFilters,
+            per_page: 1000 // Get all for merging
+          })
+        ])
+
+        // Add role to each activity
+        const deptActivities = deptResponse.data.map((a) => ({
+          ...a,
+          _role: "lead" as const
+        }))
+        const coordActivities = coordResponse.data.map((a) => ({
+          ...a,
+          _role: "coordinator" as const
+        }))
+
+        // Combine and remove duplicates (by id)
+        const activityMap = new Map<
+          string,
+          Activity & { _role: "lead" | "coordinator" }
+        >()
+        deptActivities.forEach((a) => activityMap.set(a.id, a))
+        coordActivities.forEach((a) => {
+          if (!activityMap.has(a.id)) {
+            activityMap.set(a.id, a)
+          }
+        })
+
+        allActivities = Array.from(activityMap.values())
+        totalCount = allActivities.length
+
+        // Client-side pagination for "all" mode
+        const startIndex = (pagination.current - 1) * pagination.pageSize
+        const endIndex = startIndex + pagination.pageSize
+        allActivities = allActivities.slice(startIndex, endIndex)
+      }
 
       // Sort activities: prioritize items needing action (DRAFT or COMPLETED without result_summary)
-      const sortedActivities = [...response.data].sort((a, b) => {
-        const aNeedsAction = (a.status === 'DRAFT' || (a.status === 'COMPLETED' && (!a.result_summary || a.result_summary.trim() === ''))) ? 0 : 1
-        const bNeedsAction = (b.status === 'DRAFT' || (b.status === 'COMPLETED' && (!b.result_summary || b.result_summary.trim() === ''))) ? 0 : 1
+      const sortedActivities = [...allActivities].sort((a, b) => {
+        const aNeedsAction =
+          a.status === "DRAFT" ||
+          (a.status === "COMPLETED" &&
+            (!a.result_summary || a.result_summary.trim() === ""))
+            ? 0
+            : 1
+        const bNeedsAction =
+          b.status === "DRAFT" ||
+          (b.status === "COMPLETED" &&
+            (!b.result_summary || b.result_summary.trim() === ""))
+            ? 0
+            : 1
         return aNeedsAction - bNeedsAction
       })
       setActivities(sortedActivities)
-      setPagination(prev => ({
+      setPagination((prev) => ({
         ...prev,
-        total: response.pagination.total,
+        total: totalCount
       }))
     } catch (error: any) {
-      message.error(error.message || 'Không thể tải danh sách hoạt động')
+      message.error(error.message || "Không thể tải danh sách hoạt động")
     } finally {
       setLoading(false)
     }
-  }, [currentUser?.organization_id, filterValues, pagination.current, pagination.pageSize, showApprovalView])
+  }, [
+    currentUser?.organization_id,
+    filterValues,
+    pagination.current,
+    pagination.pageSize,
+    showApprovalView,
+    viewMode
+  ])
 
   // Fetch form data (dropdowns)
   const fetchFormData = async () => {
@@ -183,7 +345,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       const response = await activityApi.getActivityFormData()
       setFormData(response.data)
     } catch (error: any) {
-      console.error('Failed to fetch form data:', error)
+      console.error("Failed to fetch form data:", error)
     }
   }
 
@@ -191,64 +353,86 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   const filterFields: FilterField[] = useMemo(() => {
     const fields: FilterField[] = [
       {
-        key: 'search',
-        label: 'Tìm kiếm',
-        type: 'text',
-        placeholder: 'Tìm theo mã hoặc tên...',
-        span: 8,
+        key: "search",
+        label: "Tìm kiếm",
+        type: "text",
+        placeholder: "Tìm theo mã hoặc tên...",
+        span: 8
       },
       {
-        key: 'status',
-        label: 'Trạng thái',
-        type: 'select',
+        key: "status",
+        label: "Trạng thái",
+        type: "select",
         span: 4,
         options: (formData?.statuses || [])
-          .filter((s) => !showApprovalView || s.value === 'PENDING_APPROVAL')
+          .filter((s) => !showApprovalView || s.value === "PENDING_APPROVAL")
           .map((s) => ({
             value: s.value,
             label: s.label,
-            color: s.value === 'COMPLETED' ? 'green' :
-                   s.value === 'IN_PROGRESS' ? 'blue' :
-                   s.value === 'PENDING_APPROVAL' ? 'orange' :
-                   s.value === 'CANCELLED' ? 'red' :
-                   s.value === 'APPROVED' ? 'cyan' : undefined,
-          })),
+            color:
+              s.value === "COMPLETED"
+                ? "green"
+                : s.value === "IN_PROGRESS"
+                  ? "blue"
+                  : s.value === "PENDING_APPROVAL"
+                    ? "orange"
+                    : s.value === "CANCELLED"
+                      ? "red"
+                      : s.value === "APPROVED"
+                        ? "cyan"
+                        : undefined
+          }))
       },
       {
-        key: 'activity_type_id',
-        label: 'Loại hoạt động',
-        type: 'select',
+        key: "activity_type_id",
+        label: "Loại hoạt động",
+        type: "select",
         span: 6,
         options: (formData?.activity_types || []).map((t) => ({
           value: t.id,
-          label: t.name,
-        })),
+          label: t.name
+        }))
       },
+      // Only show role filter when viewMode is 'all'
+      ...(viewMode === "all"
+        ? [
+            {
+              key: "role",
+              label: "Vai trò",
+              type: "select" as const,
+              span: 4,
+              options: [
+                { value: "lead", label: "Chủ trì", color: "green" },
+                { value: "coordinator", label: "Phối hợp", color: "purple" }
+              ]
+            }
+          ]
+        : []),
       {
-        key: 'activity_field_id',
-        label: 'Lĩnh vực',
-        type: 'select',
-        span: 6,
+        key: "activity_field_id",
+        label: "Lĩnh vực",
+        type: "select",
+        span: viewMode === "all" ? 6 : 6,
         options: (formData?.activity_fields || []).map((f) => ({
           value: f.id,
-          label: f.name,
-        })),
+          label: f.name
+        }))
       },
       {
-        key: 'date_range',
-        label: 'Thời gian',
-        type: 'daterange',
-        span: 8,
+        key: "date_range",
+        label: "Thời gian",
+        type: "daterange",
+        span: 8
       },
       {
-        key: 'is_locked',
-        label: 'Đã khóa',
-        type: 'boolean',
-        span: 4,
-      },
+        key: "is_locked",
+        label: "Đã khóa",
+        type: "boolean",
+        span: 4
+      }
     ]
     return fields
-  }, [formData, showApprovalView])
+  }, [formData, showApprovalView, viewMode])
 
   // Handle filter change
   const handleFilterChange = (newValues: FilterValues) => {
@@ -275,13 +459,13 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     setPagination({
       ...pagination,
       current: newPagination.current,
-      pageSize: newPagination.pageSize,
+      pageSize: newPagination.pageSize
     })
   }
 
   const handleAdd = () => {
     if (!canCreate) {
-      message.warning('Bạn cần thuộc một đơn vị để tạo hoạt động')
+      message.warning("Bạn cần thuộc một đơn vị để tạo hoạt động")
       return
     }
     setSelectedActivity(null)
@@ -292,10 +476,10 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     try {
       const response = await activityApi.getActivityById(activity.id)
       setSelectedActivity(response.data)
-      setDetailModalMode('edit')
+      setDetailModalMode("edit")
       setDetailModalVisible(true)
     } catch (error: any) {
-      message.error(error.message || 'Không thể tải thông tin hoạt động')
+      message.error(error.message || "Không thể tải thông tin hoạt động")
     }
   }
 
@@ -303,10 +487,10 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     try {
       const response = await activityApi.getActivityById(activity.id)
       setSelectedActivity(response.data)
-      setDetailModalMode('view')
+      setDetailModalMode("view")
       setDetailModalVisible(true)
     } catch (error: any) {
-      message.error(error.message || 'Không thể tải thông tin hoạt động')
+      message.error(error.message || "Không thể tải thông tin hoạt động")
     }
   }
 
@@ -314,12 +498,12 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     setActionLoading(true)
     try {
       await activityApi.deleteActivity(id)
-      message.success('Đã xóa hoạt động thành công')
+      message.success("Đã xóa hoạt động thành công")
       fetchActivities()
       // Dispatch event to refresh badge counts
-      window.dispatchEvent(new CustomEvent('activity-status-changed'))
+      window.dispatchEvent(new CustomEvent("activity-status-changed"))
     } catch (error: any) {
-      message.error(error.message || 'Không thể xóa hoạt động')
+      message.error(error.message || "Không thể xóa hoạt động")
     } finally {
       setActionLoading(false)
     }
@@ -332,31 +516,31 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       setSelectedActivity(response.data)
       setApprovalModalVisible(true)
     } catch (error: any) {
-      message.error(error.message || 'Không thể tải thông tin hoạt động')
+      message.error(error.message || "Không thể tải thông tin hoạt động")
     }
   }
 
   // Handle after approval completed
   const handleApprovalCompleted = () => {
-    message.success('Đã phê duyệt và khóa hoạt động thành công')
+    message.success("Đã phê duyệt và khóa hoạt động thành công")
     fetchActivities()
-    window.dispatchEvent(new CustomEvent('activity-status-changed'))
+    window.dispatchEvent(new CustomEvent("activity-status-changed"))
   }
 
   // Handle after rejection completed
   const handleRejectionCompleted = () => {
-    message.success('Đã xử lý từ chối hoạt động')
+    message.success("Đã xử lý từ chối hoạt động")
     fetchActivities()
-    window.dispatchEvent(new CustomEvent('activity-status-changed'))
+    window.dispatchEvent(new CustomEvent("activity-status-changed"))
   }
 
   // Handle wizard modal success
   const handleWizardSuccess = (activity: Activity, submitted: boolean) => {
     fetchActivities()
     if (submitted) {
-      message.success('Đã gửi yêu cầu phê duyệt thành công')
+      message.success("Đã gửi yêu cầu phê duyệt thành công")
     }
-    window.dispatchEvent(new CustomEvent('activity-status-changed'))
+    window.dispatchEvent(new CustomEvent("activity-status-changed"))
   }
 
   // Handle wizard modal close
@@ -369,10 +553,10 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     setActionLoading(true)
     try {
       await activityApi.lockActivity(id)
-      message.success('Đã khóa hoạt động thành công')
+      message.success("Đã khóa hoạt động thành công")
       fetchActivities()
     } catch (error: any) {
-      message.error(error.message || 'Không thể khóa hoạt động')
+      message.error(error.message || "Không thể khóa hoạt động")
     } finally {
       setActionLoading(false)
     }
@@ -382,10 +566,10 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     setActionLoading(true)
     try {
       await activityApi.unlockActivity(id)
-      message.success('Đã mở khóa hoạt động thành công')
+      message.success("Đã mở khóa hoạt động thành công")
       fetchActivities()
     } catch (error: any) {
-      message.error(error.message || 'Không thể mở khóa hoạt động')
+      message.error(error.message || "Không thể mở khóa hoạt động")
     } finally {
       setActionLoading(false)
     }
@@ -396,11 +580,13 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     setActionLoading(true)
     try {
       await activityApi.postponeActivity(id)
-      message.success('Đã tạm hoãn hoạt động. Vui lòng cập nhật ngày bắt đầu/kết thúc mới.')
+      message.success(
+        "Đã tạm hoãn hoạt động. Vui lòng cập nhật ngày bắt đầu/kết thúc mới."
+      )
       fetchActivities()
-      window.dispatchEvent(new CustomEvent('activity-status-changed'))
+      window.dispatchEvent(new CustomEvent("activity-status-changed"))
     } catch (error: any) {
-      message.error(error.message || 'Không thể tạm hoãn hoạt động')
+      message.error(error.message || "Không thể tạm hoãn hoạt động")
     } finally {
       setActionLoading(false)
     }
@@ -409,28 +595,30 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   // Open cancel modal
   const openCancelModal = (id: string) => {
     setCancelActivityId(id)
-    setCancelReason('')
+    setCancelReason("")
     setShowCancelModal(true)
   }
 
   // Handle cancel activity
   const handleCancelActivity = async () => {
     if (!cancelActivityId || !cancelReason.trim()) {
-      message.warning('Vui lòng nhập lý do hủy hoạt động')
+      message.warning("Vui lòng nhập lý do hủy hoạt động")
       return
     }
 
     setActionLoading(true)
     try {
-      await activityApi.cancelActivity(cancelActivityId, { reason: cancelReason })
-      message.success('Đã hủy hoạt động thành công')
+      await activityApi.cancelActivity(cancelActivityId, {
+        reason: cancelReason
+      })
+      message.success("Đã hủy hoạt động thành công")
       setShowCancelModal(false)
       setCancelActivityId(null)
-      setCancelReason('')
+      setCancelReason("")
       fetchActivities()
-      window.dispatchEvent(new CustomEvent('activity-status-changed'))
+      window.dispatchEvent(new CustomEvent("activity-status-changed"))
     } catch (error: any) {
-      message.error(error.message || 'Không thể hủy hoạt động')
+      message.error(error.message || "Không thể hủy hoạt động")
     } finally {
       setActionLoading(false)
     }
@@ -441,11 +629,11 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     setActionLoading(true)
     try {
       await activityApi.uncancelActivity(id)
-      message.success('Đã khôi phục hoạt động thành công')
+      message.success("Đã khôi phục hoạt động thành công")
       fetchActivities()
-      window.dispatchEvent(new CustomEvent('activity-status-changed'))
+      window.dispatchEvent(new CustomEvent("activity-status-changed"))
     } catch (error: any) {
-      message.error(error.message || 'Không thể khôi phục hoạt động')
+      message.error(error.message || "Không thể khôi phục hoạt động")
     } finally {
       setActionLoading(false)
     }
@@ -455,49 +643,58 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   // All staff in the same organization have equal permissions
   // Note: is_locked does NOT prevent postpone/cancel - this allows fixing mistakes
   const canPostponeOrCancel = (activity: Activity): boolean => {
-    const allowedStatuses: ActivityStatus[] = ['APPROVED', 'IN_PROGRESS', 'COMPLETED']
+    const allowedStatuses: ActivityStatus[] = [
+      "APPROVED",
+      "IN_PROGRESS",
+      "COMPLETED"
+    ]
     if (!allowedStatuses.includes(activity.status)) return false
 
     // All staff in the organization can postpone/cancel activities
-    return ['STAFF', 'MANAGER', 'OPERATOR', 'ADMIN'].includes(currentUser?.role || '')
+    return ["STAFF", "MANAGER", "OPERATOR", "ADMIN"].includes(
+      currentUser?.role || ""
+    )
   }
 
   // Check if activity can be uncancelled (ADMIN only)
   const canUncancelActivity = (activity: Activity): boolean => {
-    return activity.status === 'CANCELLED' && isAdmin
+    return activity.status === "CANCELLED" && isAdmin
   }
 
   const handleSubmitForApproval = async (id: string) => {
     setActionLoading(true)
     try {
       await activityApi.submitActivityForApproval(id)
-      message.success('Đã gửi yêu cầu phê duyệt thành công')
+      message.success("Đã gửi yêu cầu phê duyệt thành công")
       fetchActivities()
       // Dispatch event to refresh badge counts
-      window.dispatchEvent(new CustomEvent('activity-status-changed'))
+      window.dispatchEvent(new CustomEvent("activity-status-changed"))
     } catch (error: any) {
-      message.error(error.message || 'Không thể gửi yêu cầu phê duyệt')
+      message.error(error.message || "Không thể gửi yêu cầu phê duyệt")
     } finally {
       setActionLoading(false)
     }
   }
 
   // Fetch export columns when view mode changes
-  const fetchExportColumns = useCallback(async (viewMode: reportApi.ViewMode) => {
-    setLoadingColumns(true)
-    try {
-      const response = await reportApi.getExportColumns(viewMode)
-      const columns = response.data.columns
-      setExportColumns(columns)
-      // Select default columns
-      const defaultCols = columns.filter(c => c.default).map(c => c.key)
-      setSelectedExportColumns(defaultCols)
-    } catch (error: any) {
-      message.error('Không thể tải danh sách cột')
-    } finally {
-      setLoadingColumns(false)
-    }
-  }, [])
+  const fetchExportColumns = useCallback(
+    async (viewMode: reportApi.ViewMode) => {
+      setLoadingColumns(true)
+      try {
+        const response = await reportApi.getExportColumns(viewMode)
+        const columns = response.data.columns
+        setExportColumns(columns)
+        // Select default columns
+        const defaultCols = columns.filter((c) => c.default).map((c) => c.key)
+        setSelectedExportColumns(defaultCols)
+      } catch (error: any) {
+        message.error("Không thể tải danh sách cột")
+      } finally {
+        setLoadingColumns(false)
+      }
+    },
+    []
+  )
 
   // Handle view mode change
   const handleExportViewModeChange = (viewMode: reportApi.ViewMode) => {
@@ -514,7 +711,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   // Export report handler
   const handleExportReport = async () => {
     if (selectedExportColumns.length === 0) {
-      message.warning('Vui lòng chọn ít nhất một cột để xuất')
+      message.warning("Vui lòng chọn ít nhất một cột để xuất")
       return
     }
 
@@ -524,12 +721,12 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
         month: exportMonth,
         year: exportYear,
         viewMode: exportViewMode,
-        columns: selectedExportColumns,
+        columns: selectedExportColumns
       })
-      message.success('Đã xuất báo cáo thành công')
+      message.success("Đã xuất báo cáo thành công")
       setExportModalVisible(false)
     } catch (error: any) {
-      message.error(error.message || 'Không thể xuất báo cáo')
+      message.error(error.message || "Không thể xuất báo cáo")
     } finally {
       setExporting(false)
     }
@@ -538,7 +735,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   // Toggle all columns
   const handleSelectAllColumns = (checked: boolean) => {
     if (checked) {
-      setSelectedExportColumns(exportColumns.map(c => c.key))
+      setSelectedExportColumns(exportColumns.map((c) => c.key))
     } else {
       setSelectedExportColumns([])
     }
@@ -546,7 +743,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
 
   // Reset to default columns
   const handleResetDefaultColumns = () => {
-    const defaultCols = exportColumns.filter(c => c.default).map(c => c.key)
+    const defaultCols = exportColumns.filter((c) => c.default).map((c) => c.key)
     setSelectedExportColumns(defaultCols)
   }
 
@@ -556,12 +753,12 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       setActionLoading(true)
       try {
         await activityApi.submitActivityForApproval(newlyCreatedActivityId)
-        message.success('Đã gửi yêu cầu phê duyệt thành công')
+        message.success("Đã gửi yêu cầu phê duyệt thành công")
         // Dispatch event to refresh badge counts
-        window.dispatchEvent(new CustomEvent('activity-status-changed'))
+        window.dispatchEvent(new CustomEvent("activity-status-changed"))
         fetchActivities()
       } catch (error: any) {
-        message.error(error.message || 'Không thể gửi yêu cầu phê duyệt')
+        message.error(error.message || "Không thể gửi yêu cầu phê duyệt")
       } finally {
         setActionLoading(false)
       }
@@ -581,21 +778,27 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   const canEditActivity = (activity: Activity): boolean => {
     if (activity.is_locked) return false
     // Only DRAFT and PENDING_APPROVAL can be fully edited
-    if (!['DRAFT', 'PENDING_APPROVAL'].includes(activity.status)) return false
+    if (!["DRAFT", "PENDING_APPROVAL"].includes(activity.status)) return false
     return true
   }
 
   // Check if activity can be deleted
   // All staff in the same organization have equal permissions
   const canDeleteActivity = (activity: Activity): boolean => {
-    if (!['DRAFT', 'PENDING_APPROVAL'].includes(activity.status)) return false
+    if (!["DRAFT", "PENDING_APPROVAL"].includes(activity.status)) return false
     return true
   }
 
   // Check if activity can be locked (already approved)
   const canLockActivity = (activity: Activity): boolean => {
     if (activity.is_locked) return false
-    const lockableStatuses: ActivityStatus[] = ['APPROVED', 'IN_PROGRESS', 'POSTPONED', 'COMPLETED', 'CANCELLED']
+    const lockableStatuses: ActivityStatus[] = [
+      "APPROVED",
+      "IN_PROGRESS",
+      "POSTPONED",
+      "COMPLETED",
+      "CANCELLED"
+    ]
     return lockableStatuses.includes(activity.status) && canApprove
   }
 
@@ -605,8 +808,12 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       setActionLoading(true)
 
       // Process datetime - format as YYYY-MM-DD HH:mm:ss
-      const start_date = values.start_date ? values.start_date.format('YYYY-MM-DD HH:mm:ss') : undefined
-      const end_date = values.end_date ? values.end_date.format('YYYY-MM-DD HH:mm:ss') : undefined
+      const start_date = values.start_date
+        ? values.start_date.format("YYYY-MM-DD HH:mm:ss")
+        : undefined
+      const end_date = values.end_date
+        ? values.end_date.format("YYYY-MM-DD HH:mm:ss")
+        : undefined
 
       const requestData = {
         title: values.title,
@@ -619,7 +826,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
         budget_source: values.budget_source,
         location: values.location,
         external_url: values.external_url,
-        kpi_ids: selectedKpiIds,
+        kpi_ids: selectedKpiIds
       }
 
       if (selectedActivity) {
@@ -627,9 +834,9 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
         await activityApi.updateActivity(selectedActivity.id, {
           ...requestData,
           completion_percentage: values.completion_percentage,
-          result_summary: values.result_summary,
+          result_summary: values.result_summary
         } as UpdateActivityRequest)
-        message.success('Đã cập nhật hoạt động thành công')
+        message.success("Đã cập nhật hoạt động thành công")
         setEditModalVisible(false)
         form.resetFields()
         setSelectedActivity(null)
@@ -637,10 +844,12 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
         fetchActivities()
       } else {
         // Create new activity
-        const response = await activityApi.createActivity(requestData as CreateActivityRequest)
-        message.success('Đã tạo hoạt động thành công')
+        const response = await activityApi.createActivity(
+          requestData as CreateActivityRequest
+        )
+        message.success("Đã tạo hoạt động thành công")
         // Dispatch event to refresh badge counts (new activity is DRAFT)
-        window.dispatchEvent(new CustomEvent('activity-status-changed'))
+        window.dispatchEvent(new CustomEvent("activity-status-changed"))
 
         setEditModalVisible(false)
         form.resetFields()
@@ -659,7 +868,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
         // Validation error
         return
       }
-      message.error(error.message || 'Có lỗi xảy ra')
+      message.error(error.message || "Có lỗi xảy ra")
     } finally {
       setActionLoading(false)
     }
@@ -679,24 +888,25 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     const end = dayjs(watchEndDate)
     if (!start.isValid() || !end.isValid()) return null
 
-    const diffDays = end.diff(start, 'day')
-    const diffHours = end.diff(start, 'hour') % 24
+    const diffDays = end.diff(start, "day")
+    const diffHours = end.diff(start, "hour") % 24
 
-    if (diffDays < 0) return <Text type="danger">Ngày kết thúc phải sau ngày bắt đầu</Text>
+    if (diffDays < 0)
+      return <Text type="danger">Ngày kết thúc phải sau ngày bắt đầu</Text>
 
-    let durationText = ''
+    let durationText = ""
     if (diffDays > 0) durationText += `${diffDays} ngày `
     if (diffHours > 0) durationText += `${diffHours} giờ`
-    if (!durationText) durationText = 'Cùng thời điểm'
+    if (!durationText) durationText = "Cùng thời điểm"
 
     return <Text type="success">Thời lượng: {durationText}</Text>
   }
 
   // Check if activity needs action (DRAFT or COMPLETED without result_summary)
   const needsAction = (activity: Activity): boolean => {
-    if (activity.status === 'DRAFT') return true
-    if (activity.status === 'COMPLETED') {
-      return !activity.result_summary || activity.result_summary.trim() === ''
+    if (activity.status === "DRAFT") return true
+    if (activity.status === "COMPLETED") {
+      return !activity.result_summary || activity.result_summary.trim() === ""
     }
     return false
   }
@@ -722,104 +932,147 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   }
 
   // Toggleable columns configuration
-  const toggleableColumns: ToggleableColumn[] = useMemo(() => [
-    { key: 'index', title: 'STT', fixed: true },
-    { key: 'code', title: 'Mã hoạt động', defaultVisible: true },
-    { key: 'title', title: 'Tên hoạt động', fixed: true },
-    { key: 'activity_type', title: 'Loại hoạt động', defaultVisible: true },
-    { key: 'lead_organization', title: 'Đơn vị chủ trì', defaultVisible: true },
-    { key: 'status', title: 'Trạng thái', defaultVisible: true },
-    { key: 'completion_percentage', title: 'Tiến độ', defaultVisible: true },
-    { key: 'date_range', title: 'Thời gian', defaultVisible: true },
-    { key: 'actions', title: 'Thao tác', fixed: true },
-  ], [])
+  const toggleableColumns: ToggleableColumn[] = useMemo(
+    () => [
+      { key: "index", title: "STT", fixed: true },
+      { key: "code", title: "Mã hoạt động", defaultVisible: true },
+      { key: "title", title: "Tên hoạt động", fixed: true },
+      { key: "activity_type", title: "Loại hoạt động", defaultVisible: true },
+      { key: "role", title: "Vai trò", defaultVisible: true },
+      {
+        key: "lead_organization",
+        title: "Đơn vị chủ trì",
+        defaultVisible: true
+      },
+      { key: "status", title: "Trạng thái", defaultVisible: true },
+      { key: "completion_percentage", title: "Tiến độ", defaultVisible: true },
+      { key: "date_range", title: "Thời gian", defaultVisible: true },
+      { key: "actions", title: t("common.actions"), fixed: true }
+    ],
+    []
+  )
 
   const allColumns: ColumnsType<Activity> = [
     {
-      title: 'STT',
-      key: 'index',
+      title: "STT",
+      key: "index",
       width: 60,
-      align: 'center',
+      align: "center",
       render: (_: any, __: any, index: number) =>
-        (pagination.current - 1) * pagination.pageSize + index + 1,
+        (pagination.current - 1) * pagination.pageSize + index + 1
     },
     {
-      title: 'Mã hoạt động',
-      dataIndex: 'code',
-      key: 'code',
+      title: "Mã hoạt động",
+      dataIndex: "code",
+      key: "code",
       width: 130,
-      sorter: (a, b) => (a.code || '').localeCompare(b.code || ''),
+      sorter: (a, b) => (a.code || "").localeCompare(b.code || ""),
       render: (code: string) => (
-        <Text strong style={{ color: '#1890ff' }}>
-          {code || '-'}
+        <Text strong style={{ color: "#1890ff" }}>
+          {code || "-"}
         </Text>
-      ),
+      )
     },
     {
-      title: 'Tên hoạt động',
-      dataIndex: 'title',
-      key: 'title',
+      title: "Tên hoạt động",
+      dataIndex: "title",
+      key: "title",
       ellipsis: true,
-      sorter: (a, b) => (a.title || '').localeCompare(b.title || ''),
+      sorter: (a, b) => (a.title || "").localeCompare(b.title || ""),
       render: (title: string, record: Activity) => (
         <Tooltip title={title}>
           <a onClick={() => handleView(record)}>{title}</a>
         </Tooltip>
-      ),
+      )
     },
     {
-      title: 'Loại hoạt động',
-      dataIndex: ['activity_type', 'name'],
-      key: 'activity_type',
+      title: "Loại hoạt động",
+      dataIndex: ["activity_type", "name"],
+      key: "activity_type",
       width: 150,
-      sorter: (a, b) => (a.activity_type?.name || '').localeCompare(b.activity_type?.name || ''),
+      sorter: (a, b) =>
+        (a.activity_type?.name || "").localeCompare(
+          b.activity_type?.name || ""
+        ),
       render: (name: string) =>
-        name ? <Tag color="blue">{name}</Tag> : <Text type="secondary">-</Text>,
+        name ? <Tag color="blue">{name}</Tag> : <Text type="secondary">-</Text>
     },
     {
-      title: 'Đơn vị chủ trì',
-      dataIndex: ['lead_organization', 'short_name'],
-      key: 'lead_organization',
+      title: "Vai trò",
+      key: "role",
+      width: 100,
+      align: "center",
+      sorter: (a: any, b: any) => {
+        const roleA = a._role || getActivityRole(a)
+        const roleB = b._role || getActivityRole(b)
+        return roleA.localeCompare(roleB)
+      },
+      render: (_: any, record: any) => {
+        const role = record._role || getActivityRole(record)
+        return role === "lead" ? (
+          <Tag color="green" icon={<TeamOutlined />}>
+            Chủ trì
+          </Tag>
+        ) : (
+          <Tag color="purple" icon={<UserSwitchOutlined />}>
+            Phối hợp
+          </Tag>
+        )
+      }
+    },
+    {
+      title: "Đơn vị chủ trì",
+      dataIndex: ["lead_organization", "short_name"],
+      key: "lead_organization",
       width: 150,
-      sorter: (a, b) => (a.lead_organization?.short_name || a.lead_organization?.name || '').localeCompare(b.lead_organization?.short_name || b.lead_organization?.name || ''),
+      sorter: (a, b) =>
+        (
+          a.lead_organization?.short_name ||
+          a.lead_organization?.name ||
+          ""
+        ).localeCompare(
+          b.lead_organization?.short_name || b.lead_organization?.name || ""
+        ),
       render: (short_name: string, record: Activity) => (
-        <Text>{short_name || record.lead_organization?.name || '-'}</Text>
-      ),
+        <Text>{short_name || record.lead_organization?.name || "-"}</Text>
+      )
     },
     {
-      title: 'Trạng thái',
-      dataIndex: 'status',
-      key: 'status',
+      title: "Trạng thái",
+      dataIndex: "status",
+      key: "status",
       width: 130,
-      align: 'center',
+      align: "center",
       sorter: (a, b) => {
         // Priority sorting: activities needing action first
         const aNeedsAction = needsAction(a) ? 0 : 1
         const bNeedsAction = needsAction(b) ? 0 : 1
         if (aNeedsAction !== bNeedsAction) return aNeedsAction - bNeedsAction
-        return (a.status || '').localeCompare(b.status || '')
+        return (a.status || "").localeCompare(b.status || "")
       },
-      defaultSortOrder: 'ascend',
-      render: (status: ActivityStatus, record: Activity) => getStatusTag(status, record),
+      defaultSortOrder: "ascend",
+      render: (status: ActivityStatus, record: Activity) =>
+        getStatusTag(status, record)
     },
     {
-      title: 'Tiến độ',
-      dataIndex: 'completion_percentage',
-      key: 'completion_percentage',
+      title: "Tiến độ",
+      dataIndex: "completion_percentage",
+      key: "completion_percentage",
       width: 100,
-      align: 'center',
-      sorter: (a, b) => (a.completion_percentage || 0) - (b.completion_percentage || 0),
+      align: "center",
+      sorter: (a, b) =>
+        (a.completion_percentage || 0) - (b.completion_percentage || 0),
       render: (percentage: number) => (
         <Progress
           percent={percentage || 0}
           size="small"
-          status={percentage === 100 ? 'success' : 'active'}
+          status={percentage === 100 ? "success" : "active"}
         />
-      ),
+      )
     },
     {
-      title: 'Thời gian',
-      key: 'date_range',
+      title: "Thời gian",
+      key: "date_range",
       width: 180,
       sorter: (a, b) => {
         const dateA = a.start_date ? new Date(a.start_date).getTime() : 0
@@ -829,19 +1082,21 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       render: (_: any, record: Activity) => (
         <Text type="secondary">
           {record.start_date
-            ? `${dayjs(record.start_date).format('DD/MM/YYYY')} - ${
-                record.end_date ? dayjs(record.end_date).format('DD/MM/YYYY') : '...'
+            ? `${dayjs(record.start_date).format("DD/MM/YYYY")} - ${
+                record.end_date
+                  ? dayjs(record.end_date).format("DD/MM/YYYY")
+                  : "..."
               }`
-            : '-'}
+            : "-"}
         </Text>
-      ),
+      )
     },
     {
-      title: 'Thao tác',
-      key: 'actions',
+      title: t("common.actions"),
+      key: "actions",
       width: 280,
-      fixed: 'right',
-      align: 'center',
+      fixed: "right",
+      align: "center",
       render: (_: any, record: Activity) => (
         <Space size="small">
           <Tooltip title="Xem chi tiết">
@@ -864,33 +1119,32 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
             </Tooltip>
           )}
           {/* Submit for approval button - only for DRAFT */}
-          {record.status === 'DRAFT' && !record.is_locked && (
+          {record.status === "DRAFT" && !record.is_locked && (
             <Tooltip title="Gửi yêu cầu phê duyệt">
               <Popconfirm
                 title="Gửi yêu cầu phê duyệt?"
                 description="Hoạt động sẽ chuyển sang trạng thái Chờ phê duyệt."
                 onConfirm={() => handleSubmitForApproval(record.id)}
                 okText="Gửi"
-                cancelText="Hủy"
-              >
+                cancelText="Hủy">
                 <Button
                   type="link"
                   size="small"
                   icon={<SendOutlined />}
-                  style={{ color: '#1890ff' }}
+                  style={{ color: "#1890ff" }}
                 />
               </Popconfirm>
             </Tooltip>
           )}
           {/* Approval Wizard button - for PENDING_APPROVAL activities */}
-          {record.status === 'PENDING_APPROVAL' && canApprove && (
+          {record.status === "PENDING_APPROVAL" && canApprove && (
             <Tooltip title="Xem xét & Phê duyệt">
               <Button
                 type="link"
                 size="small"
                 icon={<FileSearchOutlined />}
                 onClick={() => handleOpenApprovalWizard(record)}
-                style={{ color: '#1890ff' }}
+                style={{ color: "#1890ff" }}
               />
             </Tooltip>
           )}
@@ -902,13 +1156,12 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                 description="Hoạt động sẽ chuyển sang trạng thái Tạm hoãn để chỉnh sửa ngày."
                 onConfirm={() => handlePostpone(record.id)}
                 okText="Tạm hoãn"
-                cancelText="Hủy"
-              >
+                cancelText="Hủy">
                 <Button
                   type="link"
                   size="small"
                   icon={<PauseCircleOutlined />}
-                  style={{ color: '#fa8c16' }}
+                  style={{ color: "#fa8c16" }}
                 />
               </Popconfirm>
             </Tooltip>
@@ -921,7 +1174,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                 size="small"
                 icon={<StopOutlined />}
                 onClick={() => openCancelModal(record.id)}
-                style={{ color: '#ff4d4f' }}
+                style={{ color: "#ff4d4f" }}
               />
             </Tooltip>
           )}
@@ -933,13 +1186,12 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                 description="Hoạt động sẽ chuyển về trạng thái Đã phê duyệt."
                 onConfirm={() => handleUncancel(record.id)}
                 okText="Khôi phục"
-                cancelText="Hủy"
-              >
+                cancelText="Hủy">
                 <Button
                   type="link"
                   size="small"
                   icon={<UndoOutlined />}
-                  style={{ color: '#52c41a' }}
+                  style={{ color: "#52c41a" }}
                 />
               </Popconfirm>
             </Tooltip>
@@ -952,13 +1204,12 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                 description="Sau khi khóa, hoạt động không thể chỉnh sửa được nữa."
                 onConfirm={() => handleLock(record.id)}
                 okText="Khóa"
-                cancelText="Hủy"
-              >
+                cancelText="Hủy">
                 <Button
                   type="link"
                   size="small"
                   icon={<LockOutlined />}
-                  style={{ color: '#faad14' }}
+                  style={{ color: "#faad14" }}
                 />
               </Popconfirm>
             </Tooltip>
@@ -971,13 +1222,12 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                 description="Hoạt động sẽ có thể được chỉnh sửa lại."
                 onConfirm={() => handleUnlock(record.id)}
                 okText="Mở khóa"
-                cancelText="Hủy"
-              >
+                cancelText="Hủy">
                 <Button
                   type="link"
                   size="small"
                   icon={<UnlockOutlined />}
-                  style={{ color: '#1890ff' }}
+                  style={{ color: "#1890ff" }}
                 />
               </Popconfirm>
             </Tooltip>
@@ -985,7 +1235,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
           {/* Locked indicator */}
           {record.is_locked && !isAdmin && (
             <Tooltip title="Hoạt động đã bị khóa">
-              <LockOutlined style={{ color: '#999' }} />
+              <LockOutlined style={{ color: "#999" }} />
             </Tooltip>
           )}
           {/* Delete button - only DRAFT/PENDING_APPROVAL and own activities for STAFF */}
@@ -997,20 +1247,25 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                 onConfirm={() => handleDelete(record.id)}
                 okText="Xóa"
                 cancelText="Hủy"
-                okButtonProps={{ danger: true }}
-              >
-                <Button type="link" size="small" icon={<DeleteOutlined />} danger />
+                okButtonProps={{ danger: true }}>
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<DeleteOutlined />}
+                  danger
+                />
               </Popconfirm>
             </Tooltip>
           )}
         </Space>
-      ),
-    },
+      )
+    }
   ]
 
   // Filter columns based on visibility
-  const columns = useMemo(() =>
-    allColumns.filter(col => visibleColumns.includes(col.key as string)),
+  const columns = useMemo(
+    () =>
+      allColumns.filter((col) => visibleColumns.includes(col.key as string)),
     [allColumns, visibleColumns]
   )
 
@@ -1020,7 +1275,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     icon,
     kpis,
     selectedIds,
-    onChange,
+    onChange
   }: {
     title: string
     icon: React.ReactNode
@@ -1031,7 +1286,9 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
     <div className="kpi-group">
       <div className="kpi-group-header">
         {icon}
-        <Text strong style={{ marginLeft: 8 }}>{title}</Text>
+        <Text strong style={{ marginLeft: 8 }}>
+          {title}
+        </Text>
         <Text type="secondary" style={{ marginLeft: 8 }}>
           ({kpis.length} chỉ tiêu)
         </Text>
@@ -1042,17 +1299,22 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
         ) : (
           <Checkbox.Group
             value={selectedIds}
-            onChange={(checkedValues) => onChange(checkedValues as string[])}
-          >
-            <Space direction="vertical" style={{ width: '100%' }}>
+            onChange={(checkedValues) => onChange(checkedValues as string[])}>
+            <Space direction="vertical" style={{ width: "100%" }}>
               {kpis.map((kpi) => (
                 <Checkbox key={kpi.id} value={kpi.id}>
                   <Text>
-                    {kpi.code && <Text strong style={{ marginRight: 8 }}>[{kpi.code}]</Text>}
+                    {kpi.code && (
+                      <Text strong style={{ marginRight: 8 }}>
+                        [{kpi.code}]
+                      </Text>
+                    )}
                     {kpi.title}
                   </Text>
                   {kpi.category && (
-                    <Tag size="small" style={{ marginLeft: 8 }}>{kpi.category}</Tag>
+                    <Tag size="small" style={{ marginLeft: 8 }}>
+                      {kpi.category}
+                    </Tag>
                   )}
                 </Checkbox>
               ))}
@@ -1067,21 +1329,46 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
   if (!hasOrganization && !isAdmin) {
     return (
       <Card>
-        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-          <FlagOutlined style={{ fontSize: 48, color: '#d9d9d9', marginBottom: 16 }} />
+        <div style={{ textAlign: "center", padding: "60px 20px" }}>
+          <FlagOutlined
+            style={{ fontSize: 48, color: "#d9d9d9", marginBottom: 16 }}
+          />
           <Title level={4} type="secondary">
             Bạn chưa thuộc đơn vị nào
           </Title>
           <Text type="secondary">
-            Vui lòng liên hệ quản trị viên để được gán vào đơn vị trước khi quản lý hoạt động
+            Vui lòng liên hệ quản trị viên để được gán vào đơn vị trước khi quản
+            lý hoạt động
           </Text>
         </div>
       </Card>
     )
   }
 
+  // Handle view mode change
+  const handleViewModeChange = (value: string | number) => {
+    setViewMode(value as ActivityViewMode)
+    setFilterValues((prev) => ({ ...prev, role: undefined })) // Reset role filter when changing view mode
+    setPagination((prev) => ({ ...prev, current: 1 })) // Reset to first page
+  }
+
+  // Get description text based on view mode
+  const getViewModeDescription = () => {
+    if (!formData?.user_organization) return "Tất cả hoạt động trong hệ thống"
+    switch (viewMode) {
+      case "all":
+        return `Tất cả hoạt động liên quan đến ${formData.user_organization.short_name || formData.user_organization.name} (Chủ trì + Phối hợp)`
+      case "department":
+        return `Hoạt động do ${formData.user_organization.short_name || formData.user_organization.name} chủ trì`
+      case "coordinating":
+        return `Hoạt động ${formData.user_organization.short_name || formData.user_organization.name} tham gia phối hợp`
+      default:
+        return ""
+    }
+  }
+
   return (
-    <div style={{ padding: '0' }}>
+    <div style={{ padding: "0" }}>
       <Card>
         {/* Header */}
         <div style={{ marginBottom: 16 }}>
@@ -1091,11 +1378,11 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
           <Text type="secondary">
             {formData?.user_organization
               ? `Các hoạt động của ${formData.user_organization.name}`
-              : 'Tất cả hoạt động trong hệ thống'}
+              : "Tất cả hoạt động trong hệ thống"}
           </Text>
         </div>
 
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
           {/* Advanced Filter */}
           <AdvancedFilter
             fields={filterFields}
@@ -1110,8 +1397,11 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
             defaultExpanded={true}
             extra={
               <Space>
-                <Button icon={<ReloadOutlined />} onClick={fetchActivities} loading={loading}>
-                  Làm mới
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={fetchActivities}
+                  loading={loading}>
+                  {t("common.refresh")}
                 </Button>
                 <ColumnToggle
                   columns={toggleableColumns}
@@ -1120,13 +1410,63 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                   storageKey="activity_management"
                 />
                 {canCreate && (
-                  <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={handleAdd}>
                     Thêm hoạt động
                   </Button>
                 )}
               </Space>
             }
           />
+
+          {/* View Mode Selector */}
+          <Card size="small" styles={{ body: { padding: "12px 16px" } }}>
+            <Row justify="space-between" align="middle">
+              <Col>
+                <Space>
+                  <Text strong>Chế độ xem:</Text>
+                  <Segmented
+                    value={viewMode}
+                    onChange={handleViewModeChange}
+                    options={[
+                      {
+                        label: (
+                          <Space size={4}>
+                            <AppstoreOutlined />
+                            <span>Tất cả</span>
+                          </Space>
+                        ),
+                        value: "all"
+                      },
+                      {
+                        label: (
+                          <Space size={4}>
+                            <ApartmentOutlined />
+                            <span>Chủ trì</span>
+                          </Space>
+                        ),
+                        value: "department"
+                      },
+                      {
+                        label: (
+                          <Space size={4}>
+                            <UserSwitchOutlined />
+                            <span>Phối hợp</span>
+                          </Space>
+                        ),
+                        value: "coordinating"
+                      }
+                    ]}
+                  />
+                </Space>
+              </Col>
+              <Col>
+                <Text type="secondary">{getViewModeDescription()}</Text>
+              </Col>
+            </Row>
+          </Card>
 
           {/* Table */}
           <Table
@@ -1137,7 +1477,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
             pagination={{
               ...pagination,
               showSizeChanger: true,
-              showTotal: (total) => `Tổng ${total} hoạt động`,
+              showTotal: (total) => `Tổng ${total} hoạt động`
             }}
             onChange={handleTableChange}
             scroll={{ x: 1400 }}
@@ -1150,9 +1490,14 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
         title={
           <Space>
             <FlagOutlined />
-            <span>{selectedActivity ? 'Chỉnh sửa hoạt động' : 'Thêm hoạt động mới'}</span>
+            <span>
+              {selectedActivity ? "Chỉnh sửa hoạt động" : "Thêm hoạt động mới"}
+            </span>
             {formData?.user_organization && (
-              <Tag color="blue">{formData.user_organization.short_name || formData.user_organization.name}</Tag>
+              <Tag color="blue">
+                {formData.user_organization.short_name ||
+                  formData.user_organization.name}
+              </Tag>
             )}
           </Space>
         }
@@ -1161,10 +1506,15 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
         onCancel={handleModalCancel}
         confirmLoading={actionLoading}
         width={1100}
-        okText={selectedActivity ? 'Cập nhật' : 'Tạo mới'}
+        okText={selectedActivity ? "Cập nhật" : "Tạo mới"}
         cancelText="Hủy"
-        styles={{ body: { maxHeight: 'calc(100vh - 200px)', overflowY: 'auto', padding: '12px 24px' } }}
-      >
+        styles={{
+          body: {
+            maxHeight: "calc(100vh - 200px)",
+            overflowY: "auto",
+            padding: "12px 24px"
+          }
+        }}>
         <Form form={form} layout="vertical" size="middle">
           <Row gutter={24}>
             {/* Left Column - Main Info */}
@@ -1176,10 +1526,16 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                   showIcon
                   message={
                     <span>
-                      <strong>Đơn vị chủ trì:</strong> {formData.user_organization.name}
-                      {formData.user_organization.short_name && formData.user_organization.short_name !== formData.user_organization.name && (
-                        <Text type="secondary"> ({formData.user_organization.short_name})</Text>
-                      )}
+                      <strong>Đơn vị chủ trì:</strong>{" "}
+                      {formData.user_organization.name}
+                      {formData.user_organization.short_name &&
+                        formData.user_organization.short_name !==
+                          formData.user_organization.name && (
+                          <Text type="secondary">
+                            {" "}
+                            ({formData.user_organization.short_name})
+                          </Text>
+                        )}
                     </span>
                   }
                   style={{ marginBottom: 12 }}
@@ -1190,9 +1546,10 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
               <Form.Item
                 name="title"
                 label="Tên hoạt động"
-                rules={[{ required: true, message: 'Vui lòng nhập tên hoạt động' }]}
-                style={{ marginBottom: 12 }}
-              >
+                rules={[
+                  { required: true, message: "Vui lòng nhập tên hoạt động" }
+                ]}
+                style={{ marginBottom: 12 }}>
                 <Input placeholder="Nhập tên hoạt động" maxLength={500} />
               </Form.Item>
 
@@ -1201,11 +1558,23 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                 <Col span={12}>
                   <Form.Item
                     name="activity_type_id"
-                    label={<span><span style={{ color: '#ff4d4f' }}>*</span> Loại hoạt động</span>}
-                    rules={[{ required: true, message: 'Vui lòng chọn loại hoạt động' }]}
-                    style={{ marginBottom: 12 }}
-                  >
-                    <Select placeholder="Chọn loại hoạt động" showSearch optionFilterProp="children">
+                    label={
+                      <span>
+                        <span style={{ color: "#ff4d4f" }}>*</span> Loại hoạt
+                        động
+                      </span>
+                    }
+                    rules={[
+                      {
+                        required: true,
+                        message: "Vui lòng chọn loại hoạt động"
+                      }
+                    ]}
+                    style={{ marginBottom: 12 }}>
+                    <Select
+                      placeholder="Chọn loại hoạt động"
+                      showSearch
+                      optionFilterProp="children">
                       {formData?.activity_types.map((t) => (
                         <Option key={t.id} value={t.id}>
                           {t.name}
@@ -1218,9 +1587,12 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                   <Form.Item
                     name="activity_field_id"
                     label="Lĩnh vực hoạt động"
-                    style={{ marginBottom: 12 }}
-                  >
-                    <Select placeholder="Chọn lĩnh vực" showSearch optionFilterProp="children" allowClear>
+                    style={{ marginBottom: 12 }}>
+                    <Select
+                      placeholder="Chọn lĩnh vực"
+                      showSearch
+                      optionFilterProp="children"
+                      allowClear>
                       {formData?.activity_fields.map((f) => (
                         <Option key={f.id} value={f.id}>
                           {f.name}
@@ -1234,11 +1606,14 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
               {/* Start Date & End Date with Time */}
               <Row gutter={12}>
                 <Col span={12}>
-                  <Form.Item name="start_date" label="Thời điểm bắt đầu" style={{ marginBottom: 8 }}>
+                  <Form.Item
+                    name="start_date"
+                    label="Thời điểm bắt đầu"
+                    style={{ marginBottom: 8 }}>
                     <DatePicker
-                      showTime={{ format: 'HH:mm' }}
+                      showTime={{ format: "HH:mm" }}
                       format="DD/MM/YYYY HH:mm"
-                      style={{ width: '100%' }}
+                      style={{ width: "100%" }}
                       placeholder="Chọn ngày giờ bắt đầu"
                     />
                   </Form.Item>
@@ -1248,26 +1623,32 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                     name="end_date"
                     label="Thời điểm kết thúc"
                     style={{ marginBottom: 8 }}
-                    dependencies={['start_date']}
+                    dependencies={["start_date"]}
                     rules={[
                       ({ getFieldValue }) => ({
                         validator(_, value) {
-                          const startDate = getFieldValue('start_date')
+                          const startDate = getFieldValue("start_date")
                           if (!value || !startDate) {
                             return Promise.resolve()
                           }
-                          if (dayjs(value).isAfter(dayjs(startDate)) || dayjs(value).isSame(dayjs(startDate))) {
+                          if (
+                            dayjs(value).isAfter(dayjs(startDate)) ||
+                            dayjs(value).isSame(dayjs(startDate))
+                          ) {
                             return Promise.resolve()
                           }
-                          return Promise.reject(new Error('Thời điểm kết thúc phải sau hoặc bằng thời điểm bắt đầu'))
-                        },
-                      }),
-                    ]}
-                  >
+                          return Promise.reject(
+                            new Error(
+                              "Thời điểm kết thúc phải sau hoặc bằng thời điểm bắt đầu"
+                            )
+                          )
+                        }
+                      })
+                    ]}>
                     <DatePicker
-                      showTime={{ format: 'HH:mm' }}
+                      showTime={{ format: "HH:mm" }}
                       format="DD/MM/YYYY HH:mm"
-                      style={{ width: '100%' }}
+                      style={{ width: "100%" }}
                       placeholder="Chọn ngày giờ kết thúc"
                     />
                   </Form.Item>
@@ -1275,7 +1656,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
               </Row>
               {/* Duration display */}
               {calculateDuration() && (
-                <div style={{ marginBottom: 12, textAlign: 'center' }}>
+                <div style={{ marginBottom: 12, textAlign: "center" }}>
                   <CalendarOutlined style={{ marginRight: 6 }} />
                   {calculateDuration()}
                 </div>
@@ -1284,35 +1665,57 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
               {/* Location, Budget, Budget Source */}
               <Row gutter={12}>
                 <Col span={8}>
-                  <Form.Item name="location" label="Địa điểm" style={{ marginBottom: 12 }}>
-                    <Input prefix={<EnvironmentOutlined />} placeholder="Địa điểm thực hiện" />
+                  <Form.Item
+                    name="location"
+                    label="Địa điểm"
+                    style={{ marginBottom: 12 }}>
+                    <Input
+                      prefix={<EnvironmentOutlined />}
+                      placeholder="Địa điểm thực hiện"
+                    />
                   </Form.Item>
                 </Col>
                 <Col span={8}>
-                  <Form.Item name="budget" label="Kinh phí (VNĐ)" style={{ marginBottom: 12 }}>
+                  <Form.Item
+                    name="budget"
+                    label="Kinh phí (VNĐ)"
+                    style={{ marginBottom: 12 }}>
                     <InputNumber
-                      style={{ width: '100%' }}
+                      style={{ width: "100%" }}
                       min={0}
-                      formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                      parser={(value) => value!.replace(/\$\s?|(,*)/g, '') as any}
+                      formatter={(value) =>
+                        `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                      }
+                      parser={(value) =>
+                        value!.replace(/\$\s?|(,*)/g, "") as any
+                      }
                       placeholder="Kinh phí"
                     />
                   </Form.Item>
                 </Col>
                 <Col span={8}>
-                  <Form.Item name="budget_source" label="Nguồn kinh phí" style={{ marginBottom: 12 }}>
+                  <Form.Item
+                    name="budget_source"
+                    label="Nguồn kinh phí"
+                    style={{ marginBottom: 12 }}>
                     <Input placeholder="Nguồn kinh phí" />
                   </Form.Item>
                 </Col>
               </Row>
 
               {/* Description */}
-              <Form.Item name="description" label="Mô tả" style={{ marginBottom: 12 }}>
+              <Form.Item
+                name="description"
+                label="Mô tả"
+                style={{ marginBottom: 12 }}>
                 <TextArea rows={2} placeholder="Mô tả chi tiết về hoạt động" />
               </Form.Item>
 
               {/* External URL */}
-              <Form.Item name="external_url" label="Đường dẫn tham khảo" style={{ marginBottom: 12 }}>
+              <Form.Item
+                name="external_url"
+                label="Đường dẫn tham khảo"
+                style={{ marginBottom: 12 }}>
                 <Input prefix={<LinkOutlined />} placeholder="https://..." />
               </Form.Item>
 
@@ -1320,18 +1723,24 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
               {selectedActivity && (
                 <Row gutter={12}>
                   <Col span={8}>
-                    <Form.Item name="completion_percentage" label="Tiến độ (%)" style={{ marginBottom: 12 }}>
+                    <Form.Item
+                      name="completion_percentage"
+                      label="Tiến độ (%)"
+                      style={{ marginBottom: 12 }}>
                       <InputNumber
                         min={0}
                         max={100}
-                        style={{ width: '100%' }}
+                        style={{ width: "100%" }}
                         formatter={(value) => `${value}%`}
-                        parser={(value) => value!.replace('%', '') as any}
+                        parser={(value) => value!.replace("%", "") as any}
                       />
                     </Form.Item>
                   </Col>
                   <Col span={16}>
-                    <Form.Item name="result_summary" label="Tóm tắt kết quả" style={{ marginBottom: 12 }}>
+                    <Form.Item
+                      name="result_summary"
+                      label="Tóm tắt kết quả"
+                      style={{ marginBottom: 12 }}>
                       <Input placeholder="Nhập tóm tắt kết quả thực hiện" />
                     </Form.Item>
                   </Col>
@@ -1341,12 +1750,23 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
 
             {/* Right Column - KPIs */}
             <Col span={8}>
-              <div style={{ background: '#fafafa', borderRadius: 8, padding: 12, height: '100%', minHeight: 400 }}>
-                <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>
+              <div
+                style={{
+                  background: "#fafafa",
+                  borderRadius: 8,
+                  padding: 12,
+                  height: "100%",
+                  minHeight: 400
+                }}>
+                <Text
+                  strong
+                  style={{ display: "block", marginBottom: 8, fontSize: 14 }}>
                   <GlobalOutlined style={{ marginRight: 6 }} />
                   Chỉ tiêu KPI liên quan
                 </Text>
-                <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 12 }}>
+                <Text
+                  type="secondary"
+                  style={{ display: "block", marginBottom: 12, fontSize: 12 }}>
                   Đã chọn: {selectedKpiIds.length} chỉ tiêu
                 </Text>
 
@@ -1355,31 +1775,59 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                   tabPosition="top"
                   items={[
                     {
-                      key: 'central',
+                      key: "central",
                       label: (
                         <span style={{ fontSize: 12 }}>
-                          <GlobalOutlined /> Trung ương ({formData?.kpis.central?.length || 0})
+                          <GlobalOutlined /> Trung ương (
+                          {formData?.kpis.central?.length || 0})
                         </span>
                       ),
                       children: (
-                        <div style={{ maxHeight: 280, overflowY: 'auto', paddingRight: 4 }}>
+                        <div
+                          style={{
+                            maxHeight: 280,
+                            overflowY: "auto",
+                            paddingRight: 4
+                          }}>
                           {formData?.kpis.central?.length === 0 ? (
                             <Text type="secondary">Chưa có KPI Trung ương</Text>
                           ) : (
                             <Checkbox.Group
-                              value={selectedKpiIds.filter(id => formData?.kpis.central?.some(k => k.id === id))}
+                              value={selectedKpiIds.filter((id) =>
+                                formData?.kpis.central?.some((k) => k.id === id)
+                              )}
                               onChange={(checkedValues) => {
-                                const vnuIds = selectedKpiIds.filter(id => formData?.kpis.vnu?.some(k => k.id === id))
-                                setSelectedKpiIds([...(checkedValues as string[]), ...vnuIds])
+                                const vnuIds = selectedKpiIds.filter((id) =>
+                                  formData?.kpis.vnu?.some((k) => k.id === id)
+                                )
+                                setSelectedKpiIds([
+                                  ...(checkedValues as string[]),
+                                  ...vnuIds
+                                ])
                               }}
-                              style={{ width: '100%' }}
-                            >
-                              <Space direction="vertical" style={{ width: '100%' }} size={4}>
+                              style={{ width: "100%" }}>
+                              <Space
+                                direction="vertical"
+                                style={{ width: "100%" }}
+                                size={4}>
                                 {formData?.kpis.central?.map((kpi) => (
-                                  <Checkbox key={kpi.id} value={kpi.id} style={{ marginLeft: 0 }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                      {kpi.code && <Text code style={{ fontSize: 11 }}>{kpi.code}</Text>}
-                                      <Text style={{ fontSize: 12 }}>{kpi.title}</Text>
+                                  <Checkbox
+                                    key={kpi.id}
+                                    value={kpi.id}
+                                    style={{ marginLeft: 0 }}>
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        flexDirection: "column"
+                                      }}>
+                                      {kpi.code && (
+                                        <Text code style={{ fontSize: 11 }}>
+                                          {kpi.code}
+                                        </Text>
+                                      )}
+                                      <Text style={{ fontSize: 12 }}>
+                                        {kpi.title}
+                                      </Text>
                                     </div>
                                   </Checkbox>
                                 ))}
@@ -1387,34 +1835,64 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                             </Checkbox.Group>
                           )}
                         </div>
-                      ),
+                      )
                     },
                     {
-                      key: 'vnu',
+                      key: "vnu",
                       label: (
                         <span style={{ fontSize: 12 }}>
-                          <BankOutlined /> ĐHQG ({formData?.kpis.vnu?.length || 0})
+                          <BankOutlined /> ĐHQG (
+                          {formData?.kpis.vnu?.length || 0})
                         </span>
                       ),
                       children: (
-                        <div style={{ maxHeight: 280, overflowY: 'auto', paddingRight: 4 }}>
+                        <div
+                          style={{
+                            maxHeight: 280,
+                            overflowY: "auto",
+                            paddingRight: 4
+                          }}>
                           {formData?.kpis.vnu?.length === 0 ? (
                             <Text type="secondary">Chưa có KPI ĐHQG-HCM</Text>
                           ) : (
                             <Checkbox.Group
-                              value={selectedKpiIds.filter(id => formData?.kpis.vnu?.some(k => k.id === id))}
+                              value={selectedKpiIds.filter((id) =>
+                                formData?.kpis.vnu?.some((k) => k.id === id)
+                              )}
                               onChange={(checkedValues) => {
-                                const centralIds = selectedKpiIds.filter(id => formData?.kpis.central?.some(k => k.id === id))
-                                setSelectedKpiIds([...centralIds, ...(checkedValues as string[])])
+                                const centralIds = selectedKpiIds.filter((id) =>
+                                  formData?.kpis.central?.some(
+                                    (k) => k.id === id
+                                  )
+                                )
+                                setSelectedKpiIds([
+                                  ...centralIds,
+                                  ...(checkedValues as string[])
+                                ])
                               }}
-                              style={{ width: '100%' }}
-                            >
-                              <Space direction="vertical" style={{ width: '100%' }} size={4}>
+                              style={{ width: "100%" }}>
+                              <Space
+                                direction="vertical"
+                                style={{ width: "100%" }}
+                                size={4}>
                                 {formData?.kpis.vnu?.map((kpi) => (
-                                  <Checkbox key={kpi.id} value={kpi.id} style={{ marginLeft: 0 }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                      {kpi.code && <Text code style={{ fontSize: 11 }}>{kpi.code}</Text>}
-                                      <Text style={{ fontSize: 12 }}>{kpi.title}</Text>
+                                  <Checkbox
+                                    key={kpi.id}
+                                    value={kpi.id}
+                                    style={{ marginLeft: 0 }}>
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        flexDirection: "column"
+                                      }}>
+                                      {kpi.code && (
+                                        <Text code style={{ fontSize: 11 }}>
+                                          {kpi.code}
+                                        </Text>
+                                      )}
+                                      <Text style={{ fontSize: 12 }}>
+                                        {kpi.title}
+                                      </Text>
                                     </div>
                                   </Checkbox>
                                 ))}
@@ -1422,8 +1900,8 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                             </Checkbox.Group>
                           )}
                         </div>
-                      ),
-                    },
+                      )
+                    }
                   ]}
                 />
               </div>
@@ -1444,7 +1922,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
         }}
         onSuccess={(activity) => {
           fetchActivities()
-          window.dispatchEvent(new CustomEvent('activity-status-changed'))
+          window.dispatchEvent(new CustomEvent("activity-status-changed"))
         }}
       />
 
@@ -1464,7 +1942,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       <Modal
         title={
           <Space>
-            <SendOutlined style={{ color: '#1890ff' }} />
+            <SendOutlined style={{ color: "#1890ff" }} />
             <span>Gửi yêu cầu phê duyệt?</span>
           </Space>
         }
@@ -1474,20 +1952,18 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
         okText="Gửi yêu cầu phê duyệt"
         cancelText="Để sau"
         confirmLoading={actionLoading}
-        centered
-      >
+        centered>
         <Alert
           type="success"
           showIcon
           message="Hoạt động đã được tạo thành công!"
           style={{ marginBottom: 16 }}
         />
-        <Text>
-          Bạn có muốn gửi yêu cầu phê duyệt ngay bây giờ không?
-        </Text>
+        <Text>Bạn có muốn gửi yêu cầu phê duyệt ngay bây giờ không?</Text>
         <br />
         <Text type="secondary" style={{ fontSize: 12 }}>
-          Nếu chọn "Để sau", hoạt động sẽ được lưu ở trạng thái <Tag>Nháp</Tag> và bạn có thể gửi yêu cầu phê duyệt sau.
+          Nếu chọn "Để sau", hoạt động sẽ được lưu ở trạng thái <Tag>Nháp</Tag>{" "}
+          và bạn có thể gửi yêu cầu phê duyệt sau.
         </Text>
       </Modal>
 
@@ -1495,7 +1971,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       <Modal
         title={
           <Space>
-            <StopOutlined style={{ color: '#ff4d4f' }} />
+            <StopOutlined style={{ color: "#ff4d4f" }} />
             <span>Hủy hoạt động</span>
           </Space>
         }
@@ -1504,14 +1980,13 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
         onCancel={() => {
           setShowCancelModal(false)
           setCancelActivityId(null)
-          setCancelReason('')
+          setCancelReason("")
         }}
         okText="Xác nhận hủy"
         cancelText="Đóng"
         okButtonProps={{ danger: true }}
         confirmLoading={actionLoading}
-        centered
-      >
+        centered>
         <Alert
           type="warning"
           showIcon
@@ -1523,8 +1998,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
           <Form.Item
             label="Lý do hủy hoạt động"
             required
-            help="Vui lòng nhập lý do để ghi nhận và thông báo cho các bên liên quan"
-          >
+            help="Vui lòng nhập lý do để ghi nhận và thông báo cho các bên liên quan">
             <Input.TextArea
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
@@ -1550,7 +2024,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
       <Modal
         title={
           <Space>
-            <FileExcelOutlined style={{ color: '#52c41a' }} />
+            <FileExcelOutlined style={{ color: "#52c41a" }} />
             <span>Xuất báo cáo hoạt động NQ57</span>
           </Space>
         }
@@ -1565,16 +2039,14 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
           </Space>
         }
         cancelText="Hủy"
-        width={700}
-      >
+        width={700}>
         <Form layout="vertical">
           {/* View Mode Selection */}
           <Form.Item label="Chế độ hiển thị">
             <Select
               value={exportViewMode}
               onChange={handleExportViewModeChange}
-              style={{ width: '100%' }}
-            >
+              style={{ width: "100%" }}>
               <Option value="activities">
                 <Space>
                   <FlagOutlined />
@@ -1597,8 +2069,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                 <Select
                   value={exportMonth}
                   onChange={setExportMonth}
-                  style={{ width: '100%' }}
-                >
+                  style={{ width: "100%" }}>
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
                     <Option key={m} value={m}>
                       Tháng {m}
@@ -1612,8 +2083,7 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
                 <Select
                   value={exportYear}
                   onChange={setExportYear}
-                  style={{ width: '100%' }}
-                >
+                  style={{ width: "100%" }}>
                   {[2024, 2025, 2026, 2027, 2028].map((y) => (
                     <Option key={y} value={y}>
                       {y}
@@ -1629,17 +2099,22 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
             label={
               <Space>
                 <span>Chọn cột xuất</span>
-                <Text type="secondary">({selectedExportColumns.length}/{exportColumns.length} cột)</Text>
+                <Text type="secondary">
+                  ({selectedExportColumns.length}/{exportColumns.length} cột)
+                </Text>
               </Space>
-            }
-          >
+            }>
             <div style={{ marginBottom: 8 }}>
               <Space>
                 <Checkbox
-                  checked={selectedExportColumns.length === exportColumns.length}
-                  indeterminate={selectedExportColumns.length > 0 && selectedExportColumns.length < exportColumns.length}
-                  onChange={(e) => handleSelectAllColumns(e.target.checked)}
-                >
+                  checked={
+                    selectedExportColumns.length === exportColumns.length
+                  }
+                  indeterminate={
+                    selectedExportColumns.length > 0 &&
+                    selectedExportColumns.length < exportColumns.length
+                  }
+                  onChange={(e) => handleSelectAllColumns(e.target.checked)}>
                   Chọn tất cả
                 </Checkbox>
                 <Button size="small" onClick={handleResetDefaultColumns}>
@@ -1648,31 +2123,36 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
               </Space>
             </div>
 
-            <div style={{
-              background: '#fafafa',
-              border: '1px solid #d9d9d9',
-              borderRadius: 6,
-              padding: 12,
-              maxHeight: 200,
-              overflowY: 'auto'
-            }}>
+            <div
+              style={{
+                background: "#fafafa",
+                border: "1px solid #d9d9d9",
+                borderRadius: 6,
+                padding: 12,
+                maxHeight: 200,
+                overflowY: "auto"
+              }}>
               {loadingColumns ? (
-                <div style={{ textAlign: 'center', padding: 20 }}>
+                <div style={{ textAlign: "center", padding: 20 }}>
                   <Text type="secondary">Đang tải...</Text>
                 </div>
               ) : (
                 <Checkbox.Group
                   value={selectedExportColumns}
-                  onChange={(values) => setSelectedExportColumns(values as string[])}
-                  style={{ width: '100%' }}
-                >
+                  onChange={(values) =>
+                    setSelectedExportColumns(values as string[])
+                  }
+                  style={{ width: "100%" }}>
                   <Row gutter={[8, 8]}>
                     {exportColumns.map((col) => (
                       <Col span={12} key={col.key}>
                         <Checkbox value={col.key}>
                           {col.label}
                           {col.default && (
-                            <Tag size="small" color="blue" style={{ marginLeft: 4, fontSize: 10 }}>
+                            <Tag
+                              size="small"
+                              color="blue"
+                              style={{ marginLeft: 4, fontSize: 10 }}>
                               mặc định
                             </Tag>
                           )}
@@ -1689,9 +2169,9 @@ function ActivityManagement({ defaultStatusFilter, showApprovalView }: ActivityM
         <Alert
           type="info"
           message={
-            exportViewMode === 'activities'
-              ? 'Chế độ Hoạt động: Mỗi hoạt động xuất hiện 1 dòng, các KPI được hiển thị trong cột riêng (KPI Trung ương, KPI ĐHQG-HCM).'
-              : 'Chế độ KPI: Báo cáo phân loại theo KPI Categories (I, II, III...), mỗi KPI hiển thị các hoạt động liên kết bên dưới.'
+            exportViewMode === "activities"
+              ? "Chế độ Hoạt động: Mỗi hoạt động xuất hiện 1 dòng, các KPI được hiển thị trong cột riêng (KPI Trung ương, KPI ĐHQG-HCM)."
+              : "Chế độ KPI: Báo cáo phân loại theo KPI Categories (I, II, III...), mỗi KPI hiển thị các hoạt động liên kết bên dưới."
           }
           style={{ marginTop: 8 }}
           showIcon

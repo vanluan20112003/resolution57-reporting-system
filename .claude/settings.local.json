@@ -34,7 +34,13 @@
       "Bash(git init:*)",
       "Bash(git branch:*)",
       "Bash(git remote add:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(php artisan db:show:*)",
+      "Bash(php -r:*)",
+      "Bash(php artisan migrate:status:*)",
+      "Bash(php artisan tinker:*)",
+      "Bash(php artisan migrate:*)",
+      "Bash(git -C \"c:/Users/phuong/Desktop/NQ57\" diff --stat)"
     ],
     "deny": [],
     "ask": []

@@ -2,19 +2,22 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\Controller;
-use App\Models\ReportBatch;
-use App\Models\Activity;
-use App\Models\KpiCategory;
-use App\Models\BatchCollaboratorResponse;
-use App\Models\ReportExport;
 use App\Exports\ReportBatchExport;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Storage;
-use Maatwebsite\Excel\Facades\Excel;
+use App\Http\Controllers\Controller;
+use App\Models\Activity;
+use App\Models\BatchCollaboratorResponse;
+use App\Models\KpiCategory;
+use App\Models\ReportBatch;
+use App\Models\ReportExport;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ReportBatchController extends Controller
 {
@@ -25,7 +28,7 @@ class ReportBatchController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->organization_id) {
+        if (! $user->organization_id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn chưa được phân công vào đơn vị nào',
@@ -88,7 +91,7 @@ class ReportBatchController extends Controller
             ->byOrganization($user->organization_id)
             ->find($id);
 
-        if (!$batch) {
+        if (! $batch) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy đợt báo cáo',
@@ -108,7 +111,7 @@ class ReportBatchController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->organization_id) {
+        if (! $user->organization_id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn chưa được phân công vào đơn vị nào',
@@ -161,6 +164,35 @@ class ReportBatchController extends Controller
 
         $batch->load(['creator:id,first_name,last_name,email', 'activities']);
 
+        $notifications = [];
+
+        foreach ($batch->activities as $activity) {
+            foreach ($activity->collaboratingOrganizations as $organization) {
+                $managerAndStaffUsers = $organization->users()->whereIn('role', ['STAFF', 'Manager'])->get();
+                // Log::info('----------------------------------', ['users' => $managerAndStaffUsers]);
+                foreach ($managerAndStaffUsers as $managerAndStaffUser) {
+                    $notifications[] = [
+                        'id' => Str::uuid()->toString(),
+                        'user_id' => $managerAndStaffUser->id,
+                        'title' => 'Có đợt báo cáo mới',
+                        'message' => "Đợt báo cáo {$batch->name} có hoạt động {$activity->code}",
+                        'category' => 'activity',
+                        'notification_type' => 'report_batch',
+                        // 'icon' => 'EditOutlined',
+                        'color' => 'primary',
+                        'action_url' => '/dashboard?tab=reports',
+                        'actor_id' => $user->id,
+                        'is_read' => false,
+                        'priority' => 'normal',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+            }
+        }
+
+        DB::table('notifications')->insert($notifications);
+
         return response()->json([
             'success' => true,
             'message' => 'Đã tạo đợt báo cáo thành công',
@@ -177,14 +209,14 @@ class ReportBatchController extends Controller
 
         $batch = ReportBatch::byOrganization($user->organization_id)->find($id);
 
-        if (!$batch) {
+        if (! $batch) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy đợt báo cáo',
             ], 404);
         }
 
-        if (!$batch->isEditable()) {
+        if (! $batch->isEditable()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Đợt báo cáo này không thể chỉnh sửa',
@@ -249,7 +281,7 @@ class ReportBatchController extends Controller
 
         $batch = ReportBatch::byOrganization($user->organization_id)->find($id);
 
-        if (!$batch) {
+        if (! $batch) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy đợt báo cáo',
@@ -279,7 +311,7 @@ class ReportBatchController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->organization_id) {
+        if (! $user->organization_id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn chưa được phân công vào đơn vị nào',
@@ -340,14 +372,14 @@ class ReportBatchController extends Controller
 
         $batch = ReportBatch::byOrganization($user->organization_id)->find($id);
 
-        if (!$batch) {
+        if (! $batch) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy đợt báo cáo',
             ], 404);
         }
 
-        if (!$batch->isEditable()) {
+        if (! $batch->isEditable()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Đợt báo cáo này không thể chỉnh sửa',
@@ -397,14 +429,14 @@ class ReportBatchController extends Controller
 
         $batch = ReportBatch::byOrganization($user->organization_id)->find($id);
 
-        if (!$batch) {
+        if (! $batch) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy đợt báo cáo',
             ], 404);
         }
 
-        if (!$batch->isEditable()) {
+        if (! $batch->isEditable()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Đợt báo cáo này không thể chỉnh sửa',
@@ -428,14 +460,14 @@ class ReportBatchController extends Controller
 
         $batch = ReportBatch::byOrganization($user->organization_id)->find($id);
 
-        if (!$batch) {
+        if (! $batch) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy đợt báo cáo',
             ], 404);
         }
 
-        if (!$batch->isEditable()) {
+        if (! $batch->isEditable()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Đợt báo cáo này không thể chỉnh sửa',
@@ -475,7 +507,7 @@ class ReportBatchController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->organization_id) {
+        if (! $user->organization_id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn chưa được phân công vào đơn vị nào',
@@ -496,7 +528,7 @@ class ReportBatchController extends Controller
         // Get all KPI categories with KPIs
         $categories = KpiCategory::where('is_active', true)
             ->orderBy('display_order')
-            ->with(['kpis' => function($query) {
+            ->with(['kpis' => function ($query) {
                 $query->where('is_active', true)
                     ->orderBy('order_number')
                     ->select('id', 'category_id', 'code', 'title', 'order_number');
@@ -528,7 +560,7 @@ class ReportBatchController extends Controller
                 $activitiesWithoutKpi[] = $activityData;
             } else {
                 foreach ($activity->kpis as $kpi) {
-                    if (!isset($kpiActivitiesMap[$kpi->id])) {
+                    if (! isset($kpiActivitiesMap[$kpi->id])) {
                         $kpiActivitiesMap[$kpi->id] = [];
                     }
                     $kpiActivitiesMap[$kpi->id][] = $activityData;
@@ -547,7 +579,7 @@ class ReportBatchController extends Controller
 
             foreach ($category->kpis as $kpi) {
                 $kpiActivities = $kpiActivitiesMap[$kpi->id] ?? [];
-                if (!empty($kpiActivities)) {
+                if (! empty($kpiActivities)) {
                     $categoryData['kpis'][] = [
                         'id' => $kpi->id,
                         'code' => $kpi->code,
@@ -558,13 +590,13 @@ class ReportBatchController extends Controller
             }
 
             // Only include category if it has KPIs with activities
-            if (!empty($categoryData['kpis'])) {
+            if (! empty($categoryData['kpis'])) {
                 $result[] = $categoryData;
             }
         }
 
         // Add activities without KPI
-        if (!empty($activitiesWithoutKpi)) {
+        if (! empty($activitiesWithoutKpi)) {
             $result[] = [
                 'id' => 'no-kpi',
                 'name' => 'Hoạt động chưa gắn KPI',
@@ -574,7 +606,7 @@ class ReportBatchController extends Controller
                         'code' => null,
                         'title' => 'Hoạt động chưa liên kết KPI',
                         'activities' => $activitiesWithoutKpi,
-                    ]
+                    ],
                 ],
             ];
         }
@@ -593,7 +625,7 @@ class ReportBatchController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->organization_id) {
+        if (! $user->organization_id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn chưa được phân công vào đơn vị nào',
@@ -603,7 +635,7 @@ class ReportBatchController extends Controller
         // Find the batch (không cần kiểm tra organization vì đơn vị phối hợp có thể khác)
         $batch = ReportBatch::find($id);
 
-        if (!$batch) {
+        if (! $batch) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy đợt báo cáo',
@@ -614,7 +646,7 @@ class ReportBatchController extends Controller
         if ($batch->deadline && now()->gt($batch->deadline)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Đã quá hạn nộp báo cáo. Hạn nộp: ' . Carbon::parse($batch->deadline)->format('d/m/Y H:i'),
+                'message' => 'Đã quá hạn nộp báo cáo. Hạn nộp: '.Carbon::parse($batch->deadline)->format('d/m/Y H:i'),
             ], 400);
         }
 
@@ -641,7 +673,7 @@ class ReportBatchController extends Controller
 
         // Verify activity is in this batch
         $activityInBatch = $batch->activities()->where('activities.id', $activityId)->exists();
-        if (!$activityInBatch) {
+        if (! $activityInBatch) {
             return response()->json([
                 'success' => false,
                 'message' => 'Hoạt động không thuộc đợt báo cáo này',
@@ -653,7 +685,7 @@ class ReportBatchController extends Controller
         $isCollaborator = $activity->collaboratingOrganizations
             ->contains('id', $user->organization_id);
 
-        if (!$isCollaborator) {
+        if (! $isCollaborator) {
             return response()->json([
                 'success' => false,
                 'message' => 'Đơn vị của bạn không phải là đơn vị phối hợp trong hoạt động này',
@@ -697,7 +729,7 @@ class ReportBatchController extends Controller
 
         $batch = ReportBatch::find($id);
 
-        if (!$batch) {
+        if (! $batch) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy đợt báo cáo',
@@ -729,7 +761,7 @@ class ReportBatchController extends Controller
 
         $response = BatchCollaboratorResponse::find($responseId);
 
-        if (!$response) {
+        if (! $response) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy phản hồi',
@@ -741,7 +773,7 @@ class ReportBatchController extends Controller
         $canDelete = $response->organization_id === $user->organization_id ||
             ($batch && $batch->organization_id === $user->organization_id);
 
-        if (!$canDelete) {
+        if (! $canDelete) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn không có quyền xóa phản hồi này',
@@ -766,7 +798,7 @@ class ReportBatchController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->organization_id) {
+        if (! $user->organization_id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn chưa được phân công vào đơn vị nào',
@@ -878,7 +910,7 @@ class ReportBatchController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->organization_id) {
+        if (! $user->organization_id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn chưa được phân công vào đơn vị nào',
@@ -918,7 +950,7 @@ class ReportBatchController extends Controller
             $hasPending = $submittedCount < $totalRequired;
             $isOverdue = $batch->deadline && now()->gt($batch->deadline);
 
-            if (!$hasPending) {
+            if (! $hasPending) {
                 $completed++;
             } elseif ($isOverdue) {
                 $overdue++;
@@ -946,7 +978,7 @@ class ReportBatchController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->organization_id) {
+        if (! $user->organization_id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn chưa được phân công vào đơn vị nào',
@@ -958,7 +990,7 @@ class ReportBatchController extends Controller
             'organization:id,name,short_name',
         ])->find($id);
 
-        if (!$batch) {
+        if (! $batch) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy đợt báo cáo',
@@ -972,7 +1004,7 @@ class ReportBatchController extends Controller
             })
             ->exists();
 
-        if (!$isCollaborator) {
+        if (! $isCollaborator) {
             return response()->json([
                 'success' => false,
                 'message' => 'Đơn vị của bạn không phải là đơn vị phối hợp trong đợt báo cáo này',
@@ -1013,7 +1045,7 @@ class ReportBatchController extends Controller
                 'submitted_by' => $response->submitter,
             ] : null;
 
-            $activityData['can_submit'] = !$batch->deadline || now()->lte($batch->deadline);
+            $activityData['can_submit'] = ! $batch->deadline || now()->lte($batch->deadline);
 
             return $activityData;
         });
@@ -1021,7 +1053,7 @@ class ReportBatchController extends Controller
         $batchData = $batch->toArray();
         $batchData['activities'] = $activitiesWithStatus;
         $batchData['is_overdue'] = $batch->deadline && now()->gt($batch->deadline);
-        $batchData['can_submit'] = !$batch->deadline || now()->lte($batch->deadline);
+        $batchData['can_submit'] = ! $batch->deadline || now()->lte($batch->deadline);
 
         // Response stats
         $totalRequired = $activities->count();
@@ -1067,7 +1099,7 @@ class ReportBatchController extends Controller
             ->byOrganization($user->organization_id)
             ->find($id);
 
-        if (!$batch) {
+        if (! $batch) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy đợt báo cáo',
@@ -1105,7 +1137,9 @@ class ReportBatchController extends Controller
             $activityResponses = $batch->collaboratorResponses->where('activity_id', $activity->id);
             $collabOrgs = $activity->collaboratingOrganizations;
 
-            if ($collabOrgs->isEmpty()) continue;
+            if ($collabOrgs->isEmpty()) {
+                continue;
+            }
 
             $orgResponses = [];
             foreach ($collabOrgs as $org) {
@@ -1116,7 +1150,7 @@ class ReportBatchController extends Controller
                     'has_response' => $response !== null,
                     'content' => $response ? $response->content : null,
                     'submitter' => $response && $response->submitter
-                        ? trim(($response->submitter->first_name ?? '') . ' ' . ($response->submitter->last_name ?? ''))
+                        ? trim(($response->submitter->first_name ?? '').' '.($response->submitter->last_name ?? ''))
                         : null,
                     'submitted_at' => $response ? $response->submitted_at : null,
                 ];
@@ -1125,7 +1159,7 @@ class ReportBatchController extends Controller
             $responsesGrouped[] = [
                 'activity_id' => $activity->id,
                 'activity_title' => $activity->title,
-                'kpis' => $activity->kpis->map(fn($k) => $k->code ?? $k->title)->implode(', '),
+                'kpis' => $activity->kpis->map(fn ($k) => $k->code ?? $k->title)->implode(', '),
                 'total_collaborators' => $collabOrgs->count(),
                 'submitted_count' => $activityResponses->count(),
                 'responses' => $orgResponses,
@@ -1134,7 +1168,7 @@ class ReportBatchController extends Controller
 
         // Statistics
         $totalActivities = $batch->activities->count();
-        $activitiesWithCollab = $batch->activities->filter(fn($a) => $a->collaboratingOrganizations->isNotEmpty())->count();
+        $activitiesWithCollab = $batch->activities->filter(fn ($a) => $a->collaboratingOrganizations->isNotEmpty())->count();
 
         $totalRequired = 0;
         foreach ($batch->activities as $activity) {
@@ -1183,7 +1217,7 @@ class ReportBatchController extends Controller
                     'leadOrganization:id,name,short_name',
                     'collaboratingOrganizations:id,name,short_name',
                     'kpis.kpiCategory',
-                    'kpis.tasks' => function($q) {
+                    'kpis.tasks' => function ($q) {
                         $q->where('is_active', true)->orderBy('order_number');
                     },
                 ]);
@@ -1199,7 +1233,7 @@ class ReportBatchController extends Controller
             ->byOrganization($user->organization_id)
             ->find($id);
 
-        if (!$batch) {
+        if (! $batch) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy đợt báo cáo',
@@ -1260,7 +1294,7 @@ class ReportBatchController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Không thể xuất báo cáo: ' . $e->getMessage(),
+                'message' => 'Không thể xuất báo cáo: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -1274,7 +1308,7 @@ class ReportBatchController extends Controller
 
         $batch = ReportBatch::byOrganization($user->organization_id)->find($id);
 
-        if (!$batch) {
+        if (! $batch) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy đợt báo cáo',
@@ -1285,14 +1319,14 @@ class ReportBatchController extends Controller
             ->where('organization_id', $user->organization_id)
             ->first();
 
-        if (!$exportRecord) {
+        if (! $exportRecord) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy bản ghi xuất báo cáo',
             ], 404);
         }
 
-        if (!Storage::disk('local')->exists($exportRecord->file_path)) {
+        if (! Storage::disk('local')->exists($exportRecord->file_path)) {
             return response()->json([
                 'success' => false,
                 'message' => 'File không tồn tại',
@@ -1317,7 +1351,7 @@ class ReportBatchController extends Controller
 
         $batch = ReportBatch::byOrganization($user->organization_id)->find($id);
 
-        if (!$batch) {
+        if (! $batch) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy đợt báo cáo',
@@ -1343,7 +1377,7 @@ class ReportBatchController extends Controller
                     'activity_count' => $export->activity_count,
                     'exporter' => $export->exporter ? [
                         'id' => $export->exporter->id,
-                        'name' => trim(($export->exporter->first_name ?? '') . ' ' . ($export->exporter->last_name ?? '')),
+                        'name' => trim(($export->exporter->first_name ?? '').' '.($export->exporter->last_name ?? '')),
                         'email' => $export->exporter->email,
                     ] : null,
                     'exported_at' => $export->exported_at,

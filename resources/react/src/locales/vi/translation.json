@@ -18,7 +18,9 @@
     "next": "Tiếp theo",
     "submit": "Gửi",
     "reset": "Đặt lại",
-    "logout": "Đăng xuất"
+    "logout": "Đăng xuất",
+    "refresh": "Làm mới",
+    "actions": "Thao tác"
   },
   "login": {
     "title": "Đăng nhập",
@@ -300,5 +302,15 @@
     },
     "accessDenied": "Bạn không có quyền truy cập",
     "accessDeniedMessage": "Chỉ ADMIN mới có quyền quản lý chế độ bảo trì"
+  },
+  "documentLibrary": {
+    "uploadFile": "Upload tài liệu",
+    "document": "Tài liệu",
+    "category": "Danh mục",
+    "size": "Kích thước",
+    "scope": "Phạm vi",
+    "department": "Phòng ban",
+    "uploadedBy": "Người đăng",
+    "uploadDate": "Ngày đăng"
   }
 }

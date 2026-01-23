@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback } from "react"
 import {
   Table,
   Card,
@@ -19,8 +19,8 @@ import {
   Popconfirm,
   Divider,
   List,
-  Tooltip,
-} from 'antd'
+  Tooltip
+} from "antd"
 import {
   EditOutlined,
   DeleteOutlined,
@@ -31,18 +31,30 @@ import {
   GlobalOutlined,
   FolderOutlined,
   OrderedListOutlined,
-  MinusCircleOutlined,
-} from '@ant-design/icons'
-import type { ColumnsType } from 'antd/es/table'
-import { useAuth } from '../../shared/hooks'
-import * as kpiApi from '../../services/kpiApi'
-import type { Kpi, KpiCategory, KpiTask, CreateKpiRequest, UpdateKpiRequest } from '../../services/kpiApi'
-import AdvancedFilter, { FilterField, FilterValues } from '../../shared/components/AdvancedFilter'
-import ColumnToggle, { ToggleableColumn } from '../../shared/components/ColumnToggle'
-import { ImportExcelModal } from '../../shared/components/ImportExcelModal'
-import { FileExcelOutlined } from '@ant-design/icons'
-import KpiCategoryManagement from './KpiCategoryManagement'
-import './KpiManagement.css'
+  MinusCircleOutlined
+} from "@ant-design/icons"
+import type { ColumnsType } from "antd/es/table"
+import { useAuth } from "../../shared/hooks"
+import * as kpiApi from "../../services/kpiApi"
+import type {
+  Kpi,
+  KpiCategory,
+  KpiTask,
+  CreateKpiRequest,
+  UpdateKpiRequest
+} from "../../services/kpiApi"
+import AdvancedFilter, {
+  FilterField,
+  FilterValues
+} from "../../shared/components/AdvancedFilter"
+import ColumnToggle, {
+  ToggleableColumn
+} from "../../shared/components/ColumnToggle"
+import { ImportExcelModal } from "../../shared/components/ImportExcelModal"
+import { FileExcelOutlined } from "@ant-design/icons"
+import KpiCategoryManagement from "./KpiCategoryManagement"
+import "./KpiManagement.css"
+import { t } from "i18next"
 
 const { Title, Text } = Typography
 const { Option } = Select
@@ -53,59 +65,73 @@ function KpiManagement() {
   const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [kpis, setKpis] = useState<Kpi[]>([])
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 15, total: 0 })
-  const [activeTab, setActiveTab] = useState<'CENTRAL' | 'VNU'>('CENTRAL')
-  const [mainTab, setMainTab] = useState<'kpis' | 'categories'>('kpis')
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 15,
+    total: 0
+  })
+  const [activeTab, setActiveTab] = useState<"CENTRAL" | "VNU">("CENTRAL")
+  const [mainTab, setMainTab] = useState<"kpis" | "categories">("kpis")
   const [editModalVisible, setEditModalVisible] = useState(false)
   const [importModalVisible, setImportModalVisible] = useState(false)
   const [selectedKpi, setSelectedKpi] = useState<Kpi | null>(null)
   const [categories, setCategories] = useState<KpiCategory[]>([])
-  const [kpiTasks, setKpiTasks] = useState<Array<Partial<KpiTask> & { _tempId?: string; _delete?: boolean }>>([])
+  const [kpiTasks, setKpiTasks] = useState<
+    Array<Partial<KpiTask> & { _tempId?: string; _delete?: boolean }>
+  >([])
   const [tasksLoading, setTasksLoading] = useState(false)
   const [form] = Form.useForm()
   const { user: currentUser } = useAuth()
 
   // Visible columns state
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
-    'index', 'code', 'title', 'category', 'order_number', 'is_active', 'creator', 'actions'
+    "index",
+    "code",
+    "title",
+    "category",
+    "order_number",
+    "is_active",
+    "creator",
+    "actions"
   ])
 
   // Advanced filter state
   const [filterValues, setFilterValues] = useState<FilterValues>({
-    search: '',
+    search: "",
     category_id: undefined,
-    is_active: undefined,
+    is_active: undefined
   })
 
   // Check if current user can manage KPIs (OPERATOR or ADMIN only)
-  const canManage = currentUser?.role === 'OPERATOR' || currentUser?.role === 'ADMIN'
+  const canManage =
+    currentUser?.role === "OPERATOR" || currentUser?.role === "ADMIN"
 
   // Advanced filter fields configuration
   const filterFields: FilterField[] = useMemo(() => {
     return [
       {
-        key: 'search',
-        label: 'Tìm kiếm',
-        type: 'text',
-        placeholder: 'Tìm theo mã hoặc tiêu đề...',
-        span: 10,
+        key: "search",
+        label: "Tìm kiếm",
+        type: "text",
+        placeholder: "Tìm theo mã hoặc tiêu đề...",
+        span: 10
       },
       {
-        key: 'category_id',
-        label: 'Loại KPI',
-        type: 'select',
+        key: "category_id",
+        label: "Loại KPI",
+        type: "select",
         span: 8,
         options: categories.map((cat) => ({
           value: cat.id,
-          label: cat.name,
-        })),
+          label: cat.name
+        }))
       },
       {
-        key: 'is_active',
-        label: 'Trạng thái',
-        type: 'boolean',
-        span: 6,
-      },
+        key: "is_active",
+        label: "Trạng thái",
+        type: "boolean",
+        span: 6
+      }
     ]
   }, [categories])
 
@@ -141,16 +167,16 @@ function KpiManagement() {
         category_id: filterValues.category_id,
         is_active: filterValues.is_active,
         page: pagination.current,
-        per_page: pagination.pageSize,
+        per_page: pagination.pageSize
       })
 
       setKpis(response.data)
-      setPagination(prev => ({
+      setPagination((prev) => ({
         ...prev,
-        total: response.pagination.total,
+        total: response.pagination.total
       }))
     } catch (error: any) {
-      message.error(error.message || 'Không thể tải danh sách KPI')
+      message.error(error.message || "Không thể tải danh sách KPI")
     } finally {
       setLoading(false)
     }
@@ -158,10 +184,13 @@ function KpiManagement() {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const response = await kpiApi.getKpiCategories({ is_active: true, per_page: 100 })
+      const response = await kpiApi.getKpiCategories({
+        is_active: true,
+        per_page: 100
+      })
       setCategories(response.data)
     } catch (error) {
-      console.error('Failed to fetch categories:', error)
+      console.error("Failed to fetch categories:", error)
     }
   }, [])
 
@@ -169,22 +198,22 @@ function KpiManagement() {
     setPagination({
       ...pagination,
       current: newPagination.current,
-      pageSize: newPagination.pageSize,
+      pageSize: newPagination.pageSize
     })
   }
 
   const handleTabChange = (key: string) => {
-    setActiveTab(key as 'CENTRAL' | 'VNU')
+    setActiveTab(key as "CENTRAL" | "VNU")
     setPagination({ ...pagination, current: 1 })
     setFilterValues({
-      search: '',
+      search: "",
       category_id: undefined,
-      is_active: undefined,
+      is_active: undefined
     })
   }
 
   const handleMainTabChange = (key: string) => {
-    setMainTab(key as 'kpis' | 'categories')
+    setMainTab(key as "kpis" | "categories")
   }
 
   const handleAdd = () => {
@@ -206,7 +235,7 @@ function KpiManagement() {
       const response = await kpiApi.getKpiTasks(kpi.id)
       setKpiTasks(response.data || [])
     } catch (error) {
-      console.error('Failed to load KPI tasks:', error)
+      console.error("Failed to load KPI tasks:", error)
       setKpiTasks([])
     } finally {
       setTasksLoading(false)
@@ -217,13 +246,13 @@ function KpiManagement() {
   const handleAddTask = () => {
     const newTask: Partial<KpiTask> & { _tempId: string } = {
       _tempId: `temp_${Date.now()}`,
-      title: '',
-      code: '',
-      description: '',
-      target_value: '',
-      unit: '',
-      order_number: kpiTasks.filter(t => !t._delete).length + 1,
-      is_active: true,
+      title: "",
+      code: "",
+      description: "",
+      target_value: "",
+      unit: "",
+      order_number: kpiTasks.filter((t) => !t._delete).length + 1,
+      is_active: true
     }
     setKpiTasks([...kpiTasks, newTask])
   }
@@ -251,10 +280,10 @@ function KpiManagement() {
     setActionLoading(true)
     try {
       await kpiApi.deleteKpi(id)
-      message.success('Đã xóa KPI thành công')
+      message.success("Đã xóa KPI thành công")
       fetchKpis()
     } catch (error: any) {
-      message.error(error.message || 'Không thể xóa KPI')
+      message.error(error.message || "Không thể xóa KPI")
     } finally {
       setActionLoading(false)
     }
@@ -265,10 +294,10 @@ function KpiManagement() {
       const values = await form.validateFields()
 
       // Validate tasks - check if any task has empty title
-      const activeTasks = kpiTasks.filter(t => !t._delete)
-      const invalidTask = activeTasks.find(t => !t.title?.trim())
+      const activeTasks = kpiTasks.filter((t) => !t._delete)
+      const invalidTask = activeTasks.find((t) => !t.title?.trim())
       if (invalidTask) {
-        message.error('Vui lòng nhập tiêu đề cho tất cả nhiệm vụ')
+        message.error("Vui lòng nhập tiêu đề cho tất cả nhiệm vụ")
         return
       }
 
@@ -280,33 +309,33 @@ function KpiManagement() {
         // Update existing KPI
         await kpiApi.updateKpi(selectedKpi.id, values as UpdateKpiRequest)
         kpiId = selectedKpi.id
-        message.success('Đã cập nhật KPI thành công')
+        message.success("Đã cập nhật KPI thành công")
       } else {
         // Create new KPI
         const response = await kpiApi.createKpi(values as CreateKpiRequest)
         kpiId = response.data.id
-        message.success('Đã tạo KPI thành công')
+        message.success("Đã tạo KPI thành công")
       }
 
       // Save tasks if any
       if (kpiTasks.length > 0) {
         const tasksToSave = kpiTasks.map((task, index) => ({
           id: task.id,
-          code: task.code || '',
-          title: task.title || '',
-          description: task.description || '',
-          target_value: task.target_value || '',
-          unit: task.unit || '',
+          code: task.code || "",
+          title: task.title || "",
+          description: task.description || "",
+          target_value: task.target_value || "",
+          unit: task.unit || "",
           order_number: index + 1,
           is_active: task.is_active ?? true,
-          _delete: task._delete,
+          _delete: task._delete
         }))
 
         try {
           await kpiApi.batchUpdateKpiTasks(kpiId, { tasks: tasksToSave })
         } catch (taskError: any) {
-          console.error('Failed to save tasks:', taskError)
-          message.warning('KPI đã được lưu, nhưng có lỗi khi lưu nhiệm vụ')
+          console.error("Failed to save tasks:", taskError)
+          message.warning("KPI đã được lưu, nhưng có lỗi khi lưu nhiệm vụ")
         }
       }
 
@@ -319,7 +348,7 @@ function KpiManagement() {
         // Validation error
         return
       }
-      message.error(error.message || 'Có lỗi xảy ra')
+      message.error(error.message || "Có lỗi xảy ra")
     } finally {
       setActionLoading(false)
     }
@@ -333,105 +362,115 @@ function KpiManagement() {
   }
 
   // Toggleable columns configuration
-  const toggleableColumns: ToggleableColumn[] = useMemo(() => [
-    { key: 'index', title: 'STT', fixed: true },
-    { key: 'code', title: 'Mã KPI', defaultVisible: true },
-    { key: 'title', title: 'Tiêu đề', fixed: true },
-    { key: 'category', title: 'Danh mục', defaultVisible: true },
-    { key: 'order_number', title: 'Thứ tự', defaultVisible: true },
-    { key: 'is_active', title: 'Trạng thái', defaultVisible: true },
-    { key: 'creator', title: 'Người tạo', defaultVisible: true },
-    { key: 'actions', title: 'Thao tác', fixed: true },
-  ], [])
+  const toggleableColumns: ToggleableColumn[] = useMemo(
+    () => [
+      { key: "index", title: "STT", fixed: true },
+      { key: "code", title: "Mã KPI", defaultVisible: true },
+      { key: "title", title: "Tiêu đề", fixed: true },
+      { key: "category", title: "Danh mục", defaultVisible: true },
+      { key: "order_number", title: "Thứ tự", defaultVisible: true },
+      { key: "is_active", title: "Trạng thái", defaultVisible: true },
+      { key: "creator", title: "Người tạo", defaultVisible: true },
+      { key: "actions", title: t("common.actions"), fixed: true }
+    ],
+    []
+  )
 
   const allColumns: ColumnsType<Kpi> = [
     {
-      title: 'STT',
-      key: 'index',
+      title: "STT",
+      key: "index",
       width: 60,
-      align: 'center',
+      align: "center",
       render: (_: any, __: any, index: number) =>
-        (pagination.current - 1) * pagination.pageSize + index + 1,
+        (pagination.current - 1) * pagination.pageSize + index + 1
     },
     {
-      title: 'Mã KPI',
-      dataIndex: 'code',
-      key: 'code',
+      title: "Mã KPI",
+      dataIndex: "code",
+      key: "code",
       width: 120,
-      sorter: (a, b) => (a.code || '').localeCompare(b.code || ''),
+      sorter: (a, b) => (a.code || "").localeCompare(b.code || ""),
       render: (code: string) => (
-        <Text strong style={{ color: '#1890ff' }}>
-          {code || '-'}
+        <Text strong style={{ color: "#1890ff" }}>
+          {code || "-"}
         </Text>
-      ),
+      )
     },
     {
-      title: 'Tiêu đề',
-      dataIndex: 'title',
-      key: 'title',
+      title: "Tiêu đề",
+      dataIndex: "title",
+      key: "title",
       ellipsis: true,
-      sorter: (a, b) => (a.title || '').localeCompare(b.title || ''),
-      render: (title: string) => <Text>{title}</Text>,
+      sorter: (a, b) => (a.title || "").localeCompare(b.title || ""),
+      render: (title: string) => <Text>{title}</Text>
     },
     {
-      title: 'Loại KPI',
-      dataIndex: 'kpi_category',
-      key: 'category',
+      title: "Loại KPI",
+      dataIndex: "kpi_category",
+      key: "category",
       width: 180,
-      sorter: (a, b) => (a.kpi_category?.name || a.category || '').localeCompare(b.kpi_category?.name || b.category || ''),
+      sorter: (a, b) =>
+        (a.kpi_category?.name || a.category || "").localeCompare(
+          b.kpi_category?.name || b.category || ""
+        ),
       render: (_: any, record: Kpi) => {
         const categoryName = record.kpi_category?.name || record.category
-        return categoryName ? <Tag color="blue">{categoryName}</Tag> : <Text type="secondary">-</Text>
-      },
+        return categoryName ? (
+          <Tag color="blue">{categoryName}</Tag>
+        ) : (
+          <Text type="secondary">-</Text>
+        )
+      }
     },
     {
-      title: 'Thứ tự',
-      dataIndex: 'order_number',
-      key: 'order_number',
+      title: "Thứ tự",
+      dataIndex: "order_number",
+      key: "order_number",
       width: 80,
-      align: 'center',
+      align: "center",
       sorter: (a, b) => (a.order_number || 0) - (b.order_number || 0),
-      render: (order: number) => <Text>{order || 0}</Text>,
+      render: (order: number) => <Text>{order || 0}</Text>
     },
     {
-      title: 'Trạng thái',
-      dataIndex: 'is_active',
-      key: 'is_active',
+      title: "Trạng thái",
+      dataIndex: "is_active",
+      key: "is_active",
       width: 100,
-      align: 'center',
+      align: "center",
       sorter: (a, b) => (a.is_active ? 1 : 0) - (b.is_active ? 1 : 0),
       filters: [
-        { text: 'Hoạt động', value: true },
-        { text: 'Không hoạt động', value: false },
+        { text: "Hoạt động", value: true },
+        { text: "Không hoạt động", value: false }
       ],
       render: (isActive: boolean) => (
-        <Tag color={isActive ? 'success' : 'default'}>
-          {isActive ? 'Hoạt động' : 'Không hoạt động'}
+        <Tag color={isActive ? "success" : "default"}>
+          {isActive ? "Hoạt động" : "Không hoạt động"}
         </Tag>
-      ),
+      )
     },
     {
-      title: 'Người tạo',
-      dataIndex: ['creator', 'email'],
-      key: 'creator',
+      title: "Người tạo",
+      dataIndex: ["creator", "email"],
+      key: "creator",
       width: 150,
-      sorter: (a, b) => (a.creator?.email || '').localeCompare(b.creator?.email || ''),
-      render: (email: string) => <Text type="secondary">{email || '-'}</Text>,
+      sorter: (a, b) =>
+        (a.creator?.email || "").localeCompare(b.creator?.email || ""),
+      render: (email: string) => <Text type="secondary">{email || "-"}</Text>
     },
     {
-      title: 'Thao tác',
-      key: 'actions',
+      title: t("common.actions"),
+      key: "actions",
       width: 150,
-      fixed: 'right',
-      align: 'center',
+      fixed: "right",
+      align: "center",
       render: (_: any, record: Kpi) => (
         <Space>
           <Button
             type="link"
             size="small"
             icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-          >
+            onClick={() => handleEdit(record)}>
             Sửa
           </Button>
           <Popconfirm
@@ -440,28 +479,30 @@ function KpiManagement() {
             onConfirm={() => handleDelete(record.id)}
             okText="Xóa"
             cancelText="Hủy"
-            okButtonProps={{ danger: true }}
-          >
+            okButtonProps={{ danger: true }}>
             <Button type="link" size="small" icon={<DeleteOutlined />} danger>
               Xóa
             </Button>
           </Popconfirm>
         </Space>
-      ),
-    },
+      )
+    }
   ]
 
   // Filter columns based on visibility
-  const columns = useMemo(() =>
-    allColumns.filter(col => visibleColumns.includes(col.key as string)),
+  const columns = useMemo(
+    () =>
+      allColumns.filter((col) => visibleColumns.includes(col.key as string)),
     [allColumns, visibleColumns]
   )
 
   if (!canManage) {
     return (
       <Card>
-        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-          <TrophyOutlined style={{ fontSize: 48, color: '#d9d9d9', marginBottom: 16 }} />
+        <div style={{ textAlign: "center", padding: "60px 20px" }}>
+          <TrophyOutlined
+            style={{ fontSize: 48, color: "#d9d9d9", marginBottom: 16 }}
+          />
           <Title level={4} type="secondary">
             Bạn không có quyền truy cập
           </Title>
@@ -474,7 +515,7 @@ function KpiManagement() {
   }
 
   return (
-    <div style={{ padding: '0' }}>
+    <div style={{ padding: "0" }}>
       <Card>
         {/* Header */}
         <div style={{ marginBottom: 16 }}>
@@ -487,7 +528,10 @@ function KpiManagement() {
         </div>
 
         {/* Main Tabs: KPI List and KPI Categories */}
-        <Tabs activeKey={mainTab} onChange={handleMainTabChange} style={{ marginBottom: 16 }}>
+        <Tabs
+          activeKey={mainTab}
+          onChange={handleMainTabChange}
+          style={{ marginBottom: 16 }}>
           <TabPane
             tab={
               <span>
@@ -495,8 +539,7 @@ function KpiManagement() {
                 Danh sách KPI
               </span>
             }
-            key="kpis"
-          >
+            key="kpis">
             {/* Advanced Filter */}
             <AdvancedFilter
               fields={filterFields}
@@ -511,8 +554,11 @@ function KpiManagement() {
               defaultExpanded={true}
               extra={
                 <Space>
-                  <Button icon={<ReloadOutlined />} onClick={fetchKpis} loading={loading}>
-                    Làm mới
+                  <Button
+                    icon={<ReloadOutlined />}
+                    onClick={fetchKpis}
+                    loading={loading}>
+                    {t("common.refresh")}
                   </Button>
                   <ColumnToggle
                     columns={toggleableColumns}
@@ -522,11 +568,13 @@ function KpiManagement() {
                   />
                   <Button
                     icon={<FileExcelOutlined />}
-                    onClick={() => setImportModalVisible(true)}
-                  >
+                    onClick={() => setImportModalVisible(true)}>
                     Import Excel
                   </Button>
-                  <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={handleAdd}>
                     Thêm KPI mới
                   </Button>
                 </Space>
@@ -566,7 +614,7 @@ function KpiManagement() {
               pagination={{
                 ...pagination,
                 showSizeChanger: true,
-                showTotal: (total) => `Tổng ${total} KPI`,
+                showTotal: (total) => `Tổng ${total} KPI`
               }}
               onChange={handleTableChange}
               scroll={{ x: 1200 }}
@@ -580,8 +628,7 @@ function KpiManagement() {
                 Quản lý loại KPI
               </span>
             }
-            key="categories"
-          >
+            key="categories">
             <KpiCategoryManagement onCategoriesChange={fetchCategories} />
           </TabPane>
         </Tabs>
@@ -589,24 +636,22 @@ function KpiManagement() {
 
       {/* Add/Edit Modal */}
       <Modal
-        title={selectedKpi ? 'Chỉnh sửa KPI' : 'Thêm KPI mới'}
+        title={selectedKpi ? "Chỉnh sửa KPI" : "Thêm KPI mới"}
         open={editModalVisible}
         onOk={handleModalOk}
         onCancel={handleModalCancel}
         confirmLoading={actionLoading}
         width={900}
-        okText={selectedKpi ? 'Cập nhật' : 'Tạo mới'}
+        okText={selectedKpi ? "Cập nhật" : "Tạo mới"}
         cancelText="Hủy"
-        styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
-      >
+        styles={{ body: { maxHeight: "70vh", overflowY: "auto" } }}>
         <Form form={form} layout="vertical" initialValues={{ is_active: true }}>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
                 name="source"
                 label="Nguồn"
-                rules={[{ required: true, message: 'Vui lòng chọn nguồn' }]}
-              >
+                rules={[{ required: true, message: "Vui lòng chọn nguồn" }]}>
                 <Select disabled={!!selectedKpi}>
                   <Option value="CENTRAL">Trung ương</Option>
                   <Option value="VNU">ĐHQG-HCM</Option>
@@ -624,8 +669,7 @@ function KpiManagement() {
           <Form.Item
             name="title"
             label="Tiêu đề"
-            rules={[{ required: true, message: 'Vui lòng nhập tiêu đề' }]}
-          >
+            rules={[{ required: true, message: "Vui lòng nhập tiêu đề" }]}>
             <Input placeholder="Nhập tiêu đề KPI" />
           </Form.Item>
 
@@ -636,8 +680,12 @@ function KpiManagement() {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="category_id" label="Loại KPI">
-                <Select placeholder="Chọn loại KPI" allowClear showSearch optionFilterProp="children">
-                  {categories.map(cat => (
+                <Select
+                  placeholder="Chọn loại KPI"
+                  allowClear
+                  showSearch
+                  optionFilterProp="children">
+                  {categories.map((cat) => (
                     <Option key={cat.id} value={cat.id}>
                       {cat.name}
                     </Option>
@@ -648,12 +696,19 @@ function KpiManagement() {
 
             <Col span={12}>
               <Form.Item name="order_number" label="Thứ tự hiển thị">
-                <InputNumber min={0} style={{ width: '100%' }} placeholder="0" />
+                <InputNumber
+                  min={0}
+                  style={{ width: "100%" }}
+                  placeholder="0"
+                />
               </Form.Item>
             </Col>
           </Row>
 
-          <Form.Item name="is_active" label="Trạng thái" valuePropName="checked">
+          <Form.Item
+            name="is_active"
+            label="Trạng thái"
+            valuePropName="checked">
             <Switch checkedChildren="Hoạt động" unCheckedChildren="Tắt" />
           </Form.Item>
 
@@ -661,7 +716,9 @@ function KpiManagement() {
           <Divider orientation="left">
             <Space>
               <OrderedListOutlined />
-              <span>Nhiệm vụ con ({kpiTasks.filter(t => !t._delete).length})</span>
+              <span>
+                Nhiệm vụ con ({kpiTasks.filter((t) => !t._delete).length})
+              </span>
             </Space>
           </Divider>
 
@@ -672,47 +729,63 @@ function KpiManagement() {
           </div>
 
           {tasksLoading ? (
-            <div style={{ textAlign: 'center', padding: 20 }}>
+            <div style={{ textAlign: "center", padding: 20 }}>
               <Text type="secondary">Đang tải nhiệm vụ...</Text>
             </div>
           ) : (
             <>
-              {kpiTasks.filter(t => !t._delete).length > 0 && (
+              {kpiTasks.filter((t) => !t._delete).length > 0 && (
                 <List
-                  dataSource={kpiTasks.map((task, index) => ({ ...task, _index: index }))}
+                  dataSource={kpiTasks.map((task, index) => ({
+                    ...task,
+                    _index: index
+                  }))}
                   renderItem={(task) => {
                     if (task._delete) return null
                     const index = task._index
                     return (
                       <List.Item
                         style={{
-                          padding: '12px',
+                          padding: "12px",
                           marginBottom: 8,
-                          backgroundColor: '#fafafa',
+                          backgroundColor: "#fafafa",
                           borderRadius: 8,
-                          border: '1px solid #f0f0f0',
-                        }}
-                      >
-                        <div style={{ width: '100%' }}>
+                          border: "1px solid #f0f0f0"
+                        }}>
+                        <div style={{ width: "100%" }}>
                           <Row gutter={[12, 8]} align="middle">
                             <Col xs={24} md={6}>
                               <Input
                                 placeholder="Mã nhiệm vụ"
-                                value={task.code || ''}
-                                onChange={(e) => handleUpdateTask(index, 'code', e.target.value)}
+                                value={task.code || ""}
+                                onChange={(e) =>
+                                  handleUpdateTask(
+                                    index,
+                                    "code",
+                                    e.target.value
+                                  )
+                                }
                                 size="small"
                               />
                             </Col>
                             <Col xs={24} md={14}>
                               <Input
                                 placeholder="Tiêu đề nhiệm vụ *"
-                                value={task.title || ''}
-                                onChange={(e) => handleUpdateTask(index, 'title', e.target.value)}
+                                value={task.title || ""}
+                                onChange={(e) =>
+                                  handleUpdateTask(
+                                    index,
+                                    "title",
+                                    e.target.value
+                                  )
+                                }
                                 size="small"
-                                status={!task.title?.trim() ? 'error' : undefined}
+                                status={
+                                  !task.title?.trim() ? "error" : undefined
+                                }
                               />
                             </Col>
-                            <Col xs={24} md={4} style={{ textAlign: 'right' }}>
+                            <Col xs={24} md={4} style={{ textAlign: "right" }}>
                               <Tooltip title="Xóa nhiệm vụ">
                                 <Button
                                   type="text"
@@ -728,8 +801,14 @@ function KpiManagement() {
                             <Col xs={24} md={12}>
                               <Input
                                 placeholder="Giá trị mục tiêu"
-                                value={task.target_value || ''}
-                                onChange={(e) => handleUpdateTask(index, 'target_value', e.target.value)}
+                                value={task.target_value || ""}
+                                onChange={(e) =>
+                                  handleUpdateTask(
+                                    index,
+                                    "target_value",
+                                    e.target.value
+                                  )
+                                }
                                 size="small"
                                 addonBefore="Mục tiêu"
                               />
@@ -737,8 +816,14 @@ function KpiManagement() {
                             <Col xs={24} md={12}>
                               <Input
                                 placeholder="Đơn vị đo lường"
-                                value={task.unit || ''}
-                                onChange={(e) => handleUpdateTask(index, 'unit', e.target.value)}
+                                value={task.unit || ""}
+                                onChange={(e) =>
+                                  handleUpdateTask(
+                                    index,
+                                    "unit",
+                                    e.target.value
+                                  )
+                                }
                                 size="small"
                                 addonBefore="Đơn vị"
                               />
@@ -748,8 +833,14 @@ function KpiManagement() {
                             <Col span={24}>
                               <Input.TextArea
                                 placeholder="Mô tả chi tiết (tùy chọn)"
-                                value={task.description || ''}
-                                onChange={(e) => handleUpdateTask(index, 'description', e.target.value)}
+                                value={task.description || ""}
+                                onChange={(e) =>
+                                  handleUpdateTask(
+                                    index,
+                                    "description",
+                                    e.target.value
+                                  )
+                                }
                                 rows={2}
                                 size="small"
                               />
@@ -766,8 +857,7 @@ function KpiManagement() {
                 type="dashed"
                 onClick={handleAddTask}
                 icon={<PlusOutlined />}
-                style={{ width: '100%', marginTop: 8 }}
-              >
+                style={{ width: "100%", marginTop: 8 }}>
                 Thêm nhiệm vụ mới
               </Button>
             </>

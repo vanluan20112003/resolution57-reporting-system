@@ -38,11 +38,17 @@ import {
   OrganizationType,
   updateOrganization
 } from "@/services/organizationApi"
-import AdvancedFilter, { FilterField, FilterValues } from "../../shared/components/AdvancedFilter"
-import ColumnToggle, { ToggleableColumn } from "../../shared/components/ColumnToggle"
+import AdvancedFilter, {
+  FilterField,
+  FilterValues
+} from "../../shared/components/AdvancedFilter"
+import ColumnToggle, {
+  ToggleableColumn
+} from "../../shared/components/ColumnToggle"
 import { ImportExcelModal } from "../../shared/components/ImportExcelModal"
 import { FileExcelOutlined } from "@ant-design/icons"
-import './OrganizationManagement.css'
+import "./OrganizationManagement.css"
+import { t } from "i18next"
 
 const { Title, Text } = Typography
 const { Option } = Select
@@ -77,7 +83,15 @@ function OrganizationManagement() {
 
   // Visible columns state
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
-    'code', 'name', 'type', 'parent_id', 'is_vnuhcm', 'contact', 'website', 'status', 'actions'
+    "code",
+    "name",
+    "type",
+    "parent_id",
+    "is_vnuhcm",
+    "contact",
+    "website",
+    "status",
+    "actions"
   ])
 
   // Filter organizationList
@@ -214,17 +228,20 @@ function OrganizationManagement() {
   }
 
   // Toggleable columns configuration
-  const toggleableColumns: ToggleableColumn[] = useMemo(() => [
-    { key: 'code', title: 'Mã', fixed: true },
-    { key: 'name', title: 'Tên đơn vị', defaultVisible: true },
-    { key: 'type', title: 'Loại', defaultVisible: true },
-    { key: 'parent_id', title: 'Đơn vị cha', defaultVisible: true },
-    { key: 'is_vnuhcm', title: 'ĐHQG-HCM', defaultVisible: true },
-    { key: 'contact', title: 'Liên hệ', defaultVisible: true },
-    { key: 'website', title: 'Website', defaultVisible: true },
-    { key: 'status', title: 'Trạng thái', defaultVisible: true },
-    { key: 'actions', title: 'Thao tác', fixed: true },
-  ], [])
+  const toggleableColumns: ToggleableColumn[] = useMemo(
+    () => [
+      { key: "code", title: "Mã", fixed: true },
+      { key: "name", title: "Tên đơn vị", defaultVisible: true },
+      { key: "type", title: "Loại", defaultVisible: true },
+      { key: "parent_id", title: "Đơn vị cha", defaultVisible: true },
+      { key: "is_vnuhcm", title: "ĐHQG-HCM", defaultVisible: true },
+      { key: "contact", title: "Liên hệ", defaultVisible: true },
+      { key: "website", title: "Website", defaultVisible: true },
+      { key: "status", title: "Trạng thái", defaultVisible: true },
+      { key: "actions", title: t("common.actions"), fixed: true }
+    ],
+    []
+  )
 
   // Columns
   const allColumns: ColumnsType<Organization> = [
@@ -233,7 +250,7 @@ function OrganizationManagement() {
       dataIndex: "code",
       key: "code",
       width: 130,
-      sorter: (a, b) => (a.code || '').localeCompare(b.code || ''),
+      sorter: (a, b) => (a.code || "").localeCompare(b.code || ""),
       render: (code: string) => (
         <Text strong style={{ color: "#1890ff" }}>
           {code}
@@ -246,7 +263,7 @@ function OrganizationManagement() {
       key: "name",
       width: 250,
       ellipsis: true,
-      sorter: (a, b) => (a.name || '').localeCompare(b.name || ''),
+      sorter: (a, b) => (a.name || "").localeCompare(b.name || ""),
       render: (name: string, record: Organization) => (
         <div>
           <Text strong>{name}</Text>
@@ -262,7 +279,7 @@ function OrganizationManagement() {
       dataIndex: "type",
       key: "type",
       width: 150,
-      sorter: (a, b) => (a.type || '').localeCompare(b.type || ''),
+      sorter: (a, b) => (a.type || "").localeCompare(b.type || ""),
       render: (type: string) => (
         <Tag color={getOrganizationTypeColor(type)}>
           {getOrganizationTypeLabel(type)}
@@ -274,7 +291,8 @@ function OrganizationManagement() {
       dataIndex: "parent_id",
       key: "parent_id",
       width: 120,
-      sorter: (a, b) => getParentName(a.parent_id).localeCompare(getParentName(b.parent_id)),
+      sorter: (a, b) =>
+        getParentName(a.parent_id).localeCompare(getParentName(b.parent_id)),
       render: (parentId: string | null) => (
         <Text type={parentId ? "default" : "secondary"}>
           {getParentName(parentId)}
@@ -299,7 +317,8 @@ function OrganizationManagement() {
       key: "contact",
       width: 200,
       ellipsis: true,
-      sorter: (a, b) => (a.contact_email || '').localeCompare(b.contact_email || ''),
+      sorter: (a, b) =>
+        (a.contact_email || "").localeCompare(b.contact_email || ""),
       render: (_: any, record: Organization) => (
         <Space direction="vertical" size={0}>
           {record.contact_email && (
@@ -321,7 +340,7 @@ function OrganizationManagement() {
       key: "website",
       width: 150,
       ellipsis: true,
-      sorter: (a, b) => (a.website || '').localeCompare(b.website || ''),
+      sorter: (a, b) => (a.website || "").localeCompare(b.website || ""),
       render: (website: string) =>
         website ? (
           <a href={website} target="_blank" rel="noopener noreferrer">
@@ -337,7 +356,7 @@ function OrganizationManagement() {
       key: "status",
       width: 120,
       fixed: "right",
-      sorter: (a, b) => (a.status || '').localeCompare(b.status || ''),
+      sorter: (a, b) => (a.status || "").localeCompare(b.status || ""),
       render: (status: string) => (
         <Tag
           color={status === OrganizationStatus.ACTIVE ? "success" : "default"}>
@@ -348,7 +367,7 @@ function OrganizationManagement() {
       )
     },
     {
-      title: "Thao tác",
+      title: t("common.actions"),
       key: "actions",
       width: 150,
       fixed: "right",
@@ -390,8 +409,9 @@ function OrganizationManagement() {
   ]
 
   // Filter columns based on visibility
-  const columns = useMemo(() =>
-    allColumns.filter(col => visibleColumns.includes(col.key as string)),
+  const columns = useMemo(
+    () =>
+      allColumns.filter((col) => visibleColumns.includes(col.key as string)),
     [allColumns, visibleColumns]
   )
 
@@ -411,11 +431,31 @@ function OrganizationManagement() {
         type: "select",
         span: 6,
         options: [
-          { value: OrganizationType.UNIVERSITY_SYSTEM, label: "Đại học Quốc gia", color: "purple" },
-          { value: OrganizationType.UNIVERSITY, label: "Trường thành viên", color: "blue" },
-          { value: OrganizationType.RESEARCH_INSTITUTE, label: "Viện nghiên cứu", color: "cyan" },
-          { value: OrganizationType.CENTER, label: "Trung tâm", color: "green" },
-          { value: OrganizationType.DEPARTMENT, label: "Phòng ban", color: "orange" },
+          {
+            value: OrganizationType.UNIVERSITY_SYSTEM,
+            label: "Đại học Quốc gia",
+            color: "purple"
+          },
+          {
+            value: OrganizationType.UNIVERSITY,
+            label: "Trường thành viên",
+            color: "blue"
+          },
+          {
+            value: OrganizationType.RESEARCH_INSTITUTE,
+            label: "Viện nghiên cứu",
+            color: "cyan"
+          },
+          {
+            value: OrganizationType.CENTER,
+            label: "Trung tâm",
+            color: "green"
+          },
+          {
+            value: OrganizationType.DEPARTMENT,
+            label: "Phòng ban",
+            color: "orange"
+          },
           { value: OrganizationType.EXTERNAL, label: "Đơn vị ngoài" }
         ]
       },
@@ -425,8 +465,16 @@ function OrganizationManagement() {
         type: "select",
         span: 5,
         options: [
-          { value: OrganizationStatus.ACTIVE, label: "Hoạt động", color: "success" },
-          { value: OrganizationStatus.INACTIVE, label: "Không hoạt động", color: "warning" }
+          {
+            value: OrganizationStatus.ACTIVE,
+            label: "Hoạt động",
+            color: "success"
+          },
+          {
+            value: OrganizationStatus.INACTIVE,
+            label: "Không hoạt động",
+            color: "warning"
+          }
         ]
       },
       {
@@ -511,8 +559,11 @@ function OrganizationManagement() {
           defaultExpanded={true}
           extra={
             <Space wrap className="org-management-actions">
-              <Button icon={<ReloadOutlined />} onClick={fetchOrganizations} loading={loading}>
-                Làm mới
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={fetchOrganizations}
+                loading={loading}>
+                {t("common.refresh")}
               </Button>
               <ColumnToggle
                 columns={toggleableColumns}
@@ -522,11 +573,13 @@ function OrganizationManagement() {
               />
               <Button
                 icon={<FileExcelOutlined />}
-                onClick={() => setImportModalVisible(true)}
-              >
+                onClick={() => setImportModalVisible(true)}>
                 Import Excel
               </Button>
-              <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={handleAdd}>
                 Thêm đơn vị mới
               </Button>
             </Space>
@@ -843,7 +896,9 @@ function OrganizationManagement() {
         open={importModalVisible}
         type="organizations"
         onClose={() => setImportModalVisible(false)}
-        onSuccess={() => fetchOrganizations(pagination.pageSize!, pagination.current!)}
+        onSuccess={() =>
+          fetchOrganizations(pagination.pageSize!, pagination.current!)
+        }
       />
     </div>
   )

@@ -1,28 +1,81 @@
-import { useState, useEffect } from 'react'
-import { Card, Table, Tag, Input, Select, Space, Button, message, Empty, Alert, Row, Col, Statistic, Spin, Typography, Tooltip, DatePicker, Divider, Modal, Descriptions, Progress, Segmented, List, Avatar, Badge } from 'antd'
-import { EyeOutlined, TeamOutlined, SafetyOutlined, ReloadOutlined, GlobalOutlined, ApartmentOutlined, CheckCircleOutlined, FilterOutlined, ClearOutlined, CalendarOutlined, DollarOutlined, EnvironmentOutlined, FileTextOutlined, AppstoreOutlined, UnorderedListOutlined, ArrowLeftOutlined, BankOutlined } from '@ant-design/icons'
-import type { ColumnsType } from 'antd/es/table'
-import dayjs from 'dayjs'
-import type { Dayjs } from 'dayjs'
-import { getAccessibleOrganizations } from '../../services/organizationPermissionsApi'
-import { getOrganizationList } from '../../services/organizationApi'
-import { getActivityTypes, getActivityFields, ActivityType, ActivityField } from '../../services/activityConfigApi'
-import API_CONFIG from '../../config/api'
+import { useState, useEffect } from "react"
+import {
+  Card,
+  Table,
+  Tag,
+  Input,
+  Select,
+  Space,
+  Button,
+  message,
+  Empty,
+  Alert,
+  Row,
+  Col,
+  Statistic,
+  Spin,
+  Typography,
+  Tooltip,
+  DatePicker,
+  Divider,
+  Modal,
+  Descriptions,
+  Progress,
+  Segmented,
+  List,
+  Avatar,
+  Badge
+} from "antd"
+import {
+  EyeOutlined,
+  TeamOutlined,
+  SafetyOutlined,
+  ReloadOutlined,
+  GlobalOutlined,
+  ApartmentOutlined,
+  CheckCircleOutlined,
+  FilterOutlined,
+  ClearOutlined,
+  CalendarOutlined,
+  DollarOutlined,
+  EnvironmentOutlined,
+  FileTextOutlined,
+  AppstoreOutlined,
+  UnorderedListOutlined,
+  ArrowLeftOutlined,
+  BankOutlined
+} from "@ant-design/icons"
+import type { ColumnsType } from "antd/es/table"
+import dayjs from "dayjs"
+import type { Dayjs } from "dayjs"
+import { getAccessibleOrganizations } from "../../services/organizationPermissionsApi"
+import { getOrganizationList } from "../../services/organizationApi"
+import {
+  getActivityTypes,
+  getActivityFields,
+  ActivityType,
+  ActivityField
+} from "../../services/activityConfigApi"
+import API_CONFIG from "../../config/api"
+import { t } from "i18next"
 
 const { Search } = Input
 
 // Helper function to construct full avatar URL
-const getAvatarUrl = (avatarPath: string | null | undefined): string | undefined => {
+const getAvatarUrl = (
+  avatarPath: string | null | undefined
+): string | undefined => {
   if (!avatarPath) return undefined
   // If already a full URL, return as-is
-  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
+  if (avatarPath.startsWith("http://") || avatarPath.startsWith("https://")) {
     return avatarPath
   }
   // Construct full URL from relative path
   // In production, use relative path; in dev, use localhost
   const baseUrl = import.meta.env.PROD
     ? window.location.origin
-    : (import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://localhost:8000')
+    : import.meta.env.VITE_API_URL?.replace("/api/v1", "") ||
+      "http://localhost:8000"
   return `${baseUrl}/storage/${avatarPath}`
 }
 const { Option } = Select
@@ -30,10 +83,10 @@ const { Title, Text } = Typography
 const { RangePicker } = DatePicker
 
 // View mode type
-type ViewMode = 'organizations' | 'activities'
+type ViewMode = "organizations" | "activities"
 
 // LocalStorage key for saving view mode preference
-const VIEW_MODE_STORAGE_KEY = 'accessible_activities_view_mode'
+const VIEW_MODE_STORAGE_KEY = "accessible_activities_view_mode"
 
 interface Activity {
   id: string
@@ -112,16 +165,21 @@ export function AccessibleActivitiesList() {
   // View mode state - load from localStorage or default to 'organizations'
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = localStorage.getItem(VIEW_MODE_STORAGE_KEY)
-    return (saved as ViewMode) || 'organizations'
+    return (saved as ViewMode) || "organizations"
   })
-  const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null)
+  const [selectedOrganization, setSelectedOrganization] =
+    useState<Organization | null>(null)
 
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
-  const [accessibleInfo, setAccessibleInfo] = useState<AccessibleInfo | null>(null)
+  const [accessibleInfo, setAccessibleInfo] = useState<AccessibleInfo | null>(
+    null
+  )
   const [organizations, setOrganizations] = useState<Organization[]>([])
-  const [organizationStats, setOrganizationStats] = useState<OrganizationStats[]>([])
+  const [organizationStats, setOrganizationStats] = useState<
+    OrganizationStats[]
+  >([])
   const [loadingStats, setLoadingStats] = useState(false)
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
   const [activityFields, setActivityFields] = useState<ActivityField[]>([])
@@ -129,24 +187,28 @@ export function AccessibleActivitiesList() {
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 15,
-    total: 0,
+    total: 0
   })
   const [filters, setFilters] = useState<Filters>({
-    search: '',
+    search: "",
     organization_id: undefined,
     status: undefined,
     activity_type_id: undefined,
     activity_field_id: undefined,
     date_from: undefined,
-    date_to: undefined,
+    date_to: undefined
   })
   const [detailModalVisible, setDetailModalVisible] = useState(false)
-  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
+    null
+  )
   const [detailLoading, setDetailLoading] = useState(false)
 
   // Organization search/filter state
-  const [orgSearchText, setOrgSearchText] = useState('')
-  const [orgSortBy, setOrgSortBy] = useState<'name' | 'activity_count'>('activity_count')
+  const [orgSearchText, setOrgSearchText] = useState("")
+  const [orgSortBy, setOrgSortBy] = useState<"name" | "activity_count">(
+    "activity_count"
+  )
 
   // Save view mode preference when it changes
   useEffect(() => {
@@ -169,7 +231,12 @@ export function AccessibleActivitiesList() {
 
   // Fetch organization stats when in organizations view mode
   useEffect(() => {
-    if (accessibleInfo && accessibleInfo.permissions_count > 0 && viewMode === 'organizations' && !selectedOrganization) {
+    if (
+      accessibleInfo &&
+      accessibleInfo.permissions_count > 0 &&
+      viewMode === "organizations" &&
+      !selectedOrganization
+    ) {
       fetchOrganizationStats()
     }
   }, [accessibleInfo, viewMode, selectedOrganization])
@@ -177,11 +244,18 @@ export function AccessibleActivitiesList() {
   // Fetch activities when in activities view mode or when an organization is selected
   useEffect(() => {
     if (accessibleInfo && accessibleInfo.permissions_count > 0) {
-      if (viewMode === 'activities' || selectedOrganization) {
+      if (viewMode === "activities" || selectedOrganization) {
         fetchActivities()
       }
     }
-  }, [accessibleInfo, pagination.current, pagination.pageSize, filters, viewMode, selectedOrganization])
+  }, [
+    accessibleInfo,
+    pagination.current,
+    pagination.pageSize,
+    filters,
+    viewMode,
+    selectedOrganization
+  ])
 
   const fetchAccessibleInfo = async () => {
     try {
@@ -190,8 +264,8 @@ export function AccessibleActivitiesList() {
         setAccessibleInfo(response.data)
       }
     } catch (error: any) {
-      console.error('Failed to fetch accessible info:', error)
-      message.error('Không thể kiểm tra quyền truy cập')
+      console.error("Failed to fetch accessible info:", error)
+      message.error("Không thể kiểm tra quyền truy cập")
     }
   }
 
@@ -203,24 +277,27 @@ export function AccessibleActivitiesList() {
         setOrganizations(orgsData)
       }
     } catch (error: any) {
-      console.error('Failed to fetch organizations:', error)
+      console.error("Failed to fetch organizations:", error)
     }
   }
 
   const fetchOrganizationStats = async () => {
     setLoadingStats(true)
     try {
-      const token = localStorage.getItem('access_token')
+      const token = localStorage.getItem("access_token")
       const orgMap = new Map<string, { org: Organization; count: number }>()
 
       // 1. Fetch accessible activities from other organizations
-      const accessibleResponse = await fetch(`${API_CONFIG.BASE_URL}/activities/accessible/all?per_page=1000`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      })
+      const accessibleResponse = await fetch(
+        `${API_CONFIG.BASE_URL}/activities/accessible/all?per_page=1000`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          }
+        }
+      )
 
       if (accessibleResponse.ok) {
         const data = await accessibleResponse.json()
@@ -237,9 +314,11 @@ export function AccessibleActivitiesList() {
                     name: activity.lead_organization.name,
                     short_name: activity.lead_organization.short_name,
                     code: activity.lead_organization.code,
-                    avatar: activity.lead_organization.avatar || activity.lead_organization.logo,
+                    avatar:
+                      activity.lead_organization.avatar ||
+                      activity.lead_organization.logo
                   },
-                  count: 1,
+                  count: 1
                 })
               }
             }
@@ -248,13 +327,16 @@ export function AccessibleActivitiesList() {
       }
 
       // 2. Fetch own organization's activities
-      const ownResponse = await fetch(`${API_CONFIG.BASE_URL}/activities?per_page=1000`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      })
+      const ownResponse = await fetch(
+        `${API_CONFIG.BASE_URL}/activities?per_page=1000`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          }
+        }
+      )
 
       if (ownResponse.ok) {
         const ownData = await ownResponse.json()
@@ -271,9 +353,11 @@ export function AccessibleActivitiesList() {
                     name: activity.lead_organization.name,
                     short_name: activity.lead_organization.short_name,
                     code: activity.lead_organization.code,
-                    avatar: activity.lead_organization.avatar || activity.lead_organization.logo,
+                    avatar:
+                      activity.lead_organization.avatar ||
+                      activity.lead_organization.logo
                   },
-                  count: 1,
+                  count: 1
                 })
               }
             }
@@ -282,15 +366,19 @@ export function AccessibleActivitiesList() {
       }
 
       // Convert to stats array
-      const stats: OrganizationStats[] = Array.from(orgMap.values()).map(item => ({
-        organization: item.org,
-        activity_count: item.count,
-      }))
+      const stats: OrganizationStats[] = Array.from(orgMap.values()).map(
+        (item) => ({
+          organization: item.org,
+          activity_count: item.count
+        })
+      )
 
       // Sort by activity count descending
-      setOrganizationStats(stats.sort((a, b) => b.activity_count - a.activity_count))
+      setOrganizationStats(
+        stats.sort((a, b) => b.activity_count - a.activity_count)
+      )
     } catch (error: any) {
-      console.error('Failed to fetch organization stats:', error)
+      console.error("Failed to fetch organization stats:", error)
       setOrganizationStats([])
     } finally {
       setLoadingStats(false)
@@ -304,7 +392,7 @@ export function AccessibleActivitiesList() {
         setActivityTypes(response.data)
       }
     } catch (error: any) {
-      console.error('Failed to fetch activity types:', error)
+      console.error("Failed to fetch activity types:", error)
     }
   }
 
@@ -315,23 +403,25 @@ export function AccessibleActivitiesList() {
         setActivityFields(response.data)
       }
     } catch (error: any) {
-      console.error('Failed to fetch activity fields:', error)
+      console.error("Failed to fetch activity fields:", error)
     }
   }
 
   const fetchActivities = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
+      const token = localStorage.getItem("access_token")
       const params: Record<string, string> = {
         page: String(pagination.current),
-        per_page: String(pagination.pageSize),
+        per_page: String(pagination.pageSize)
       }
 
       if (filters.search) params.search = filters.search
       if (filters.status) params.status = filters.status
-      if (filters.activity_type_id) params.activity_type_id = filters.activity_type_id
-      if (filters.activity_field_id) params.activity_field_id = filters.activity_field_id
+      if (filters.activity_type_id)
+        params.activity_type_id = filters.activity_type_id
+      if (filters.activity_field_id)
+        params.activity_field_id = filters.activity_field_id
       if (filters.date_from) params.date_from = filters.date_from
       if (filters.date_to) params.date_to = filters.date_to
 
@@ -359,18 +449,18 @@ export function AccessibleActivitiesList() {
       })
 
       const response = await fetch(url.toString(), {
-        method: 'GET',
+        method: "GET",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        }
       })
 
       if (!response.ok) {
         if (response.status === 403) {
-          message.warning('Bạn chưa được cấp quyền xem hoạt động này')
+          message.warning("Bạn chưa được cấp quyền xem hoạt động này")
         } else {
-          message.error('Không thể tải danh sách hoạt động')
+          message.error("Không thể tải danh sách hoạt động")
         }
         return
       }
@@ -378,13 +468,13 @@ export function AccessibleActivitiesList() {
       const data = await response.json()
       if (data.success) {
         setActivities(data.data)
-        setPagination(prev => ({
+        setPagination((prev) => ({
           ...prev,
-          total: data.pagination?.total || 0,
+          total: data.pagination?.total || 0
         }))
       }
     } catch (error: any) {
-      message.error('Không thể tải danh sách hoạt động')
+      message.error("Không thể tải danh sách hoạt động")
       console.error(error)
     } finally {
       setLoading(false)
@@ -395,69 +485,71 @@ export function AccessibleActivitiesList() {
     setPagination({
       current: newPagination.current,
       pageSize: newPagination.pageSize,
-      total: pagination.total,
+      total: pagination.total
     })
   }
 
   const handleSearch = (value: string) => {
-    setFilters(prev => ({ ...prev, search: value }))
-    setPagination(prev => ({ ...prev, current: 1 }))
+    setFilters((prev) => ({ ...prev, search: value }))
+    setPagination((prev) => ({ ...prev, current: 1 }))
   }
 
   const handleOrganizationChange = (value: string | undefined) => {
-    setFilters(prev => ({ ...prev, organization_id: value }))
-    setPagination(prev => ({ ...prev, current: 1 }))
+    setFilters((prev) => ({ ...prev, organization_id: value }))
+    setPagination((prev) => ({ ...prev, current: 1 }))
   }
 
   const handleStatusChange = (value: string | undefined) => {
-    setFilters(prev => ({ ...prev, status: value }))
-    setPagination(prev => ({ ...prev, current: 1 }))
+    setFilters((prev) => ({ ...prev, status: value }))
+    setPagination((prev) => ({ ...prev, current: 1 }))
   }
 
   const handleActivityTypeChange = (value: string | undefined) => {
-    setFilters(prev => ({ ...prev, activity_type_id: value }))
-    setPagination(prev => ({ ...prev, current: 1 }))
+    setFilters((prev) => ({ ...prev, activity_type_id: value }))
+    setPagination((prev) => ({ ...prev, current: 1 }))
   }
 
   const handleActivityFieldChange = (value: string | undefined) => {
-    setFilters(prev => ({ ...prev, activity_field_id: value }))
-    setPagination(prev => ({ ...prev, current: 1 }))
+    setFilters((prev) => ({ ...prev, activity_field_id: value }))
+    setPagination((prev) => ({ ...prev, current: 1 }))
   }
 
-  const handleDateRangeChange = (dates: [Dayjs | null, Dayjs | null] | null) => {
+  const handleDateRangeChange = (
+    dates: [Dayjs | null, Dayjs | null] | null
+  ) => {
     if (dates && dates[0] && dates[1]) {
-      setFilters(prev => ({
+      setFilters((prev) => ({
         ...prev,
-        date_from: dates[0]!.format('YYYY-MM-DD'),
-        date_to: dates[1]!.format('YYYY-MM-DD'),
+        date_from: dates[0]!.format("YYYY-MM-DD"),
+        date_to: dates[1]!.format("YYYY-MM-DD")
       }))
     } else {
-      setFilters(prev => ({
+      setFilters((prev) => ({
         ...prev,
         date_from: undefined,
-        date_to: undefined,
+        date_to: undefined
       }))
     }
-    setPagination(prev => ({ ...prev, current: 1 }))
+    setPagination((prev) => ({ ...prev, current: 1 }))
   }
 
   const handleClearFilters = () => {
     setFilters({
-      search: '',
+      search: "",
       organization_id: undefined,
       status: undefined,
       activity_type_id: undefined,
       activity_field_id: undefined,
       date_from: undefined,
-      date_to: undefined,
+      date_to: undefined
     })
-    setPagination(prev => ({ ...prev, current: 1 }))
+    setPagination((prev) => ({ ...prev, current: 1 }))
   }
 
   const handleRefresh = () => {
     fetchAccessibleInfo()
     if (accessibleInfo && accessibleInfo.permissions_count > 0) {
-      if (viewMode === 'organizations' && !selectedOrganization) {
+      if (viewMode === "organizations" && !selectedOrganization) {
         fetchOrganizationStats()
       } else {
         fetchActivities()
@@ -471,20 +563,23 @@ export function AccessibleActivitiesList() {
     setDetailLoading(true)
 
     try {
-      const token = localStorage.getItem('access_token')
-      const response = await fetch(`${API_CONFIG.BASE_URL}/activities/${activity.id}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      })
+      const token = localStorage.getItem("access_token")
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/activities/${activity.id}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          }
+        }
+      )
 
       if (!response.ok) {
         if (response.status === 403) {
-          message.error('Bạn không có quyền xem chi tiết hoạt động này')
+          message.error("Bạn không có quyền xem chi tiết hoạt động này")
         } else {
-          message.error('Không thể tải chi tiết hoạt động')
+          message.error("Không thể tải chi tiết hoạt động")
         }
         setDetailModalVisible(false)
         return
@@ -495,7 +590,7 @@ export function AccessibleActivitiesList() {
         setSelectedActivity(data.data)
       }
     } catch (error: any) {
-      message.error('Không thể tải chi tiết hoạt động')
+      message.error("Không thể tải chi tiết hoạt động")
       console.error(error)
     } finally {
       setDetailLoading(false)
@@ -510,179 +605,202 @@ export function AccessibleActivitiesList() {
   const handleViewModeChange = (value: ViewMode) => {
     setViewMode(value)
     setSelectedOrganization(null)
-    setPagination(prev => ({ ...prev, current: 1 }))
+    setPagination((prev) => ({ ...prev, current: 1 }))
     setFilters({
-      search: '',
+      search: "",
       organization_id: undefined,
       status: undefined,
       activity_type_id: undefined,
       activity_field_id: undefined,
       date_from: undefined,
-      date_to: undefined,
+      date_to: undefined
     })
   }
 
   const handleSelectOrganization = (org: Organization) => {
     setSelectedOrganization(org)
-    setPagination(prev => ({ ...prev, current: 1 }))
+    setPagination((prev) => ({ ...prev, current: 1 }))
   }
 
   const handleBackToOrganizations = () => {
     setSelectedOrganization(null)
     setActivities([])
-    setPagination(prev => ({ ...prev, current: 1, total: 0 }))
+    setPagination((prev) => ({ ...prev, current: 1, total: 0 }))
   }
 
   const formatCurrency = (value?: number) => {
-    if (!value) return '-'
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
+    if (!value) return "-"
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND"
+    }).format(value)
   }
 
   const hasActiveFilters = () => {
-    return filters.search ||
+    return (
+      filters.search ||
       filters.organization_id ||
       filters.status ||
       filters.activity_type_id ||
       filters.activity_field_id ||
       filters.date_from ||
       filters.date_to
+    )
   }
 
   const getStatusColor = (status: string) => {
     const statusColors: Record<string, string> = {
-      APPROVED: 'green',
-      IN_PROGRESS: 'blue',
-      COMPLETED: 'purple',
-      CANCELLED: 'red',
-      POSTPONED: 'orange',
+      APPROVED: "green",
+      IN_PROGRESS: "blue",
+      COMPLETED: "purple",
+      CANCELLED: "red",
+      POSTPONED: "orange"
     }
-    return statusColors[status] || 'default'
+    return statusColors[status] || "default"
   }
 
   const getStatusText = (status: string) => {
     const statusTexts: Record<string, string> = {
-      APPROVED: 'Đã duyệt',
-      IN_PROGRESS: 'Đang thực hiện',
-      COMPLETED: 'Hoàn thành',
-      CANCELLED: 'Đã hủy',
-      POSTPONED: 'Hoãn lại',
+      APPROVED: "Đã duyệt",
+      IN_PROGRESS: "Đang thực hiện",
+      COMPLETED: "Hoàn thành",
+      CANCELLED: "Đã hủy",
+      POSTPONED: "Hoãn lại"
     }
     return statusTexts[status] || status
   }
 
   const columns: ColumnsType<Activity> = [
     {
-      title: 'Mã hoạt động',
-      dataIndex: 'code',
-      key: 'code',
+      title: "Mã hoạt động",
+      dataIndex: "code",
+      key: "code",
       width: 150,
-      render: (code: string) => <Text strong>{code}</Text>,
+      render: (code: string) => <Text strong>{code}</Text>
     },
     {
-      title: 'Tiêu đề',
-      dataIndex: 'title',
-      key: 'title',
+      title: "Tiêu đề",
+      dataIndex: "title",
+      key: "title",
       ellipsis: true,
       render: (title: string) => (
         <Tooltip title={title}>
           <span>{title}</span>
         </Tooltip>
-      ),
+      )
     },
     {
-      title: 'Phòng ban',
-      dataIndex: ['lead_organization', 'short_name'],
-      key: 'organization',
+      title: "Phòng ban",
+      dataIndex: ["lead_organization", "short_name"],
+      key: "organization",
       width: 150,
       render: (text, record) => (
         <Tag icon={<ApartmentOutlined />} color="blue">
-          {text || record.lead_organization?.name || 'N/A'}
+          {text || record.lead_organization?.name || "N/A"}
         </Tag>
-      ),
+      )
     },
     {
-      title: 'Loại hoạt động',
-      dataIndex: ['activity_type', 'name'],
-      key: 'type',
+      title: "Loại hoạt động",
+      dataIndex: ["activity_type", "name"],
+      key: "type",
       width: 150,
       ellipsis: true,
-      render: (text) => text || 'N/A',
+      render: (text) => text || "N/A"
     },
     {
-      title: 'Lĩnh vực',
-      dataIndex: ['activity_field', 'name'],
-      key: 'field',
+      title: "Lĩnh vực",
+      dataIndex: ["activity_field", "name"],
+      key: "field",
       width: 150,
       ellipsis: true,
-      render: (text) => text ? <Tag color="cyan">{text}</Tag> : <Text type="secondary">-</Text>,
+      render: (text) =>
+        text ? <Tag color="cyan">{text}</Tag> : <Text type="secondary">-</Text>
     },
     {
-      title: 'Thời gian',
-      key: 'dates',
+      title: "Thời gian",
+      key: "dates",
       width: 180,
       render: (_, record) => (
         <Space direction="vertical" size={0}>
           {record.start_date && (
-            <div><small>Bắt đầu: {dayjs(record.start_date).format('DD/MM/YYYY')}</small></div>
+            <div>
+              <small>
+                Bắt đầu: {dayjs(record.start_date).format("DD/MM/YYYY")}
+              </small>
+            </div>
           )}
           {record.end_date && (
-            <div><small>Kết thúc: {dayjs(record.end_date).format('DD/MM/YYYY')}</small></div>
+            <div>
+              <small>
+                Kết thúc: {dayjs(record.end_date).format("DD/MM/YYYY")}
+              </small>
+            </div>
           )}
         </Space>
-      ),
+      )
     },
     {
-      title: 'Trạng thái',
-      dataIndex: 'status',
-      key: 'status',
+      title: "Trạng thái",
+      dataIndex: "status",
+      key: "status",
       width: 130,
       render: (status: string) => (
         <Tag color={getStatusColor(status)}>{getStatusText(status)}</Tag>
-      ),
+      )
     },
     {
-      title: 'Hành động',
-      key: 'actions',
+      title: "Hành động",
+      key: "actions",
       width: 100,
-      fixed: 'right',
+      fixed: "right",
       render: (_, record) => (
         <Button
           type="link"
           icon={<EyeOutlined />}
-          onClick={() => handleViewDetail(record)}
-        >
+          onClick={() => handleViewDetail(record)}>
           Xem
         </Button>
-      ),
-    },
+      )
+    }
   ]
 
   // Filter organizations by accessible IDs (exclude own org)
-  const accessibleOrganizations = organizations.filter(org => {
+  const accessibleOrganizations = organizations.filter((org) => {
     if (org.id === accessibleInfo?.own_organization_id) return false
     if (accessibleInfo?.can_view_all) return true
-    return accessibleInfo?.accessible_organization_ids?.includes(org.id) ?? false
+    return (
+      accessibleInfo?.accessible_organization_ids?.includes(org.id) ?? false
+    )
   })
 
-  const organizationsForFilter = accessibleOrganizations.length > 0
-    ? accessibleOrganizations
-    : activities
-        .filter(act => act.lead_organization && act.lead_organization.id !== accessibleInfo?.own_organization_id)
-        .reduce((acc, act) => {
-          if (!acc.find(o => o.id === act.lead_organization?.id) && act.lead_organization) {
-            acc.push({
-              id: act.lead_organization.id,
-              name: act.lead_organization.name,
-              short_name: act.lead_organization.short_name || undefined
-            })
-          }
-          return acc
-        }, [] as Organization[])
+  const organizationsForFilter =
+    accessibleOrganizations.length > 0
+      ? accessibleOrganizations
+      : activities
+          .filter(
+            (act) =>
+              act.lead_organization &&
+              act.lead_organization.id !== accessibleInfo?.own_organization_id
+          )
+          .reduce((acc, act) => {
+            if (
+              !acc.find((o) => o.id === act.lead_organization?.id) &&
+              act.lead_organization
+            ) {
+              acc.push({
+                id: act.lead_organization.id,
+                name: act.lead_organization.name,
+                short_name: act.lead_organization.short_name || undefined
+              })
+            }
+            return acc
+          }, [] as Organization[])
 
   // Loading state
   if (initialLoading) {
     return (
-      <div style={{ padding: '24px', textAlign: 'center' }}>
+      <div style={{ padding: "24px", textAlign: "center" }}>
         <Spin size="large" />
         <div style={{ marginTop: 16 }}>
           <Text type="secondary">Đang kiểm tra quyền truy cập...</Text>
@@ -694,12 +812,14 @@ export function AccessibleActivitiesList() {
   // No permission state
   if (!accessibleInfo || accessibleInfo.permissions_count === 0) {
     return (
-      <div style={{ padding: '24px' }}>
+      <div style={{ padding: "24px" }}>
         <Alert
           message="Chưa được cấp quyền"
           description={
             <div>
-              <p>Bạn chưa được cấp quyền xem hoạt động của các phòng ban khác.</p>
+              <p>
+                Bạn chưa được cấp quyền xem hoạt động của các phòng ban khác.
+              </p>
               <p>Vui lòng liên hệ Admin/Operator để được cấp quyền truy cập.</p>
             </div>
           }
@@ -713,7 +833,8 @@ export function AccessibleActivitiesList() {
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={
               <span>
-                Bạn cần được cấp quyền để xem hoạt động của phòng ban khác.<br />
+                Bạn cần được cấp quyền để xem hoạt động của phòng ban khác.
+                <br />
                 Liên hệ người quản trị hệ thống.
               </span>
             }
@@ -729,16 +850,16 @@ export function AccessibleActivitiesList() {
       if (!orgSearchText) return true
       const searchLower = orgSearchText.toLowerCase()
       return (
-        (item.organization.name?.toLowerCase().includes(searchLower)) ||
-        (item.organization.short_name?.toLowerCase().includes(searchLower)) ||
-        (item.organization.code?.toLowerCase().includes(searchLower))
+        item.organization.name?.toLowerCase().includes(searchLower) ||
+        item.organization.short_name?.toLowerCase().includes(searchLower) ||
+        item.organization.code?.toLowerCase().includes(searchLower)
       )
     })
     .sort((a, b) => {
-      if (orgSortBy === 'name') {
-        const nameA = a.organization.short_name || a.organization.name || ''
-        const nameB = b.organization.short_name || b.organization.name || ''
-        return nameA.localeCompare(nameB, 'vi')
+      if (orgSortBy === "name") {
+        const nameA = a.organization.short_name || a.organization.name || ""
+        const nameB = b.organization.short_name || b.organization.name || ""
+        return nameA.localeCompare(nameB, "vi")
       }
       return b.activity_count - a.activity_count
     })
@@ -756,11 +877,13 @@ export function AccessibleActivitiesList() {
         </Space>
       }
       extra={
-        <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={loadingStats}>
-          Làm mới
+        <Button
+          icon={<ReloadOutlined />}
+          onClick={handleRefresh}
+          loading={loadingStats}>
+          {t("common.refresh")}
         </Button>
-      }
-    >
+      }>
       {/* Search and Filter */}
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={12} md={8} lg={6}>
@@ -776,15 +899,16 @@ export function AccessibleActivitiesList() {
           <Select
             value={orgSortBy}
             onChange={(value) => setOrgSortBy(value)}
-            style={{ width: '100%' }}
-          >
+            style={{ width: "100%" }}>
             <Option value="activity_count">Sắp xếp theo số hoạt động</Option>
             <Option value="name">Sắp xếp theo tên</Option>
           </Select>
         </Col>
         {orgSearchText && (
           <Col xs={24} sm={12} md={8} lg={6}>
-            <Button icon={<ClearOutlined />} onClick={() => setOrgSearchText('')}>
+            <Button
+              icon={<ClearOutlined />}
+              onClick={() => setOrgSearchText("")}>
               Xóa tìm kiếm
             </Button>
           </Col>
@@ -792,7 +916,7 @@ export function AccessibleActivitiesList() {
       </Row>
 
       {loadingStats ? (
-        <div style={{ textAlign: 'center', padding: 40 }}>
+        <div style={{ textAlign: "center", padding: 40 }}>
           <Spin size="large" />
           <div style={{ marginTop: 16 }}>
             <Text type="secondary">Đang tải danh sách phòng ban...</Text>
@@ -811,7 +935,8 @@ export function AccessibleActivitiesList() {
           {orgSearchText && (
             <div style={{ marginBottom: 16 }}>
               <Text type="secondary">
-                Tìm thấy {filteredOrganizationStats.length} / {organizationStats.length} phòng ban
+                Tìm thấy {filteredOrganizationStats.length} /{" "}
+                {organizationStats.length} phòng ban
               </Text>
             </div>
           )}
@@ -823,8 +948,7 @@ export function AccessibleActivitiesList() {
                 <Card
                   hoverable
                   onClick={() => handleSelectOrganization(item.organization)}
-                  style={{ textAlign: 'center' }}
-                >
+                  style={{ textAlign: "center" }}>
                   <Avatar
                     size={64}
                     icon={<BankOutlined />}
@@ -851,10 +975,15 @@ export function AccessibleActivitiesList() {
                   <Badge
                     count={item.activity_count}
                     showZero
-                    style={{ backgroundColor: item.activity_count > 0 ? '#52c41a' : '#d9d9d9' }}
+                    style={{
+                      backgroundColor:
+                        item.activity_count > 0 ? "#52c41a" : "#d9d9d9"
+                    }}
                   />
                   <div style={{ marginTop: 4 }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>hoạt động</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      hoạt động
+                    </Text>
                   </div>
                 </Card>
               </List.Item>
@@ -881,8 +1010,7 @@ export function AccessibleActivitiesList() {
           <span>
             {selectedOrganization
               ? `Hoạt Động Của ${selectedOrganization.short_name || selectedOrganization.name}`
-              : 'Hoạt Động Của Các Phòng Ban Khác'
-            }
+              : "Hoạt Động Của Các Phòng Ban Khác"}
           </span>
           {selectedOrganization && (
             <Tag color="blue">{selectedOrganization.code}</Tag>
@@ -895,8 +1023,7 @@ export function AccessibleActivitiesList() {
             <Button
               icon={<FilterOutlined />}
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-              type={showAdvancedFilters ? 'primary' : 'default'}
-            >
+              type={showAdvancedFilters ? "primary" : "default"}>
               Bộ lọc nâng cao
             </Button>
           )}
@@ -906,8 +1033,7 @@ export function AccessibleActivitiesList() {
             </Button>
           )}
         </Space>
-      }
-    >
+      }>
       {/* Basic Filters */}
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={12} md={8} lg={6}>
@@ -916,7 +1042,9 @@ export function AccessibleActivitiesList() {
             onSearch={handleSearch}
             allowClear
             value={filters.search}
-            onChange={(e) => !e.target.value && setFilters(prev => ({ ...prev, search: '' }))}
+            onChange={(e) =>
+              !e.target.value && setFilters((prev) => ({ ...prev, search: "" }))
+            }
           />
         </Col>
         {!selectedOrganization && (
@@ -924,13 +1052,12 @@ export function AccessibleActivitiesList() {
             <Select
               placeholder="Chọn phòng ban"
               onChange={handleOrganizationChange}
-              style={{ width: '100%' }}
+              style={{ width: "100%" }}
               allowClear
               showSearch
               optionFilterProp="children"
-              value={filters.organization_id}
-            >
-              {organizationsForFilter.map(org => (
+              value={filters.organization_id}>
+              {organizationsForFilter.map((org) => (
                 <Option key={org.id} value={org.id}>
                   {org.short_name || org.name}
                 </Option>
@@ -942,10 +1069,9 @@ export function AccessibleActivitiesList() {
           <Select
             placeholder="Trạng thái"
             onChange={handleStatusChange}
-            style={{ width: '100%' }}
+            style={{ width: "100%" }}
             allowClear
-            value={filters.status}
-          >
+            value={filters.status}>
             <Option value="APPROVED">Đã duyệt</Option>
             <Option value="IN_PROGRESS">Đang thực hiện</Option>
             <Option value="COMPLETED">Hoàn thành</Option>
@@ -958,19 +1084,18 @@ export function AccessibleActivitiesList() {
       {/* Advanced Filters */}
       {showAdvancedFilters && !selectedOrganization && (
         <>
-          <Divider style={{ margin: '16px 0' }} />
+          <Divider style={{ margin: "16px 0" }} />
           <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
             <Col xs={24} sm={12} md={8} lg={6}>
               <Select
                 placeholder="Loại hoạt động"
                 onChange={handleActivityTypeChange}
-                style={{ width: '100%' }}
+                style={{ width: "100%" }}
                 allowClear
                 showSearch
                 optionFilterProp="children"
-                value={filters.activity_type_id}
-              >
-                {activityTypes.map(type => (
+                value={filters.activity_type_id}>
+                {activityTypes.map((type) => (
                   <Option key={type.id} value={type.id}>
                     {type.name}
                   </Option>
@@ -981,13 +1106,12 @@ export function AccessibleActivitiesList() {
               <Select
                 placeholder="Lĩnh vực"
                 onChange={handleActivityFieldChange}
-                style={{ width: '100%' }}
+                style={{ width: "100%" }}
                 allowClear
                 showSearch
                 optionFilterProp="children"
-                value={filters.activity_field_id}
-              >
-                {activityFields.map(field => (
+                value={filters.activity_field_id}>
+                {activityFields.map((field) => (
                   <Option key={field.id} value={field.id}>
                     {field.name}
                   </Option>
@@ -996,8 +1120,8 @@ export function AccessibleActivitiesList() {
             </Col>
             <Col xs={24} sm={12} md={8} lg={6}>
               <RangePicker
-                placeholder={['Từ ngày', 'Đến ngày']}
-                style={{ width: '100%' }}
+                placeholder={["Từ ngày", "Đến ngày"]}
+                style={{ width: "100%" }}
                 format="DD/MM/YYYY"
                 onChange={handleDateRangeChange}
                 value={
@@ -1020,7 +1144,7 @@ export function AccessibleActivitiesList() {
           ...pagination,
           showSizeChanger: true,
           showTotal: (total) => `Tổng ${total} hoạt động`,
-          pageSizeOptions: ['10', '15', '20', '50'],
+          pageSizeOptions: ["10", "15", "20", "50"]
         }}
         onChange={handleTableChange}
         scroll={{ x: 1300 }}
@@ -1030,31 +1154,38 @@ export function AccessibleActivitiesList() {
               image={Empty.PRESENTED_IMAGE_SIMPLE}
               description={
                 hasActiveFilters()
-                  ? 'Không tìm thấy hoạt động phù hợp với bộ lọc'
-                  : 'Chưa có hoạt động từ các phòng ban khác'
+                  ? "Không tìm thấy hoạt động phù hợp với bộ lọc"
+                  : "Chưa có hoạt động từ các phòng ban khác"
               }
             />
-          ),
+          )
         }}
       />
     </Card>
   )
 
   // Calculate total activities from organization stats
-  const totalActivitiesFromStats = organizationStats.reduce((sum, item) => sum + item.activity_count, 0)
+  const totalActivitiesFromStats = organizationStats.reduce(
+    (sum, item) => sum + item.activity_count,
+    0
+  )
   const totalOrganizations = organizationStats.length
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div style={{ padding: "24px" }}>
       {/* Statistics Row */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={12} sm={12} md={6}>
           <Card size="small">
             <Statistic
               title="Quyền xem"
-              value={accessibleInfo.can_view_all ? 'Tất cả' : accessibleInfo.accessible_organization_ids.length - 1}
-              suffix={accessibleInfo.can_view_all ? '' : 'phòng ban'}
-              prefix={<GlobalOutlined style={{ color: '#1890ff' }} />}
+              value={
+                accessibleInfo.can_view_all
+                  ? "Tất cả"
+                  : accessibleInfo.accessible_organization_ids.length - 1
+              }
+              suffix={accessibleInfo.can_view_all ? "" : "phòng ban"}
+              prefix={<GlobalOutlined style={{ color: "#1890ff" }} />}
             />
           </Card>
         </Col>
@@ -1062,8 +1193,12 @@ export function AccessibleActivitiesList() {
           <Card size="small">
             <Statistic
               title="Tổng hoạt động"
-              value={viewMode === 'organizations' && !selectedOrganization ? totalActivitiesFromStats : pagination.total}
-              prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
+              value={
+                viewMode === "organizations" && !selectedOrganization
+                  ? totalActivitiesFromStats
+                  : pagination.total
+              }
+              prefix={<CheckCircleOutlined style={{ color: "#52c41a" }} />}
             />
           </Card>
         </Col>
@@ -1072,7 +1207,7 @@ export function AccessibleActivitiesList() {
             <Statistic
               title="Phòng ban"
               value={totalOrganizations}
-              prefix={<TeamOutlined style={{ color: '#722ed1' }} />}
+              prefix={<TeamOutlined style={{ color: "#722ed1" }} />}
             />
           </Card>
         </Col>
@@ -1080,8 +1215,11 @@ export function AccessibleActivitiesList() {
           <Card size="small">
             <Statistic
               title="Phạm vi"
-              value={accessibleInfo.can_view_all ? 'Toàn hệ thống' : 'Giới hạn'}
-              valueStyle={{ fontSize: 14, color: accessibleInfo.can_view_all ? '#52c41a' : '#faad14' }}
+              value={accessibleInfo.can_view_all ? "Toàn hệ thống" : "Giới hạn"}
+              valueStyle={{
+                fontSize: 14,
+                color: accessibleInfo.can_view_all ? "#52c41a" : "#faad14"
+              }}
             />
           </Card>
         </Col>
@@ -1093,7 +1231,7 @@ export function AccessibleActivitiesList() {
           <Alert
             message={
               accessibleInfo.can_view_all
-                ? 'Bạn có quyền xem hoạt động của TẤT CẢ phòng ban trong hệ thống'
+                ? "Bạn có quyền xem hoạt động của TẤT CẢ phòng ban trong hệ thống"
                 : `Bạn có quyền xem hoạt động của ${accessibleInfo.accessible_organization_ids.length - 1} phòng ban khác`
             }
             type="info"
@@ -1102,7 +1240,14 @@ export function AccessibleActivitiesList() {
           />
         </Col>
         <Col xs={24} md={8}>
-          <Card size="small" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Card
+            size="small"
+            style={{
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}>
             <Segmented
               value={viewMode}
               onChange={(value) => handleViewModeChange(value as ViewMode)}
@@ -1114,7 +1259,7 @@ export function AccessibleActivitiesList() {
                       <span>Theo phòng ban</span>
                     </Space>
                   ),
-                  value: 'organizations',
+                  value: "organizations"
                 },
                 {
                   label: (
@@ -1123,8 +1268,8 @@ export function AccessibleActivitiesList() {
                       <span>Danh sách</span>
                     </Space>
                   ),
-                  value: 'activities',
-                },
+                  value: "activities"
+                }
               ]}
             />
           </Card>
@@ -1132,10 +1277,9 @@ export function AccessibleActivitiesList() {
       </Row>
 
       {/* Main Content - Based on View Mode */}
-      {viewMode === 'organizations' && !selectedOrganization
+      {viewMode === "organizations" && !selectedOrganization
         ? renderOrganizationsView()
-        : renderActivitiesView()
-      }
+        : renderActivitiesView()}
 
       {/* Activity Detail Modal */}
       <Modal
@@ -1153,10 +1297,9 @@ export function AccessibleActivitiesList() {
           </Button>
         ]}
         width={900}
-        styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
-      >
+        styles={{ body: { maxHeight: "70vh", overflowY: "auto" } }}>
         {detailLoading ? (
-          <div style={{ textAlign: 'center', padding: '40px' }}>
+          <div style={{ textAlign: "center", padding: "40px" }}>
             <Spin size="large" />
             <div style={{ marginTop: 16 }}>
               <Text type="secondary">Đang tải thông tin...</Text>
@@ -1172,11 +1315,17 @@ export function AccessibleActivitiesList() {
                   </Title>
                 </Col>
                 <Col xs={12} md={8}>
-                  <Text style={{ color: '#595959', fontWeight: 500 }}>Mã hoạt động:</Text>
-                  <div><Text strong>{selectedActivity.code}</Text></div>
+                  <Text style={{ color: "#595959", fontWeight: 500 }}>
+                    Mã hoạt động:
+                  </Text>
+                  <div>
+                    <Text strong>{selectedActivity.code}</Text>
+                  </div>
                 </Col>
                 <Col xs={12} md={8}>
-                  <Text style={{ color: '#595959', fontWeight: 500 }}>Trạng thái:</Text>
+                  <Text style={{ color: "#595959", fontWeight: 500 }}>
+                    Trạng thái:
+                  </Text>
                   <div>
                     <Tag color={getStatusColor(selectedActivity.status)}>
                       {getStatusText(selectedActivity.status)}
@@ -1184,12 +1333,18 @@ export function AccessibleActivitiesList() {
                   </div>
                 </Col>
                 <Col xs={12} md={8}>
-                  <Text style={{ color: '#595959', fontWeight: 500 }}>Tiến độ:</Text>
+                  <Text style={{ color: "#595959", fontWeight: 500 }}>
+                    Tiến độ:
+                  </Text>
                   <div>
                     <Progress
                       percent={selectedActivity.completion_percentage || 0}
                       size="small"
-                      status={selectedActivity.status === 'COMPLETED' ? 'success' : 'active'}
+                      status={
+                        selectedActivity.status === "COMPLETED"
+                          ? "success"
+                          : "active"
+                      }
                     />
                   </div>
                 </Col>
@@ -1201,22 +1356,29 @@ export function AccessibleActivitiesList() {
               size="small"
               column={{ xs: 1, sm: 2, md: 2 }}
               style={{ marginBottom: 16 }}
-              labelStyle={{ fontWeight: 500, color: '#262626', backgroundColor: '#fafafa' }}
-            >
-              <Descriptions.Item label={<><ApartmentOutlined style={{ color: '#1890ff' }} /> Phòng ban</>}>
-                {selectedActivity.lead_organization?.name || 'N/A'}
+              labelStyle={{
+                fontWeight: 500,
+                color: "#262626",
+                backgroundColor: "#fafafa"
+              }}>
+              <Descriptions.Item
+                label={
+                  <>
+                    <ApartmentOutlined style={{ color: "#1890ff" }} /> Phòng ban
+                  </>
+                }>
+                {selectedActivity.lead_organization?.name || "N/A"}
               </Descriptions.Item>
               <Descriptions.Item label="Loại hoạt động">
-                {selectedActivity.activity_type?.name || 'N/A'}
+                {selectedActivity.activity_type?.name || "N/A"}
               </Descriptions.Item>
               <Descriptions.Item label="Lĩnh vực">
-                {selectedActivity.activity_field?.name || '-'}
+                {selectedActivity.activity_field?.name || "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Người tạo">
                 {selectedActivity.creator
                   ? `${selectedActivity.creator.first_name} ${selectedActivity.creator.last_name}`
-                  : '-'
-                }
+                  : "-"}
               </Descriptions.Item>
             </Descriptions>
 
@@ -1225,32 +1387,40 @@ export function AccessibleActivitiesList() {
               size="small"
               column={{ xs: 1, sm: 2, md: 4 }}
               style={{ marginBottom: 16 }}
-              labelStyle={{ fontWeight: 500, color: '#262626', backgroundColor: '#fafafa' }}
-              title={<><CalendarOutlined style={{ color: '#1890ff' }} /> <span style={{ fontWeight: 600, color: '#262626' }}>Thời gian</span></>}
-            >
+              labelStyle={{
+                fontWeight: 500,
+                color: "#262626",
+                backgroundColor: "#fafafa"
+              }}
+              title={
+                <>
+                  <CalendarOutlined style={{ color: "#1890ff" }} />{" "}
+                  <span style={{ fontWeight: 600, color: "#262626" }}>
+                    Thời gian
+                  </span>
+                </>
+              }>
               <Descriptions.Item label="Ngày bắt đầu (KH)">
                 {selectedActivity.start_date
-                  ? dayjs(selectedActivity.start_date).format('DD/MM/YYYY')
-                  : '-'
-                }
+                  ? dayjs(selectedActivity.start_date).format("DD/MM/YYYY")
+                  : "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Ngày kết thúc (KH)">
                 {selectedActivity.end_date
-                  ? dayjs(selectedActivity.end_date).format('DD/MM/YYYY')
-                  : '-'
-                }
+                  ? dayjs(selectedActivity.end_date).format("DD/MM/YYYY")
+                  : "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Ngày bắt đầu (TT)">
                 {selectedActivity.actual_start_date
-                  ? dayjs(selectedActivity.actual_start_date).format('DD/MM/YYYY')
-                  : '-'
-                }
+                  ? dayjs(selectedActivity.actual_start_date).format(
+                      "DD/MM/YYYY"
+                    )
+                  : "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Ngày kết thúc (TT)">
                 {selectedActivity.actual_end_date
-                  ? dayjs(selectedActivity.actual_end_date).format('DD/MM/YYYY')
-                  : '-'
-                }
+                  ? dayjs(selectedActivity.actual_end_date).format("DD/MM/YYYY")
+                  : "-"}
               </Descriptions.Item>
             </Descriptions>
 
@@ -1259,26 +1429,44 @@ export function AccessibleActivitiesList() {
               size="small"
               column={{ xs: 1, sm: 2 }}
               style={{ marginBottom: 16 }}
-              labelStyle={{ fontWeight: 500, color: '#262626', backgroundColor: '#fafafa' }}
-            >
-              <Descriptions.Item label={<><DollarOutlined style={{ color: '#52c41a' }} /> Kinh phí</>}>
+              labelStyle={{
+                fontWeight: 500,
+                color: "#262626",
+                backgroundColor: "#fafafa"
+              }}>
+              <Descriptions.Item
+                label={
+                  <>
+                    <DollarOutlined style={{ color: "#52c41a" }} /> Kinh phí
+                  </>
+                }>
                 {formatCurrency(selectedActivity.budget)}
               </Descriptions.Item>
               <Descriptions.Item label="Nguồn kinh phí">
-                {selectedActivity.budget_source || '-'}
+                {selectedActivity.budget_source || "-"}
               </Descriptions.Item>
-              <Descriptions.Item label={<><EnvironmentOutlined style={{ color: '#fa8c16' }} /> Địa điểm</>} span={2}>
-                {selectedActivity.location || '-'}
+              <Descriptions.Item
+                label={
+                  <>
+                    <EnvironmentOutlined style={{ color: "#fa8c16" }} /> Địa
+                    điểm
+                  </>
+                }
+                span={2}>
+                {selectedActivity.location || "-"}
               </Descriptions.Item>
             </Descriptions>
 
             {selectedActivity.description && (
               <Card
                 size="small"
-                title={<span style={{ fontWeight: 600, color: '#262626' }}>Mô tả</span>}
+                title={
+                  <span style={{ fontWeight: 600, color: "#262626" }}>
+                    Mô tả
+                  </span>
+                }
                 style={{ marginBottom: 16 }}
-                styles={{ header: { backgroundColor: '#fafafa' } }}
-              >
+                styles={{ header: { backgroundColor: "#fafafa" } }}>
                 <Text>{selectedActivity.description}</Text>
               </Card>
             )}
@@ -1286,31 +1474,46 @@ export function AccessibleActivitiesList() {
             {selectedActivity.focus_content && (
               <Card
                 size="small"
-                title={<span style={{ fontWeight: 600, color: '#262626' }}>Nội dung trọng tâm</span>}
+                title={
+                  <span style={{ fontWeight: 600, color: "#262626" }}>
+                    Nội dung trọng tâm
+                  </span>
+                }
                 style={{ marginBottom: 16 }}
-                styles={{ header: { backgroundColor: '#fafafa' } }}
-              >
+                styles={{ header: { backgroundColor: "#fafafa" } }}>
                 <Text>{selectedActivity.focus_content}</Text>
               </Card>
             )}
 
-            {(selectedActivity.qualitative_target || selectedActivity.quantitative_target) && (
+            {(selectedActivity.qualitative_target ||
+              selectedActivity.quantitative_target) && (
               <Card
                 size="small"
-                title={<span style={{ fontWeight: 600, color: '#262626' }}>Mục tiêu</span>}
+                title={
+                  <span style={{ fontWeight: 600, color: "#262626" }}>
+                    Mục tiêu
+                  </span>
+                }
                 style={{ marginBottom: 16 }}
-                styles={{ header: { backgroundColor: '#fafafa' } }}
-              >
+                styles={{ header: { backgroundColor: "#fafafa" } }}>
                 {selectedActivity.qualitative_target && (
                   <div style={{ marginBottom: 8 }}>
-                    <Text style={{ color: '#595959', fontWeight: 500 }}>Mục tiêu định tính:</Text>
-                    <div><Text>{selectedActivity.qualitative_target}</Text></div>
+                    <Text style={{ color: "#595959", fontWeight: 500 }}>
+                      Mục tiêu định tính:
+                    </Text>
+                    <div>
+                      <Text>{selectedActivity.qualitative_target}</Text>
+                    </div>
                   </div>
                 )}
                 {selectedActivity.quantitative_target && (
                   <div>
-                    <Text style={{ color: '#595959', fontWeight: 500 }}>Mục tiêu định lượng:</Text>
-                    <div><Text>{selectedActivity.quantitative_target}</Text></div>
+                    <Text style={{ color: "#595959", fontWeight: 500 }}>
+                      Mục tiêu định lượng:
+                    </Text>
+                    <div>
+                      <Text>{selectedActivity.quantitative_target}</Text>
+                    </div>
                   </div>
                 )}
               </Card>
@@ -1319,10 +1522,13 @@ export function AccessibleActivitiesList() {
             {selectedActivity.result_summary && (
               <Card
                 size="small"
-                title={<span style={{ fontWeight: 600, color: '#262626' }}>Kết quả</span>}
+                title={
+                  <span style={{ fontWeight: 600, color: "#262626" }}>
+                    Kết quả
+                  </span>
+                }
                 style={{ marginBottom: 16 }}
-                styles={{ header: { backgroundColor: '#fafafa' } }}
-              >
+                styles={{ header: { backgroundColor: "#fafafa" } }}>
                 <Text>{selectedActivity.result_summary}</Text>
               </Card>
             )}

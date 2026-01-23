@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo } from "react"
 import {
   Table,
   Card,
@@ -16,8 +16,8 @@ import {
   InputNumber,
   Row,
   Col,
-  Popconfirm,
-} from 'antd'
+  Popconfirm
+} from "antd"
 import {
   EditOutlined,
   DeleteOutlined,
@@ -26,30 +26,34 @@ import {
   TagsOutlined,
   SettingOutlined,
   FileOutlined,
-  ReloadOutlined,
-} from '@ant-design/icons'
-import type { ColumnsType } from 'antd/es/table'
-import { useAuth } from '../../shared/hooks'
-import * as activityConfigApi from '../../services/activityConfigApi'
+  ReloadOutlined
+} from "@ant-design/icons"
+import type { ColumnsType } from "antd/es/table"
+import { useAuth } from "../../shared/hooks"
+import * as activityConfigApi from "../../services/activityConfigApi"
 import type {
   ActivityType,
   ActivityField,
   CreateActivityTypeRequest,
   UpdateActivityTypeRequest,
   CreateActivityFieldRequest,
-  UpdateActivityFieldRequest,
-} from '../../services/activityConfigApi'
-import * as fileTypeApi from '../../services/fileTypeApi'
+  UpdateActivityFieldRequest
+} from "../../services/activityConfigApi"
+import * as fileTypeApi from "../../services/fileTypeApi"
 import type {
   FileType,
   CreateFileTypeRequest,
-  UpdateFileTypeRequest,
-} from '../../services/fileTypeApi'
-import AdvancedFilter, { FilterField, FilterValues } from '../../shared/components/AdvancedFilter'
-import { ImportExcelModal } from '../../shared/components/ImportExcelModal'
-import type { ImportType } from '../../shared/components/ImportExcelModal'
-import { FileExcelOutlined } from '@ant-design/icons'
-import './ActivityConfigManagement.css'
+  UpdateFileTypeRequest
+} from "../../services/fileTypeApi"
+import AdvancedFilter, {
+  FilterField,
+  FilterValues
+} from "../../shared/components/AdvancedFilter"
+import { ImportExcelModal } from "../../shared/components/ImportExcelModal"
+import type { ImportType } from "../../shared/components/ImportExcelModal"
+import { FileExcelOutlined } from "@ant-design/icons"
+import "./ActivityConfigManagement.css"
+import { t } from "i18next"
 
 const { Title, Text } = Typography
 const { Option } = Select
@@ -57,16 +61,22 @@ const { TextArea } = Input
 
 function ActivityConfigManagement() {
   // Common state
-  const [activeTab, setActiveTab] = useState<'types' | 'fields' | 'fileTypes'>('types')
+  const [activeTab, setActiveTab] = useState<"types" | "fields" | "fileTypes">(
+    "types"
+  )
   const { user: currentUser } = useAuth()
 
   // Activity Types state
   const [typesLoading, setTypesLoading] = useState(false)
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
-  const [typesPagination, setTypesPagination] = useState({ current: 1, pageSize: 15, total: 0 })
+  const [typesPagination, setTypesPagination] = useState({
+    current: 1,
+    pageSize: 15,
+    total: 0
+  })
   const [typesFilterValues, setTypesFilterValues] = useState<FilterValues>({
-    search: '',
-    is_active: undefined,
+    search: "",
+    is_active: undefined
   })
   const [typeModalVisible, setTypeModalVisible] = useState(false)
   const [selectedType, setSelectedType] = useState<ActivityType | null>(null)
@@ -76,10 +86,14 @@ function ActivityConfigManagement() {
   // Activity Fields state
   const [fieldsLoading, setFieldsLoading] = useState(false)
   const [activityFields, setActivityFields] = useState<ActivityField[]>([])
-  const [fieldsPagination, setFieldsPagination] = useState({ current: 1, pageSize: 15, total: 0 })
+  const [fieldsPagination, setFieldsPagination] = useState({
+    current: 1,
+    pageSize: 15,
+    total: 0
+  })
   const [fieldsFilterValues, setFieldsFilterValues] = useState<FilterValues>({
-    search: '',
-    is_active: undefined,
+    search: "",
+    is_active: undefined
   })
   const [fieldModalVisible, setFieldModalVisible] = useState(false)
   const [selectedField, setSelectedField] = useState<ActivityField | null>(null)
@@ -89,66 +103,83 @@ function ActivityConfigManagement() {
   // File Types state
   const [fileTypesLoading, setFileTypesLoading] = useState(false)
   const [fileTypes, setFileTypes] = useState<FileType[]>([])
-  const [fileTypesPagination, setFileTypesPagination] = useState({ current: 1, pageSize: 15, total: 0 })
-  const [fileTypesFilterValues, setFileTypesFilterValues] = useState<FilterValues>({
-    search: '',
+  const [fileTypesPagination, setFileTypesPagination] = useState({
+    current: 1,
+    pageSize: 15,
+    total: 0
   })
+  const [fileTypesFilterValues, setFileTypesFilterValues] =
+    useState<FilterValues>({
+      search: ""
+    })
   const [fileTypeModalVisible, setFileTypeModalVisible] = useState(false)
-  const [selectedFileType, setSelectedFileType] = useState<FileType | null>(null)
+  const [selectedFileType, setSelectedFileType] = useState<FileType | null>(
+    null
+  )
   const [fileTypeActionLoading, setFileTypeActionLoading] = useState(false)
   const [fileTypeForm] = Form.useForm()
 
   // Import modal state
   const [importModalVisible, setImportModalVisible] = useState(false)
-  const [importType, setImportType] = useState<ImportType>('activity_types')
+  const [importType, setImportType] = useState<ImportType>("activity_types")
 
   // Check if current user can manage (OPERATOR or ADMIN only)
-  const canManage = currentUser?.role === 'OPERATOR' || currentUser?.role === 'ADMIN'
+  const canManage =
+    currentUser?.role === "OPERATOR" || currentUser?.role === "ADMIN"
 
   // Filter fields configuration for Types
-  const typesFilterFields: FilterField[] = useMemo(() => [
-    {
-      key: 'search',
-      label: 'Tìm kiếm',
-      type: 'text',
-      placeholder: 'Tìm theo tên loại hoạt động...',
-      span: 16,
-    },
-    {
-      key: 'is_active',
-      label: 'Trạng thái',
-      type: 'boolean',
-      span: 8,
-    },
-  ], [])
+  const typesFilterFields: FilterField[] = useMemo(
+    () => [
+      {
+        key: "search",
+        label: "Tìm kiếm",
+        type: "text",
+        placeholder: "Tìm theo tên loại hoạt động...",
+        span: 16
+      },
+      {
+        key: "is_active",
+        label: "Trạng thái",
+        type: "boolean",
+        span: 8
+      }
+    ],
+    []
+  )
 
   // Filter fields configuration for Fields
-  const fieldsFilterFields: FilterField[] = useMemo(() => [
-    {
-      key: 'search',
-      label: 'Tìm kiếm',
-      type: 'text',
-      placeholder: 'Tìm theo tên lĩnh vực...',
-      span: 16,
-    },
-    {
-      key: 'is_active',
-      label: 'Trạng thái',
-      type: 'boolean',
-      span: 8,
-    },
-  ], [])
+  const fieldsFilterFields: FilterField[] = useMemo(
+    () => [
+      {
+        key: "search",
+        label: "Tìm kiếm",
+        type: "text",
+        placeholder: "Tìm theo tên lĩnh vực...",
+        span: 16
+      },
+      {
+        key: "is_active",
+        label: "Trạng thái",
+        type: "boolean",
+        span: 8
+      }
+    ],
+    []
+  )
 
   // Filter fields configuration for File Types
-  const fileTypesFilterFields: FilterField[] = useMemo(() => [
-    {
-      key: 'search',
-      label: 'Tìm kiếm',
-      type: 'text',
-      placeholder: 'Tìm theo mã hoặc tên loại tập tin...',
-      span: 24,
-    },
-  ], [])
+  const fileTypesFilterFields: FilterField[] = useMemo(
+    () => [
+      {
+        key: "search",
+        label: "Tìm kiếm",
+        type: "text",
+        placeholder: "Tìm theo mã hoặc tên loại tập tin...",
+        span: 24
+      }
+    ],
+    []
+  )
 
   // Filter handlers for Types
   const handleTypesFilterChange = (newValues: FilterValues) => {
@@ -200,16 +231,16 @@ function ActivityConfigManagement() {
         search: typesFilterValues.search || undefined,
         is_active: typesFilterValues.is_active,
         page: typesPagination.current,
-        per_page: typesPagination.pageSize,
+        per_page: typesPagination.pageSize
       })
 
       setActivityTypes(response.data)
-      setTypesPagination(prev => ({
+      setTypesPagination((prev) => ({
         ...prev,
-        total: response.pagination.total,
+        total: response.pagination.total
       }))
     } catch (error: any) {
-      message.error(error.message || 'Không thể tải danh sách loại hoạt động')
+      message.error(error.message || "Không thể tải danh sách loại hoạt động")
     } finally {
       setTypesLoading(false)
     }
@@ -223,29 +254,31 @@ function ActivityConfigManagement() {
         search: fieldsFilterValues.search || undefined,
         is_active: fieldsFilterValues.is_active,
         page: fieldsPagination.current,
-        per_page: fieldsPagination.pageSize,
+        per_page: fieldsPagination.pageSize
       })
 
       setActivityFields(response.data)
-      setFieldsPagination(prev => ({
+      setFieldsPagination((prev) => ({
         ...prev,
-        total: response.pagination.total,
+        total: response.pagination.total
       }))
     } catch (error: any) {
-      message.error(error.message || 'Không thể tải danh sách lĩnh vực hoạt động')
+      message.error(
+        error.message || "Không thể tải danh sách lĩnh vực hoạt động"
+      )
     } finally {
       setFieldsLoading(false)
     }
   }
 
   useEffect(() => {
-    if (canManage && activeTab === 'types') {
+    if (canManage && activeTab === "types") {
       fetchActivityTypes()
     }
   }, [activeTab, typesFilterValues, typesPagination.current, canManage])
 
   useEffect(() => {
-    if (canManage && activeTab === 'fields') {
+    if (canManage && activeTab === "fields") {
       fetchActivityFields()
     }
   }, [activeTab, fieldsFilterValues, fieldsPagination.current, canManage])
@@ -257,23 +290,23 @@ function ActivityConfigManagement() {
       const response = await fileTypeApi.getFileTypes({
         search: fileTypesFilterValues.search || undefined,
         page: fileTypesPagination.current,
-        per_page: fileTypesPagination.pageSize,
+        per_page: fileTypesPagination.pageSize
       })
 
       setFileTypes(response.data)
-      setFileTypesPagination(prev => ({
+      setFileTypesPagination((prev) => ({
         ...prev,
-        total: response.pagination.total,
+        total: response.pagination.total
       }))
     } catch (error: any) {
-      message.error(error.message || 'Không thể tải danh sách loại tập tin')
+      message.error(error.message || "Không thể tải danh sách loại tập tin")
     } finally {
       setFileTypesLoading(false)
     }
   }
 
   useEffect(() => {
-    if (canManage && activeTab === 'fileTypes') {
+    if (canManage && activeTab === "fileTypes") {
       fetchFileTypes()
     }
   }, [activeTab, fileTypesFilterValues, fileTypesPagination.current, canManage])
@@ -284,7 +317,7 @@ function ActivityConfigManagement() {
     setTypesPagination({
       ...typesPagination,
       current: newPagination.current,
-      pageSize: newPagination.pageSize,
+      pageSize: newPagination.pageSize
     })
   }
 
@@ -305,10 +338,10 @@ function ActivityConfigManagement() {
     setTypeActionLoading(true)
     try {
       await activityConfigApi.deleteActivityType(id)
-      message.success('Đã xóa loại hoạt động thành công')
+      message.success("Đã xóa loại hoạt động thành công")
       fetchActivityTypes()
     } catch (error: any) {
-      message.error(error.message || 'Không thể xóa loại hoạt động')
+      message.error(error.message || "Không thể xóa loại hoạt động")
     } finally {
       setTypeActionLoading(false)
     }
@@ -320,11 +353,16 @@ function ActivityConfigManagement() {
       setTypeActionLoading(true)
 
       if (selectedType) {
-        await activityConfigApi.updateActivityType(selectedType.id, values as UpdateActivityTypeRequest)
-        message.success('Đã cập nhật loại hoạt động thành công')
+        await activityConfigApi.updateActivityType(
+          selectedType.id,
+          values as UpdateActivityTypeRequest
+        )
+        message.success("Đã cập nhật loại hoạt động thành công")
       } else {
-        await activityConfigApi.createActivityType(values as CreateActivityTypeRequest)
-        message.success('Đã tạo loại hoạt động thành công')
+        await activityConfigApi.createActivityType(
+          values as CreateActivityTypeRequest
+        )
+        message.success("Đã tạo loại hoạt động thành công")
       }
 
       setTypeModalVisible(false)
@@ -334,7 +372,7 @@ function ActivityConfigManagement() {
       if (error.errorFields) {
         return
       }
-      message.error(error.message || 'Có lỗi xảy ra')
+      message.error(error.message || "Có lỗi xảy ra")
     } finally {
       setTypeActionLoading(false)
     }
@@ -352,7 +390,7 @@ function ActivityConfigManagement() {
     setFieldsPagination({
       ...fieldsPagination,
       current: newPagination.current,
-      pageSize: newPagination.pageSize,
+      pageSize: newPagination.pageSize
     })
   }
 
@@ -373,10 +411,10 @@ function ActivityConfigManagement() {
     setFieldActionLoading(true)
     try {
       await activityConfigApi.deleteActivityField(id)
-      message.success('Đã xóa lĩnh vực hoạt động thành công')
+      message.success("Đã xóa lĩnh vực hoạt động thành công")
       fetchActivityFields()
     } catch (error: any) {
-      message.error(error.message || 'Không thể xóa lĩnh vực hoạt động')
+      message.error(error.message || "Không thể xóa lĩnh vực hoạt động")
     } finally {
       setFieldActionLoading(false)
     }
@@ -388,11 +426,16 @@ function ActivityConfigManagement() {
       setFieldActionLoading(true)
 
       if (selectedField) {
-        await activityConfigApi.updateActivityField(selectedField.id, values as UpdateActivityFieldRequest)
-        message.success('Đã cập nhật lĩnh vực hoạt động thành công')
+        await activityConfigApi.updateActivityField(
+          selectedField.id,
+          values as UpdateActivityFieldRequest
+        )
+        message.success("Đã cập nhật lĩnh vực hoạt động thành công")
       } else {
-        await activityConfigApi.createActivityField(values as CreateActivityFieldRequest)
-        message.success('Đã tạo lĩnh vực hoạt động thành công')
+        await activityConfigApi.createActivityField(
+          values as CreateActivityFieldRequest
+        )
+        message.success("Đã tạo lĩnh vực hoạt động thành công")
       }
 
       setFieldModalVisible(false)
@@ -402,7 +445,7 @@ function ActivityConfigManagement() {
       if (error.errorFields) {
         return
       }
-      message.error(error.message || 'Có lỗi xảy ra')
+      message.error(error.message || "Có lỗi xảy ra")
     } finally {
       setFieldActionLoading(false)
     }
@@ -420,7 +463,7 @@ function ActivityConfigManagement() {
     setFileTypesPagination({
       ...fileTypesPagination,
       current: newPagination.current,
-      pageSize: newPagination.pageSize,
+      pageSize: newPagination.pageSize
     })
   }
 
@@ -440,10 +483,10 @@ function ActivityConfigManagement() {
     setFileTypeActionLoading(true)
     try {
       await fileTypeApi.deleteFileType(id)
-      message.success('Đã xóa loại tập tin thành công')
+      message.success("Đã xóa loại tập tin thành công")
       fetchFileTypes()
     } catch (error: any) {
-      message.error(error.message || 'Không thể xóa loại tập tin')
+      message.error(error.message || "Không thể xóa loại tập tin")
     } finally {
       setFileTypeActionLoading(false)
     }
@@ -455,11 +498,14 @@ function ActivityConfigManagement() {
       setFileTypeActionLoading(true)
 
       if (selectedFileType) {
-        await fileTypeApi.updateFileType(selectedFileType.id, values as UpdateFileTypeRequest)
-        message.success('Đã cập nhật loại tập tin thành công')
+        await fileTypeApi.updateFileType(
+          selectedFileType.id,
+          values as UpdateFileTypeRequest
+        )
+        message.success("Đã cập nhật loại tập tin thành công")
       } else {
         await fileTypeApi.createFileType(values as CreateFileTypeRequest)
-        message.success('Đã tạo loại tập tin thành công')
+        message.success("Đã tạo loại tập tin thành công")
       }
 
       setFileTypeModalVisible(false)
@@ -469,7 +515,7 @@ function ActivityConfigManagement() {
       if (error.errorFields) {
         return
       }
-      message.error(error.message || 'Có lỗi xảy ra')
+      message.error(error.message || "Có lỗi xảy ra")
     } finally {
       setFileTypeActionLoading(false)
     }
@@ -485,71 +531,70 @@ function ActivityConfigManagement() {
 
   const typeColumns: ColumnsType<ActivityType> = [
     {
-      title: 'STT',
-      key: 'index',
+      title: "STT",
+      key: "index",
       width: 60,
-      align: 'center',
+      align: "center",
       render: (_: any, __: any, index: number) =>
-        (typesPagination.current - 1) * typesPagination.pageSize + index + 1,
+        (typesPagination.current - 1) * typesPagination.pageSize + index + 1
     },
     {
-      title: 'Tên loại hoạt động',
-      dataIndex: 'name',
-      key: 'name',
-      render: (name: string) => <Text strong>{name}</Text>,
+      title: "Tên loại hoạt động",
+      dataIndex: "name",
+      key: "name",
+      render: (name: string) => <Text strong>{name}</Text>
     },
     {
-      title: 'Mô tả',
-      dataIndex: 'description',
-      key: 'description',
+      title: "Mô tả",
+      dataIndex: "description",
+      key: "description",
       ellipsis: true,
-      render: (desc: string) => <Text type="secondary">{desc || '-'}</Text>,
+      render: (desc: string) => <Text type="secondary">{desc || "-"}</Text>
     },
     {
-      title: 'Thứ tự',
-      dataIndex: 'display_order',
-      key: 'display_order',
+      title: "Thứ tự",
+      dataIndex: "display_order",
+      key: "display_order",
       width: 100,
-      align: 'center',
+      align: "center",
       sorter: (a, b) => (a.display_order || 0) - (b.display_order || 0),
-      render: (order: number) => <Text>{order || 0}</Text>,
+      render: (order: number) => <Text>{order || 0}</Text>
     },
     {
-      title: 'Số hoạt động',
-      dataIndex: 'activities_count',
-      key: 'activities_count',
+      title: "Số hoạt động",
+      dataIndex: "activities_count",
+      key: "activities_count",
       width: 120,
-      align: 'center',
+      align: "center",
       render: (count: number) => (
-        <Tag color={count > 0 ? 'blue' : 'default'}>{count || 0}</Tag>
-      ),
+        <Tag color={count > 0 ? "blue" : "default"}>{count || 0}</Tag>
+      )
     },
     {
-      title: 'Trạng thái',
-      dataIndex: 'is_active',
-      key: 'is_active',
+      title: "Trạng thái",
+      dataIndex: "is_active",
+      key: "is_active",
       width: 120,
-      align: 'center',
+      align: "center",
       render: (isActive: boolean) => (
-        <Tag color={isActive ? 'success' : 'default'}>
-          {isActive ? 'Hoạt động' : 'Tạm dừng'}
+        <Tag color={isActive ? "success" : "default"}>
+          {isActive ? "Hoạt động" : "Tạm dừng"}
         </Tag>
-      ),
+      )
     },
     {
-      title: 'Thao tác',
-      key: 'actions',
+      title: t("common.actions"),
+      key: "actions",
       width: 150,
-      fixed: 'right',
-      align: 'center',
+      fixed: "right",
+      align: "center",
       render: (_: any, record: ActivityType) => (
         <Space>
           <Button
             type="link"
             size="small"
             icon={<EditOutlined />}
-            onClick={() => handleEditType(record)}
-          >
+            onClick={() => handleEditType(record)}>
             Sửa
           </Button>
           <Popconfirm
@@ -557,91 +602,89 @@ function ActivityConfigManagement() {
             description={
               record.activities_count && record.activities_count > 0
                 ? `Loại hoạt động này đang có ${record.activities_count} hoạt động liên quan. Bạn có chắc muốn xóa?`
-                : 'Bạn có chắc chắn muốn xóa loại hoạt động này?'
+                : "Bạn có chắc chắn muốn xóa loại hoạt động này?"
             }
             onConfirm={() => handleDeleteType(record.id)}
             okText="Xóa"
             cancelText="Hủy"
-            okButtonProps={{ danger: true }}
-          >
+            okButtonProps={{ danger: true }}>
             <Button type="link" size="small" icon={<DeleteOutlined />} danger>
               Xóa
             </Button>
           </Popconfirm>
         </Space>
-      ),
-    },
+      )
+    }
   ]
 
   // ============== Activity Fields Columns ==============
 
   const fieldColumns: ColumnsType<ActivityField> = [
     {
-      title: 'STT',
-      key: 'index',
+      title: "STT",
+      key: "index",
       width: 60,
-      align: 'center',
+      align: "center",
       render: (_: any, __: any, index: number) =>
-        (fieldsPagination.current - 1) * fieldsPagination.pageSize + index + 1,
+        (fieldsPagination.current - 1) * fieldsPagination.pageSize + index + 1
     },
     {
-      title: 'Tên lĩnh vực',
-      dataIndex: 'name',
-      key: 'name',
-      render: (name: string) => <Text strong>{name}</Text>,
+      title: "Tên lĩnh vực",
+      dataIndex: "name",
+      key: "name",
+      render: (name: string) => <Text strong>{name}</Text>
     },
     {
-      title: 'Mô tả',
-      dataIndex: 'description',
-      key: 'description',
+      title: "Mô tả",
+      dataIndex: "description",
+      key: "description",
       ellipsis: true,
-      render: (desc: string) => <Text type="secondary">{desc || '-'}</Text>,
+      render: (desc: string) => <Text type="secondary">{desc || "-"}</Text>
     },
     {
-      title: 'Thứ tự',
-      dataIndex: 'display_order',
-      key: 'display_order',
+      title: "Thứ tự",
+      dataIndex: "display_order",
+      key: "display_order",
       width: 100,
-      align: 'center',
+      align: "center",
       sorter: (a, b) => (a.display_order || 0) - (b.display_order || 0),
-      render: (order: number) => <Text>{order || 0}</Text>,
+      render: (order: number) => <Text>{order || 0}</Text>
     },
     {
-      title: 'Số hoạt động',
-      dataIndex: 'activities_count',
-      key: 'activities_count',
+      title: "Số hoạt động",
+      dataIndex: "activities_count",
+      key: "activities_count",
       width: 120,
-      align: 'center',
+      align: "center",
       render: (count: number) => (
-        <Tag color={count > 0 ? 'blue' : 'default'}>{count || 0}</Tag>
-      ),
+        <Tag color={count > 0 ? "blue" : "default"}>{count || 0}</Tag>
+      )
     },
     {
-      title: 'Trạng thái',
-      dataIndex: 'is_active',
-      key: 'is_active',
+      title: "Trạng thái",
+      dataIndex: "is_active",
+      key: "is_active",
       width: 120,
-      align: 'center',
+      align: "center",
       render: (isActive: boolean) => (
-        <Tag color={isActive ? 'success' : 'default'}>
-          {isActive ? 'Hoạt động' : 'Tạm dừng'}
+        <Tag color={isActive ? "success" : "default"}>
+          {isActive ? "Hoạt động" : "Tạm dừng"}
         </Tag>
-      ),
+      )
     },
     {
-      title: 'Thao tác',
-      key: 'actions',
+      title: t("common.actions"),
+      key: "actions",
       width: 150,
-      fixed: 'right',
-      align: 'center',
+      fixed: "right",
+      align: "center",
       render: (_: any, record: ActivityField) => (
         <Space>
           <Button
             type="link"
             size="small"
             icon={<EditOutlined />}
-            onClick={() => handleEditField(record)}
-          >
+            onClick={() => handleEditField(record)}>
             Sửa
           </Button>
           <Popconfirm
@@ -649,70 +692,74 @@ function ActivityConfigManagement() {
             description={
               record.activities_count && record.activities_count > 0
                 ? `Lĩnh vực này đang có ${record.activities_count} hoạt động liên quan. Bạn có chắc muốn xóa?`
-                : 'Bạn có chắc chắn muốn xóa lĩnh vực này?'
+                : "Bạn có chắc chắn muốn xóa lĩnh vực này?"
             }
             onConfirm={() => handleDeleteField(record.id)}
             okText="Xóa"
             cancelText="Hủy"
-            okButtonProps={{ danger: true }}
-          >
+            okButtonProps={{ danger: true }}>
             <Button type="link" size="small" icon={<DeleteOutlined />} danger>
               Xóa
             </Button>
           </Popconfirm>
         </Space>
-      ),
-    },
+      )
+    }
   ]
 
   // ============== File Types Columns ==============
 
   const fileTypeColumns: ColumnsType<FileType> = [
     {
-      title: 'STT',
-      key: 'index',
+      title: "STT",
+      key: "index",
       width: 60,
-      align: 'center',
+      align: "center",
       render: (_: any, __: any, index: number) =>
-        (fileTypesPagination.current - 1) * fileTypesPagination.pageSize + index + 1,
+        (fileTypesPagination.current - 1) * fileTypesPagination.pageSize +
+        index +
+        1
     },
     {
-      title: 'Mã',
-      dataIndex: 'code',
-      key: 'code',
+      title: "Mã",
+      dataIndex: "code",
+      key: "code",
       width: 150,
-      render: (code: string) => <Text strong style={{ fontFamily: 'monospace' }}>{code}</Text>,
+      render: (code: string) => (
+        <Text strong style={{ fontFamily: "monospace" }}>
+          {code}
+        </Text>
+      )
     },
     {
-      title: 'Tên loại tập tin',
-      dataIndex: 'name',
-      key: 'name',
-      render: (name: string) => <Text strong>{name}</Text>,
+      title: "Tên loại tập tin",
+      dataIndex: "name",
+      key: "name",
+      render: (name: string) => <Text strong>{name}</Text>
     },
     {
-      title: 'Số lượng sử dụng',
-      dataIndex: 'activity_files_count',
-      key: 'activity_files_count',
+      title: "Số lượng sử dụng",
+      dataIndex: "activity_files_count",
+      key: "activity_files_count",
       width: 150,
-      align: 'center',
+      align: "center",
       render: (count: number) => (
-        <Tag color={count > 0 ? 'blue' : 'default'}>{count || 0}</Tag>
-      ),
+        <Tag color={count > 0 ? "blue" : "default"}>{count || 0}</Tag>
+      )
     },
     {
-      title: 'Thao tác',
-      key: 'actions',
+      title: t("common.actions"),
+      key: "actions",
       width: 150,
-      fixed: 'right',
-      align: 'center',
+      fixed: "right",
+      align: "center",
       render: (_: any, record: FileType) => (
         <Space>
           <Button
             type="link"
             size="small"
             icon={<EditOutlined />}
-            onClick={() => handleEditFileType(record)}
-          >
+            onClick={() => handleEditFileType(record)}>
             Sửa
           </Button>
           <Popconfirm
@@ -720,28 +767,29 @@ function ActivityConfigManagement() {
             description={
               record.activity_files_count && record.activity_files_count > 0
                 ? `Loại tập tin này đang được sử dụng bởi ${record.activity_files_count} tập tin. Bạn có chắc muốn xóa?`
-                : 'Bạn có chắc chắn muốn xóa loại tập tin này?'
+                : "Bạn có chắc chắn muốn xóa loại tập tin này?"
             }
             onConfirm={() => handleDeleteFileType(record.id)}
             okText="Xóa"
             cancelText="Hủy"
-            okButtonProps={{ danger: true }}
-          >
+            okButtonProps={{ danger: true }}>
             <Button type="link" size="small" icon={<DeleteOutlined />} danger>
               Xóa
             </Button>
           </Popconfirm>
         </Space>
-      ),
-    },
+      )
+    }
   ]
 
   // Access denied view
   if (!canManage) {
     return (
       <Card>
-        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-          <SettingOutlined style={{ fontSize: 48, color: '#d9d9d9', marginBottom: 16 }} />
+        <div style={{ textAlign: "center", padding: "60px 20px" }}>
+          <SettingOutlined
+            style={{ fontSize: 48, color: "#d9d9d9", marginBottom: 16 }}
+          />
           <Title level={4} type="secondary">
             Bạn không có quyền truy cập
           </Title>
@@ -754,7 +802,7 @@ function ActivityConfigManagement() {
   }
 
   return (
-    <div style={{ padding: '0' }}>
+    <div style={{ padding: "0" }}>
       {/* Header */}
       <Card style={{ marginBottom: 16 }}>
         <div>
@@ -762,7 +810,8 @@ function ActivityConfigManagement() {
             <SettingOutlined /> Cấu hình hoạt động
           </Title>
           <Text type="secondary">
-            Quản lý loại hoạt động, lĩnh vực hoạt động và loại tập tin trong hệ thống
+            Quản lý loại hoạt động, lĩnh vực hoạt động và loại tập tin trong hệ
+            thống
           </Text>
         </div>
       </Card>
@@ -771,41 +820,43 @@ function ActivityConfigManagement() {
       <Card style={{ marginBottom: 16 }}>
         <Tabs
           activeKey={activeTab}
-          onChange={(key) => setActiveTab(key as 'types' | 'fields' | 'fileTypes')}
+          onChange={(key) =>
+            setActiveTab(key as "types" | "fields" | "fileTypes")
+          }
           items={[
             {
-              key: 'types',
+              key: "types",
               label: (
                 <span>
                   <AppstoreOutlined />
                   Loại hoạt động
                 </span>
-              ),
+              )
             },
             {
-              key: 'fields',
+              key: "fields",
               label: (
                 <span>
                   <TagsOutlined />
                   Lĩnh vực hoạt động
                 </span>
-              ),
+              )
             },
             {
-              key: 'fileTypes',
+              key: "fileTypes",
               label: (
                 <span>
                   <FileOutlined />
                   Loại tập tin
                 </span>
-              ),
-            },
+              )
+            }
           ]}
         />
       </Card>
 
       {/* Advanced Filter - based on active tab */}
-      {activeTab === 'types' && (
+      {activeTab === "types" && (
         <>
           <AdvancedFilter
             fields={typesFilterFields}
@@ -820,19 +871,24 @@ function ActivityConfigManagement() {
             defaultExpanded={true}
             extra={
               <Space>
-                <Button icon={<ReloadOutlined />} onClick={fetchActivityTypes} loading={typesLoading}>
-                  Làm mới
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={fetchActivityTypes}
+                  loading={typesLoading}>
+                  {t("common.refresh")}
                 </Button>
                 <Button
                   icon={<FileExcelOutlined />}
                   onClick={() => {
-                    setImportType('activity_types')
+                    setImportType("activity_types")
                     setImportModalVisible(true)
-                  }}
-                >
+                  }}>
                   Import Excel
                 </Button>
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddType}>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={handleAddType}>
                   Thêm loại hoạt động
                 </Button>
               </Space>
@@ -849,7 +905,7 @@ function ActivityConfigManagement() {
               pagination={{
                 ...typesPagination,
                 showSizeChanger: true,
-                showTotal: (total) => `Tổng ${total} loại hoạt động`,
+                showTotal: (total) => `Tổng ${total} loại hoạt động`
               }}
               onChange={handleTypesTableChange}
               scroll={{ x: 1000 }}
@@ -858,7 +914,7 @@ function ActivityConfigManagement() {
         </>
       )}
 
-      {activeTab === 'fields' && (
+      {activeTab === "fields" && (
         <>
           <AdvancedFilter
             fields={fieldsFilterFields}
@@ -873,19 +929,24 @@ function ActivityConfigManagement() {
             defaultExpanded={true}
             extra={
               <Space>
-                <Button icon={<ReloadOutlined />} onClick={fetchActivityFields} loading={fieldsLoading}>
-                  Làm mới
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={fetchActivityFields}
+                  loading={fieldsLoading}>
+                  {t("common.refresh")}
                 </Button>
                 <Button
                   icon={<FileExcelOutlined />}
                   onClick={() => {
-                    setImportType('activity_fields')
+                    setImportType("activity_fields")
                     setImportModalVisible(true)
-                  }}
-                >
+                  }}>
                   Import Excel
                 </Button>
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddField}>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={handleAddField}>
                   Thêm lĩnh vực
                 </Button>
               </Space>
@@ -902,7 +963,7 @@ function ActivityConfigManagement() {
               pagination={{
                 ...fieldsPagination,
                 showSizeChanger: true,
-                showTotal: (total) => `Tổng ${total} lĩnh vực`,
+                showTotal: (total) => `Tổng ${total} lĩnh vực`
               }}
               onChange={handleFieldsTableChange}
               scroll={{ x: 1000 }}
@@ -911,7 +972,7 @@ function ActivityConfigManagement() {
         </>
       )}
 
-      {activeTab === 'fileTypes' && (
+      {activeTab === "fileTypes" && (
         <>
           <AdvancedFilter
             fields={fileTypesFilterFields}
@@ -926,10 +987,16 @@ function ActivityConfigManagement() {
             defaultExpanded={true}
             extra={
               <Space>
-                <Button icon={<ReloadOutlined />} onClick={fetchFileTypes} loading={fileTypesLoading}>
-                  Làm mới
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={fetchFileTypes}
+                  loading={fileTypesLoading}>
+                  {t("common.refresh")}
                 </Button>
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddFileType}>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={handleAddFileType}>
                   Thêm loại tập tin
                 </Button>
               </Space>
@@ -946,7 +1013,7 @@ function ActivityConfigManagement() {
               pagination={{
                 ...fileTypesPagination,
                 showSizeChanger: true,
-                showTotal: (total) => `Tổng ${total} loại tập tin`,
+                showTotal: (total) => `Tổng ${total} loại tập tin`
               }}
               onChange={handleFileTypesTableChange}
               scroll={{ x: 800 }}
@@ -957,48 +1024,62 @@ function ActivityConfigManagement() {
 
       {/* Activity Type Modal */}
       <Modal
-        title={selectedType ? 'Chỉnh sửa loại hoạt động' : 'Thêm loại hoạt động mới'}
+        title={
+          selectedType ? "Chỉnh sửa loại hoạt động" : "Thêm loại hoạt động mới"
+        }
         open={typeModalVisible}
         onOk={handleTypeModalOk}
         onCancel={handleTypeModalCancel}
         confirmLoading={typeActionLoading}
         width={600}
-        okText={selectedType ? 'Cập nhật' : 'Tạo mới'}
-        cancelText="Hủy"
-      >
-        <Form form={typeForm} layout="vertical" initialValues={{ is_active: true }}>
+        okText={selectedType ? "Cập nhật" : "Tạo mới"}
+        cancelText="Hủy">
+        <Form
+          form={typeForm}
+          layout="vertical"
+          initialValues={{ is_active: true }}>
           <Form.Item
             name="name"
             label="Tên loại hoạt động"
             rules={[
-              { required: true, message: 'Vui lòng nhập tên loại hoạt động' },
-              { max: 100, message: 'Tên không được vượt quá 100 ký tự' },
-            ]}
-          >
+              { required: true, message: "Vui lòng nhập tên loại hoạt động" },
+              { max: 100, message: "Tên không được vượt quá 100 ký tự" }
+            ]}>
             <Input placeholder="VD: Đào tạo, Nghiên cứu, Hội thảo..." />
           </Form.Item>
 
           <Form.Item
             name="description"
             label="Mô tả"
-            rules={[{ max: 500, message: 'Mô tả không được vượt quá 500 ký tự' }]}
-          >
-            <TextArea rows={3} placeholder="Nhập mô tả chi tiết về loại hoạt động" />
+            rules={[
+              { max: 500, message: "Mô tả không được vượt quá 500 ký tự" }
+            ]}>
+            <TextArea
+              rows={3}
+              placeholder="Nhập mô tả chi tiết về loại hoạt động"
+            />
           </Form.Item>
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item
-                name="display_order"
-                label="Thứ tự hiển thị"
-              >
-                <InputNumber min={0} style={{ width: '100%' }} placeholder="0" />
+              <Form.Item name="display_order" label="Thứ tự hiển thị">
+                <InputNumber
+                  min={0}
+                  style={{ width: "100%" }}
+                  placeholder="0"
+                />
               </Form.Item>
             </Col>
 
             <Col span={12}>
-              <Form.Item name="is_active" label="Trạng thái" valuePropName="checked">
-                <Switch checkedChildren="Hoạt động" unCheckedChildren="Tạm dừng" />
+              <Form.Item
+                name="is_active"
+                label="Trạng thái"
+                valuePropName="checked">
+                <Switch
+                  checkedChildren="Hoạt động"
+                  unCheckedChildren="Tạm dừng"
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -1007,48 +1088,64 @@ function ActivityConfigManagement() {
 
       {/* Activity Field Modal */}
       <Modal
-        title={selectedField ? 'Chỉnh sửa lĩnh vực hoạt động' : 'Thêm lĩnh vực hoạt động mới'}
+        title={
+          selectedField
+            ? "Chỉnh sửa lĩnh vực hoạt động"
+            : "Thêm lĩnh vực hoạt động mới"
+        }
         open={fieldModalVisible}
         onOk={handleFieldModalOk}
         onCancel={handleFieldModalCancel}
         confirmLoading={fieldActionLoading}
         width={600}
-        okText={selectedField ? 'Cập nhật' : 'Tạo mới'}
-        cancelText="Hủy"
-      >
-        <Form form={fieldForm} layout="vertical" initialValues={{ is_active: true }}>
+        okText={selectedField ? "Cập nhật" : "Tạo mới"}
+        cancelText="Hủy">
+        <Form
+          form={fieldForm}
+          layout="vertical"
+          initialValues={{ is_active: true }}>
           <Form.Item
             name="name"
             label="Tên lĩnh vực"
             rules={[
-              { required: true, message: 'Vui lòng nhập tên lĩnh vực' },
-              { max: 100, message: 'Tên không được vượt quá 100 ký tự' },
-            ]}
-          >
+              { required: true, message: "Vui lòng nhập tên lĩnh vực" },
+              { max: 100, message: "Tên không được vượt quá 100 ký tự" }
+            ]}>
             <Input placeholder="VD: Khoa học tự nhiên, Công nghệ thông tin..." />
           </Form.Item>
 
           <Form.Item
             name="description"
             label="Mô tả"
-            rules={[{ max: 500, message: 'Mô tả không được vượt quá 500 ký tự' }]}
-          >
-            <TextArea rows={3} placeholder="Nhập mô tả chi tiết về lĩnh vực hoạt động" />
+            rules={[
+              { max: 500, message: "Mô tả không được vượt quá 500 ký tự" }
+            ]}>
+            <TextArea
+              rows={3}
+              placeholder="Nhập mô tả chi tiết về lĩnh vực hoạt động"
+            />
           </Form.Item>
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item
-                name="display_order"
-                label="Thứ tự hiển thị"
-              >
-                <InputNumber min={0} style={{ width: '100%' }} placeholder="0" />
+              <Form.Item name="display_order" label="Thứ tự hiển thị">
+                <InputNumber
+                  min={0}
+                  style={{ width: "100%" }}
+                  placeholder="0"
+                />
               </Form.Item>
             </Col>
 
             <Col span={12}>
-              <Form.Item name="is_active" label="Trạng thái" valuePropName="checked">
-                <Switch checkedChildren="Hoạt động" unCheckedChildren="Tạm dừng" />
+              <Form.Item
+                name="is_active"
+                label="Trạng thái"
+                valuePropName="checked">
+                <Switch
+                  checkedChildren="Hoạt động"
+                  unCheckedChildren="Tạm dừng"
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -1057,15 +1154,16 @@ function ActivityConfigManagement() {
 
       {/* File Type Modal */}
       <Modal
-        title={selectedFileType ? 'Chỉnh sửa loại tập tin' : 'Thêm loại tập tin mới'}
+        title={
+          selectedFileType ? "Chỉnh sửa loại tập tin" : "Thêm loại tập tin mới"
+        }
         open={fileTypeModalVisible}
         onOk={handleFileTypeModalOk}
         onCancel={handleFileTypeModalCancel}
         confirmLoading={fileTypeActionLoading}
         width={500}
-        okText={selectedFileType ? 'Cập nhật' : 'Tạo mới'}
-        cancelText="Hủy"
-      >
+        okText={selectedFileType ? "Cập nhật" : "Tạo mới"}
+        cancelText="Hủy">
         <Form form={fileTypeForm} layout="vertical">
           <Row gutter={16}>
             <Col span={8}>
@@ -1073,13 +1171,12 @@ function ActivityConfigManagement() {
                 name="code"
                 label="Mã loại tập tin"
                 rules={[
-                  { required: true, message: 'Vui lòng nhập mã loại tập tin' },
-                  { max: 50, message: 'Mã không được vượt quá 50 ký tự' },
-                ]}
-              >
+                  { required: true, message: "Vui lòng nhập mã loại tập tin" },
+                  { max: 50, message: "Mã không được vượt quá 50 ký tự" }
+                ]}>
                 <Input
                   placeholder="VD: PDF, DOC..."
-                  style={{ textTransform: 'uppercase' }}
+                  style={{ textTransform: "uppercase" }}
                 />
               </Form.Item>
             </Col>
@@ -1088,10 +1185,9 @@ function ActivityConfigManagement() {
                 name="name"
                 label="Tên loại tập tin"
                 rules={[
-                  { required: true, message: 'Vui lòng nhập tên loại tập tin' },
-                  { max: 100, message: 'Tên không được vượt quá 100 ký tự' },
-                ]}
-              >
+                  { required: true, message: "Vui lòng nhập tên loại tập tin" },
+                  { max: 100, message: "Tên không được vượt quá 100 ký tự" }
+                ]}>
                 <Input placeholder="VD: Tài liệu PDF, Bảng tính Excel..." />
               </Form.Item>
             </Col>
@@ -1105,7 +1201,7 @@ function ActivityConfigManagement() {
         type={importType}
         onClose={() => setImportModalVisible(false)}
         onSuccess={() => {
-          if (importType === 'activity_types') {
+          if (importType === "activity_types") {
             fetchActivityTypes()
           } else {
             fetchActivityFields()

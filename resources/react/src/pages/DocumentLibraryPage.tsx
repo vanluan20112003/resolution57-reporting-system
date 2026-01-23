@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback } from "react"
 import {
   Card,
   Table,
@@ -16,8 +16,8 @@ import {
   Row,
   Col,
   Tooltip,
-  Empty,
-} from 'antd'
+  Empty
+} from "antd"
 import {
   UploadOutlined,
   SearchOutlined,
@@ -38,12 +38,12 @@ import {
   GlobalOutlined,
   TeamOutlined,
   LockOutlined,
-  ReloadOutlined,
-} from '@ant-design/icons'
-import type { ColumnsType } from 'antd/es/table'
-import type { UploadFile } from 'antd/es/upload/interface'
-import { useTranslation } from 'react-i18next'
-import { useAuth } from '../shared/hooks'
+  ReloadOutlined
+} from "@ant-design/icons"
+import type { ColumnsType } from "antd/es/table"
+import type { UploadFile } from "antd/es/upload/interface"
+import { useTranslation } from "react-i18next"
+import { useAuth } from "../shared/hooks"
 import {
   getDocuments,
   uploadDocument,
@@ -56,9 +56,12 @@ import {
   getVisibilityColor,
   Document,
   DocumentFilters,
-  DocumentVisibility,
-} from '../services/documentApi'
-import { getOrganizationListSimple, SimpleOrganization } from '../services/organizationApi'
+  DocumentVisibility
+} from "../services/documentApi"
+import {
+  getOrganizationListSimple,
+  SimpleOrganization
+} from "../services/organizationApi"
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -74,14 +77,18 @@ const DocumentLibraryPage: React.FC = () => {
   const [pagination, setPagination] = useState({
     total: 0,
     current: 1,
-    pageSize: 20,
+    pageSize: 20
   })
 
   // Filters
-  const [searchText, setSearchText] = useState('')
+  const [searchText, setSearchText] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>()
-  const [visibilityFilter, setVisibilityFilter] = useState<DocumentVisibility | undefined>()
-  const [organizationFilter, setOrganizationFilter] = useState<string | undefined>()
+  const [visibilityFilter, setVisibilityFilter] = useState<
+    DocumentVisibility | undefined
+  >()
+  const [organizationFilter, setOrganizationFilter] = useState<
+    string | undefined
+  >()
 
   // Options
   const [categories, setCategories] = useState<string[]>([])
@@ -97,37 +104,47 @@ const DocumentLibraryPage: React.FC = () => {
   const [fileList, setFileList] = useState<UploadFile[]>([])
 
   // Check if user can upload
-  const canUpload = user && ['ADMIN', 'OPERATOR', 'STAFF', 'MANAGER'].includes(user.role)
+  const canUpload =
+    user && ["ADMIN", "OPERATOR", "STAFF", "MANAGER"].includes(user.role)
 
   // Load documents
-  const loadDocuments = useCallback(async (page = 1) => {
-    setLoading(true)
-    try {
-      const filters: DocumentFilters = {
-        page,
-        per_page: pagination.pageSize,
-        search: searchText || undefined,
-        category: categoryFilter,
-        visibility: visibilityFilter,
-        organization_id: organizationFilter,
-        sort_by: 'created_at',
-        sort_order: 'desc',
-      }
+  const loadDocuments = useCallback(
+    async (page = 1) => {
+      setLoading(true)
+      try {
+        const filters: DocumentFilters = {
+          page,
+          per_page: pagination.pageSize,
+          search: searchText || undefined,
+          category: categoryFilter,
+          visibility: visibilityFilter,
+          organization_id: organizationFilter,
+          sort_by: "created_at",
+          sort_order: "desc"
+        }
 
-      const response = await getDocuments(filters)
-      setDocuments(response.data)
-      setPagination({
-        ...pagination,
-        total: response.pagination.total,
-        current: response.pagination.current_page,
-      })
-    } catch (error) {
-      console.error('Failed to load documents:', error)
-      message.error('Không thể tải danh sách tài liệu')
-    } finally {
-      setLoading(false)
-    }
-  }, [searchText, categoryFilter, visibilityFilter, organizationFilter, pagination.pageSize])
+        const response = await getDocuments(filters)
+        setDocuments(response.data)
+        setPagination({
+          ...pagination,
+          total: response.pagination.total,
+          current: response.pagination.current_page
+        })
+      } catch (error) {
+        console.error("Failed to load documents:", error)
+        message.error("Không thể tải danh sách tài liệu")
+      } finally {
+        setLoading(false)
+      }
+    },
+    [
+      searchText,
+      categoryFilter,
+      visibilityFilter,
+      organizationFilter,
+      pagination.pageSize
+    ]
+  )
 
   // Load filter options
   const loadFilterOptions = async () => {
@@ -136,7 +153,7 @@ const DocumentLibraryPage: React.FC = () => {
       const categoriesRes = await getDocumentCategories()
       setCategories(categoriesRes.data || [])
     } catch (error) {
-      console.error('Failed to load categories:', error)
+      console.error("Failed to load categories:", error)
     }
 
     // Load organizations separately to not block categories
@@ -146,7 +163,7 @@ const DocumentLibraryPage: React.FC = () => {
         setOrganizations(orgsRes.data)
       }
     } catch (error) {
-      console.error('Failed to load organizations:', error)
+      console.error("Failed to load organizations:", error)
     }
   }
 
@@ -162,26 +179,39 @@ const DocumentLibraryPage: React.FC = () => {
   // Get file icon component
   const getFileIconComponent = (fileType?: string) => {
     if (!fileType) return <FileOutlined />
-    if (fileType.startsWith('image/')) return <FileImageOutlined style={{ color: '#1890ff' }} />
-    if (fileType.startsWith('video/')) return <VideoCameraOutlined style={{ color: '#722ed1' }} />
-    if (fileType.startsWith('audio/')) return <SoundOutlined style={{ color: '#eb2f96' }} />
-    if (fileType === 'application/pdf') return <FilePdfOutlined style={{ color: '#f5222d' }} />
-    if (fileType.includes('word') || fileType.includes('document')) return <FileWordOutlined style={{ color: '#2f54eb' }} />
-    if (fileType.includes('excel') || fileType.includes('spreadsheet')) return <FileExcelOutlined style={{ color: '#52c41a' }} />
-    if (fileType.includes('powerpoint') || fileType.includes('presentation')) return <FilePptOutlined style={{ color: '#fa8c16' }} />
-    if (fileType.includes('zip') || fileType.includes('compressed') || fileType.includes('archive')) return <FileZipOutlined style={{ color: '#faad14' }} />
-    if (fileType.startsWith('text/')) return <FileTextOutlined style={{ color: '#8c8c8c' }} />
+    if (fileType.startsWith("image/"))
+      return <FileImageOutlined style={{ color: "#1890ff" }} />
+    if (fileType.startsWith("video/"))
+      return <VideoCameraOutlined style={{ color: "#722ed1" }} />
+    if (fileType.startsWith("audio/"))
+      return <SoundOutlined style={{ color: "#eb2f96" }} />
+    if (fileType === "application/pdf")
+      return <FilePdfOutlined style={{ color: "#f5222d" }} />
+    if (fileType.includes("word") || fileType.includes("document"))
+      return <FileWordOutlined style={{ color: "#2f54eb" }} />
+    if (fileType.includes("excel") || fileType.includes("spreadsheet"))
+      return <FileExcelOutlined style={{ color: "#52c41a" }} />
+    if (fileType.includes("powerpoint") || fileType.includes("presentation"))
+      return <FilePptOutlined style={{ color: "#fa8c16" }} />
+    if (
+      fileType.includes("zip") ||
+      fileType.includes("compressed") ||
+      fileType.includes("archive")
+    )
+      return <FileZipOutlined style={{ color: "#faad14" }} />
+    if (fileType.startsWith("text/"))
+      return <FileTextOutlined style={{ color: "#8c8c8c" }} />
     return <FileOutlined />
   }
 
   // Get visibility icon
   const getVisibilityIcon = (visibility: DocumentVisibility) => {
     switch (visibility) {
-      case 'PUBLIC':
+      case "PUBLIC":
         return <GlobalOutlined />
-      case 'ORGANIZATION':
+      case "ORGANIZATION":
         return <TeamOutlined />
-      case 'PRIVATE':
+      case "PRIVATE":
         return <LockOutlined />
       default:
         return <EyeOutlined />
@@ -196,7 +226,7 @@ const DocumentLibraryPage: React.FC = () => {
     visibility: DocumentVisibility
   }) => {
     if (fileList.length === 0) {
-      message.error('Vui lòng chọn file để upload')
+      message.error("Vui lòng chọn file để upload")
       return
     }
 
@@ -208,10 +238,10 @@ const DocumentLibraryPage: React.FC = () => {
         description: values.description,
         category: values.category,
         visibility: values.visibility,
-        organization_id: user?.organization_id,
+        organization_id: user?.organization_id
       })
 
-      message.success('Upload tài liệu thành công')
+      message.success("Upload tài liệu thành công")
       setUploadModalVisible(false)
       form.resetFields()
       setFileList([])
@@ -219,9 +249,9 @@ const DocumentLibraryPage: React.FC = () => {
       loadFilterOptions()
     } catch (error: unknown) {
       if (error instanceof Error) {
-        message.error(error.message || 'Upload thất bại')
+        message.error(error.message || "Upload thất bại")
       } else {
-        message.error('Upload thất bại')
+        message.error("Upload thất bại")
       }
     } finally {
       setUploading(false)
@@ -235,7 +265,7 @@ const DocumentLibraryPage: React.FC = () => {
       title: doc.title,
       description: doc.description,
       category: doc.category,
-      visibility: doc.visibility,
+      visibility: doc.visibility
     })
     setEditModalVisible(true)
   }
@@ -251,7 +281,7 @@ const DocumentLibraryPage: React.FC = () => {
 
     try {
       await updateDocument(editingDocument.id, values)
-      message.success('Cập nhật tài liệu thành công')
+      message.success("Cập nhật tài liệu thành công")
       setEditModalVisible(false)
       editForm.resetFields()
       setEditingDocument(null)
@@ -259,9 +289,9 @@ const DocumentLibraryPage: React.FC = () => {
       loadFilterOptions()
     } catch (error: unknown) {
       if (error instanceof Error) {
-        message.error(error.message || 'Cập nhật thất bại')
+        message.error(error.message || "Cập nhật thất bại")
       } else {
-        message.error('Cập nhật thất bại')
+        message.error("Cập nhật thất bại")
       }
     }
   }
@@ -270,13 +300,13 @@ const DocumentLibraryPage: React.FC = () => {
   const handleDelete = async (id: string) => {
     try {
       await deleteDocument(id)
-      message.success('Xóa tài liệu thành công')
+      message.success("Xóa tài liệu thành công")
       loadDocuments(pagination.current)
     } catch (error: unknown) {
       if (error instanceof Error) {
-        message.error(error.message || 'Xóa thất bại')
+        message.error(error.message || "Xóa thất bại")
       } else {
-        message.error('Xóa thất bại')
+        message.error("Xóa thất bại")
       }
     }
   }
@@ -285,25 +315,25 @@ const DocumentLibraryPage: React.FC = () => {
   const handleDownload = async (doc: Document) => {
     try {
       await downloadDocument(doc.id, doc.file_name)
-      message.success('Tải xuống thành công')
+      message.success("Tải xuống thành công")
     } catch (error) {
-      message.error('Tải xuống thất bại')
+      message.error("Tải xuống thất bại")
     }
   }
 
   // Check if user can edit/delete document
   const canModify = (doc: Document) => {
     if (!user) return false
-    if (user.role === 'ADMIN') return true
+    if (user.role === "ADMIN") return true
     return doc.uploaded_by === user.id
   }
 
   // Table columns
   const columns: ColumnsType<Document> = [
     {
-      title: 'Tài liệu',
-      dataIndex: 'title',
-      key: 'title',
+      title: t("documentLibrary.document"),
+      dataIndex: "title",
+      key: "title",
       render: (title, record) => (
         <Space>
           {getFileIconComponent(record.file_type)}
@@ -315,61 +345,70 @@ const DocumentLibraryPage: React.FC = () => {
             </Text>
           </div>
         </Space>
-      ),
+      )
     },
     {
-      title: 'Danh mục',
-      dataIndex: 'category',
-      key: 'category',
+      title: t("documentLibrary.category"),
+      dataIndex: "category",
+      key: "category",
       width: 150,
-      render: (category) => category ? <Tag>{category}</Tag> : '-',
+      render: (category) => (category ? <Tag>{category}</Tag> : "-")
     },
     {
-      title: 'Kích thước',
-      dataIndex: 'file_size',
-      key: 'file_size',
+      title: t("documentLibrary.size"),
+      dataIndex: "file_size",
+      key: "file_size",
       width: 100,
-      render: (size) => formatFileSize(size),
+      render: (size) => formatFileSize(size)
     },
     {
-      title: 'Phạm vi',
-      dataIndex: 'visibility',
-      key: 'visibility',
+      title: t("documentLibrary.scope"),
+      dataIndex: "visibility",
+      key: "visibility",
       width: 130,
       render: (visibility: DocumentVisibility) => (
-        <Tag icon={getVisibilityIcon(visibility)} color={getVisibilityColor(visibility)}>
+        <Tag
+          icon={getVisibilityIcon(visibility)}
+          color={getVisibilityColor(visibility)}>
           {getVisibilityLabel(visibility)}
         </Tag>
-      ),
+      )
     },
     {
-      title: 'Phòng ban',
-      dataIndex: 'organization',
-      key: 'organization',
+      title: t("documentLibrary.department"),
+      dataIndex: "organization",
+      key: "organization",
       width: 150,
-      render: (org) => org ? (
-        <Tooltip title={org.name}>
-          <Tag color="blue">{org.short_name || org.name}</Tag>
-        </Tooltip>
-      ) : '-',
+      render: (org) =>
+        org ? (
+          <Tooltip title={org.name}>
+            <Tag color="blue">{org.short_name || org.name}</Tag>
+          </Tooltip>
+        ) : (
+          "-"
+        )
     },
     {
-      title: 'Người đăng',
-      dataIndex: 'uploader',
-      key: 'uploader',
+      title: t("documentLibrary.uploadedBy"),
+      dataIndex: "uploader",
+      key: "uploader",
       width: 150,
-      render: (uploader) => uploader ? `${uploader.first_name || ''} ${uploader.last_name || ''}`.trim() || '-' : '-',
+      render: (uploader) =>
+        uploader
+          ? `${uploader.first_name || ""} ${uploader.last_name || ""}`.trim() ||
+            "-"
+          : "-"
     },
     {
-      title: 'Ngày đăng',
-      dataIndex: 'created_at',
-      key: 'created_at',
+      title: t("documentLibrary.uploadDate"),
+      dataIndex: "created_at",
+      key: "created_at",
       width: 120,
-      render: (date) => new Date(date).toLocaleDateString('vi-VN'),
+      render: (date) => new Date(date).toLocaleDateString("vi-VN")
     },
     {
-      title: 'Thao tác',
-      key: 'actions',
+      title: t("common.actions"),
+      key: "actions",
       width: 150,
       render: (_, record) => (
         <Space>
@@ -393,8 +432,7 @@ const DocumentLibraryPage: React.FC = () => {
                 title="Bạn có chắc muốn xóa tài liệu này?"
                 onConfirm={() => handleDelete(record.id)}
                 okText="Xóa"
-                cancelText="Hủy"
-              >
+                cancelText="Hủy">
                 <Tooltip title="Xóa">
                   <Button type="text" icon={<DeleteOutlined />} danger />
                 </Tooltip>
@@ -402,31 +440,35 @@ const DocumentLibraryPage: React.FC = () => {
             </>
           )}
         </Space>
-      ),
-    },
+      )
+    }
   ]
 
   return (
     <div style={{ padding: 24 }}>
       <Card>
-        <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
+        <Row
+          justify="space-between"
+          align="middle"
+          style={{ marginBottom: 16 }}>
           <Col>
             <Title level={4} style={{ margin: 0 }}>
-              Kho tài liệu
+              {t("menu.documentLibrary")}
             </Title>
           </Col>
           <Col>
             <Space>
-              <Button icon={<ReloadOutlined />} onClick={() => loadDocuments(pagination.current)}>
-                Làm mới
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={() => loadDocuments(pagination.current)}>
+                {t("common.refresh")}
               </Button>
               {canUpload && (
                 <Button
                   type="primary"
                   icon={<UploadOutlined />}
-                  onClick={() => setUploadModalVisible(true)}
-                >
-                  Upload tài liệu
+                  onClick={() => setUploadModalVisible(true)}>
+                  {t("documentLibrary.uploadFile")}
                 </Button>
               )}
             </Space>
@@ -446,14 +488,13 @@ const DocumentLibraryPage: React.FC = () => {
           </Col>
           <Col xs={24} sm={12} md={6}>
             <Select
-              placeholder="Phòng ban"
+              placeholder={t("documentLibrary.department")}
               value={organizationFilter}
               onChange={setOrganizationFilter}
               allowClear
               showSearch
               optionFilterProp="children"
-              style={{ width: '100%' }}
-            >
+              style={{ width: "100%" }}>
               {organizations.map((org) => (
                 <Option key={org.id} value={org.id}>
                   {org.short_name || org.name}
@@ -463,12 +504,11 @@ const DocumentLibraryPage: React.FC = () => {
           </Col>
           <Col xs={24} sm={12} md={6}>
             <Select
-              placeholder="Danh mục"
+              placeholder={t("documentLibrary.category")}
               value={categoryFilter}
               onChange={setCategoryFilter}
               allowClear
-              style={{ width: '100%' }}
-            >
+              style={{ width: "100%" }}>
               {categories.map((cat) => (
                 <Option key={cat} value={cat}>
                   {cat}
@@ -478,12 +518,11 @@ const DocumentLibraryPage: React.FC = () => {
           </Col>
           <Col xs={24} sm={12} md={6}>
             <Select
-              placeholder="Phạm vi"
+              placeholder={t("documentLibrary.scope")}
               value={visibilityFilter}
               onChange={setVisibilityFilter}
               allowClear
-              style={{ width: '100%' }}
-            >
+              style={{ width: "100%" }}>
               <Option value="PUBLIC">Công khai</Option>
               <Option value="ORGANIZATION">Trong tổ chức</Option>
               <Option value="PRIVATE">Riêng tư</Option>
@@ -504,7 +543,7 @@ const DocumentLibraryPage: React.FC = () => {
             onChange: (page, pageSize) => {
               setPagination({ ...pagination, current: page, pageSize })
               loadDocuments(page)
-            },
+            }
           }}
           locale={{
             emptyText: (
@@ -512,14 +551,14 @@ const DocumentLibraryPage: React.FC = () => {
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description="Chưa có tài liệu nào"
               />
-            ),
+            )
           }}
         />
       </Card>
 
       {/* Upload Modal */}
       <Modal
-        title="Upload tài liệu"
+        title={t("documentLibrary.uploadFile")}
         open={uploadModalVisible}
         onCancel={() => {
           setUploadModalVisible(false)
@@ -527,16 +566,14 @@ const DocumentLibraryPage: React.FC = () => {
           setFileList([])
         }}
         footer={null}
-        width={600}
-      >
+        width={600}>
         <Form form={form} layout="vertical" onFinish={handleUpload}>
           <Form.Item label="Chọn file" required>
             <Upload
               beforeUpload={() => false}
               fileList={fileList}
               onChange={({ fileList }) => setFileList(fileList.slice(-1))}
-              maxCount={1}
-            >
+              maxCount={1}>
               <Button icon={<UploadOutlined />}>Chọn file</Button>
             </Upload>
             <Text type="secondary" style={{ fontSize: 12 }}>
@@ -547,8 +584,7 @@ const DocumentLibraryPage: React.FC = () => {
           <Form.Item
             name="title"
             label="Tiêu đề"
-            rules={[{ required: true, message: 'Vui lòng nhập tiêu đề' }]}
-          >
+            rules={[{ required: true, message: "Vui lòng nhập tiêu đề" }]}>
             <Input placeholder="Nhập tiêu đề tài liệu" />
           </Form.Item>
 
@@ -558,14 +594,13 @@ const DocumentLibraryPage: React.FC = () => {
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="category" label="Danh mục">
+              <Form.Item name="category" label={t("documentLibrary.category")}>
                 <Select
                   placeholder="Chọn hoặc nhập danh mục"
                   allowClear
                   showSearch
                   mode="tags"
-                  maxCount={1}
-                >
+                  maxCount={1}>
                   {categories.map((cat) => (
                     <Option key={cat} value={cat}>
                       {cat}
@@ -577,10 +612,9 @@ const DocumentLibraryPage: React.FC = () => {
             <Col span={12}>
               <Form.Item
                 name="visibility"
-                label="Phạm vi"
+                label={t("documentLibrary.scope")}
                 initialValue="PUBLIC"
-                rules={[{ required: true }]}
-              >
+                rules={[{ required: true }]}>
                 <Select>
                   <Option value="PUBLIC">
                     <GlobalOutlined /> Công khai
@@ -596,7 +630,7 @@ const DocumentLibraryPage: React.FC = () => {
             </Col>
           </Row>
 
-          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+          <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
             <Space>
               <Button onClick={() => setUploadModalVisible(false)}>Hủy</Button>
               <Button type="primary" htmlType="submit" loading={uploading}>
@@ -617,14 +651,12 @@ const DocumentLibraryPage: React.FC = () => {
           setEditingDocument(null)
         }}
         footer={null}
-        width={600}
-      >
+        width={600}>
         <Form form={editForm} layout="vertical" onFinish={handleSaveEdit}>
           <Form.Item
             name="title"
             label="Tiêu đề"
-            rules={[{ required: true, message: 'Vui lòng nhập tiêu đề' }]}
-          >
+            rules={[{ required: true, message: "Vui lòng nhập tiêu đề" }]}>
             <Input placeholder="Nhập tiêu đề tài liệu" />
           </Form.Item>
 
@@ -634,14 +666,13 @@ const DocumentLibraryPage: React.FC = () => {
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="category" label="Danh mục">
+              <Form.Item name="category" label={t("documentLibrary.category")}>
                 <Select
                   placeholder="Chọn hoặc nhập danh mục"
                   allowClear
                   showSearch
                   mode="tags"
-                  maxCount={1}
-                >
+                  maxCount={1}>
                   {categories.map((cat) => (
                     <Option key={cat} value={cat}>
                       {cat}
@@ -653,9 +684,8 @@ const DocumentLibraryPage: React.FC = () => {
             <Col span={12}>
               <Form.Item
                 name="visibility"
-                label="Phạm vi"
-                rules={[{ required: true }]}
-              >
+                label={t("documentLibrary.scope")}
+                rules={[{ required: true }]}>
                 <Select>
                   <Option value="PUBLIC">
                     <GlobalOutlined /> Công khai
@@ -671,7 +701,7 @@ const DocumentLibraryPage: React.FC = () => {
             </Col>
           </Row>
 
-          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+          <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
             <Space>
               <Button onClick={() => setEditModalVisible(false)}>Hủy</Button>
               <Button type="primary" htmlType="submit">
