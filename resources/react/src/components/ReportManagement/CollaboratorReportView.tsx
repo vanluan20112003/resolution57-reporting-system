@@ -62,6 +62,8 @@ import type {
   BatchFile,
   CollaboratorFilesByActivity,
 } from '../../services/reportBatchApi'
+import FileViewer, { type FileViewerFile } from '../../shared/components/FileViewer/FileViewer'
+import API_CONFIG from '../../config/api'
 
 const { Title, Text, Paragraph } = Typography
 const { TextArea } = Input
@@ -151,6 +153,11 @@ function CollaboratorReportView() {
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null)
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const [isRestoringDraft, setIsRestoringDraft] = useState(false)
+
+  // FileViewer state
+  const [fileViewerVisible, setFileViewerVisible] = useState(false)
+  const [viewingFile, setViewingFile] = useState<FileViewerFile | null>(null)
+  const [viewingFiles, setViewingFiles] = useState<FileViewerFile[]>([])
 
   // Fetch summary
   const fetchSummary = useCallback(async () => {
@@ -271,6 +278,38 @@ function CollaboratorReportView() {
     } catch (error: any) {
       message.error(error.message || 'Tải file thất bại')
     }
+  }
+
+  // View file (preview without download)
+  const handleViewFile = (file: BatchFile, allFiles?: BatchFile[]) => {
+    if (!detailBatch) return
+    const token = localStorage.getItem('access_token')
+    const fileExtension = file.file_name?.split('.').pop()?.toLowerCase() || ''
+
+    const viewerFile: FileViewerFile = {
+      id: file.id,
+      file_name: file.file_name,
+      file_url: `${API_CONFIG.BASE_URL}/report-batches/${detailBatch.id}/files/${file.id}/download?token=${token}`,
+      download_url: `${API_CONFIG.BASE_URL}/report-batches/${detailBatch.id}/files/${file.id}/download?token=${token}`,
+      file_extension: fileExtension,
+    }
+
+    // If allFiles provided, convert all for navigation
+    if (allFiles && allFiles.length > 0) {
+      const files: FileViewerFile[] = allFiles.map(f => ({
+        id: f.id,
+        file_name: f.file_name,
+        file_url: `${API_CONFIG.BASE_URL}/report-batches/${detailBatch.id}/files/${f.id}/download?token=${token}`,
+        download_url: `${API_CONFIG.BASE_URL}/report-batches/${detailBatch.id}/files/${f.id}/download?token=${token}`,
+        file_extension: f.file_name?.split('.').pop()?.toLowerCase() || '',
+      }))
+      setViewingFiles(files)
+    } else {
+      setViewingFiles([viewerFile])
+    }
+
+    setViewingFile(viewerFile)
+    setFileViewerVisible(true)
   }
 
   // Delete file
@@ -1055,15 +1094,26 @@ function CollaboratorReportView() {
                                   </Text>
                                 </Tooltip>
                               </div>
-                              <Tooltip title="Tải xuống">
-                                <Button
-                                  type="link"
-                                  size="small"
-                                  icon={<DownloadOutlined />}
-                                  onClick={() => handleDownloadFile(file)}
-                                  style={{ padding: '0 4px' }}
-                                />
-                              </Tooltip>
+                              <Space size={0}>
+                                <Tooltip title="Xem file">
+                                  <Button
+                                    type="link"
+                                    size="small"
+                                    icon={<EyeOutlined />}
+                                    onClick={() => handleViewFile(file, ownerFiles)}
+                                    style={{ padding: '0 4px', color: '#1890ff' }}
+                                  />
+                                </Tooltip>
+                                <Tooltip title="Tải xuống">
+                                  <Button
+                                    type="link"
+                                    size="small"
+                                    icon={<DownloadOutlined />}
+                                    onClick={() => handleDownloadFile(file)}
+                                    style={{ padding: '0 4px' }}
+                                  />
+                                </Tooltip>
+                              </Space>
                             </div>
                           ))
                         ) : (
@@ -1238,6 +1288,15 @@ function CollaboratorReportView() {
                                           }}>
                                             {file.title || file.file_name}
                                           </Text>
+                                        </Tooltip>
+                                        <Tooltip title="Xem file">
+                                          <Button
+                                            type="link"
+                                            size="small"
+                                            icon={<EyeOutlined />}
+                                            onClick={() => handleViewFile(file, getFilesForActivity(activity.id))}
+                                            style={{ padding: 0, height: 'auto', color: '#1890ff' }}
+                                          />
                                         </Tooltip>
                                         <Tooltip title="Tải xuống">
                                           <Button
@@ -1497,6 +1556,13 @@ function CollaboratorReportView() {
                       <Button
                         type="link"
                         size="small"
+                        icon={<EyeOutlined />}
+                        onClick={() => handleViewFile(file, getFilesForActivity(selectedActivity.id))}
+                        style={{ padding: '0 4px', color: '#1890ff' }}
+                      />
+                      <Button
+                        type="link"
+                        size="small"
                         icon={<DownloadOutlined />}
                         onClick={() => handleDownloadFile(file)}
                         style={{ padding: '0 4px' }}
@@ -1620,6 +1686,19 @@ function CollaboratorReportView() {
           </div>
         )}
       </Modal>
+
+      {/* File Viewer Modal */}
+      <FileViewer
+        visible={fileViewerVisible}
+        file={viewingFile}
+        files={viewingFiles}
+        onClose={() => {
+          setFileViewerVisible(false)
+          setViewingFile(null)
+          setViewingFiles([])
+        }}
+        onNavigate={(file) => setViewingFile(file)}
+      />
     </div>
   )
 }

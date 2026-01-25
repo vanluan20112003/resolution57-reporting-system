@@ -77,6 +77,8 @@ import type {
 } from '../../services/reportBatchApi'
 import CollaboratorReportView from './CollaboratorReportView'
 import BatchFilesExplorer from './BatchFilesExplorer'
+import FileViewer, { type FileViewerFile } from '../../shared/components/FileViewer/FileViewer'
+import API_CONFIG from '../../config/api'
 
 const { Title, Text, Paragraph } = Typography
 const { TextArea } = Input
@@ -251,6 +253,11 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
   const [responseDetailVisible, setResponseDetailVisible] = useState(false)
   const [selectedResponsesForDetail, setSelectedResponsesForDetail] = useState<CollaboratorResponse[]>([])
   const [selectedResponseActivity, setSelectedResponseActivity] = useState<{ id: string; title: string } | null>(null)
+
+  // FileViewer state
+  const [fileViewerVisible, setFileViewerVisible] = useState(false)
+  const [viewingFile, setViewingFile] = useState<FileViewerFile | null>(null)
+  const [viewingFiles, setViewingFiles] = useState<FileViewerFile[]>([])
 
   // Helper: Get all activities from both sources (list view + KPI view)
   const getAllActivitiesMap = useCallback((): Map<string, BatchActivity | KpiActivityItem> => {
@@ -517,6 +524,38 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
     } catch (error: any) {
       message.error(error.message || 'Tải file thất bại')
     }
+  }
+
+  // Handle view file (preview without download)
+  const handleViewFile = (file: BatchFile, allFiles?: BatchFile[]) => {
+    if (!detailBatch) return
+    const token = localStorage.getItem('access_token')
+    const fileExtension = file.file_name?.split('.').pop()?.toLowerCase() || ''
+
+    const viewerFile: FileViewerFile = {
+      id: file.id,
+      file_name: file.file_name,
+      file_url: `${API_CONFIG.BASE_URL}/report-batches/${detailBatch.id}/files/${file.id}/download?token=${token}`,
+      download_url: `${API_CONFIG.BASE_URL}/report-batches/${detailBatch.id}/files/${file.id}/download?token=${token}`,
+      file_extension: fileExtension,
+    }
+
+    // If allFiles provided, convert all for navigation
+    if (allFiles && allFiles.length > 0) {
+      const files: FileViewerFile[] = allFiles.map(f => ({
+        id: f.id,
+        file_name: f.file_name,
+        file_url: `${API_CONFIG.BASE_URL}/report-batches/${detailBatch.id}/files/${f.id}/download?token=${token}`,
+        download_url: `${API_CONFIG.BASE_URL}/report-batches/${detailBatch.id}/files/${f.id}/download?token=${token}`,
+        file_extension: f.file_name?.split('.').pop()?.toLowerCase() || '',
+      }))
+      setViewingFiles(files)
+    } else {
+      setViewingFiles([viewerFile])
+    }
+
+    setViewingFile(viewerFile)
+    setFileViewerVisible(true)
   }
 
   // Get file icon based on file type
@@ -1747,13 +1786,23 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
                                   </Text>
                                 </div>
                               </Space>
-                              <Tooltip title="Tải xuống">
-                                <Button
-                                  type="text"
-                                  icon={<DownloadOutlined />}
-                                  onClick={() => handleDownloadFile(file)}
-                                />
-                              </Tooltip>
+                              <Space size={0}>
+                                <Tooltip title="Xem file">
+                                  <Button
+                                    type="text"
+                                    icon={<EyeOutlined />}
+                                    onClick={() => handleViewFile(file, ownerFilesForDetail)}
+                                    style={{ color: '#1890ff' }}
+                                  />
+                                </Tooltip>
+                                <Tooltip title="Tải xuống">
+                                  <Button
+                                    type="text"
+                                    icon={<DownloadOutlined />}
+                                    onClick={() => handleDownloadFile(file)}
+                                  />
+                                </Tooltip>
+                              </Space>
                             </div>
                           ))
                         ) : (
@@ -2081,15 +2130,26 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
                                                   ({file.file_size_formatted})
                                                 </Text>
                                               </Space>
-                                              <Tooltip title="Tải xuống">
-                                                <Button
-                                                  type="text"
-                                                  size="small"
-                                                  icon={<DownloadOutlined style={{ fontSize: 12 }} />}
-                                                  onClick={() => handleDownloadFile(file)}
-                                                  style={{ padding: '0 4px', height: 20 }}
-                                                />
-                                              </Tooltip>
+                                              <Space size={0}>
+                                                <Tooltip title="Xem file">
+                                                  <Button
+                                                    type="text"
+                                                    size="small"
+                                                    icon={<EyeOutlined style={{ fontSize: 12 }} />}
+                                                    onClick={() => handleViewFile(file, orgFiles)}
+                                                    style={{ padding: '0 4px', height: 20, color: '#1890ff' }}
+                                                  />
+                                                </Tooltip>
+                                                <Tooltip title="Tải xuống">
+                                                  <Button
+                                                    type="text"
+                                                    size="small"
+                                                    icon={<DownloadOutlined style={{ fontSize: 12 }} />}
+                                                    onClick={() => handleDownloadFile(file)}
+                                                    style={{ padding: '0 4px', height: 20 }}
+                                                  />
+                                                </Tooltip>
+                                              </Space>
                                             </div>
                                           ))}
                                         </div>
@@ -2582,13 +2642,23 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
                                 </Text>
                               </div>
                             </Space>
-                            <Tooltip title="Tải xuống">
-                              <Button
-                                type="text"
-                                icon={<DownloadOutlined />}
-                                onClick={() => handleDownloadFile(file)}
-                              />
-                            </Tooltip>
+                            <Space size={0}>
+                              <Tooltip title="Xem file">
+                                <Button
+                                  type="text"
+                                  icon={<EyeOutlined />}
+                                  onClick={() => handleViewFile(file, orgFiles)}
+                                  style={{ color: '#1890ff' }}
+                                />
+                              </Tooltip>
+                              <Tooltip title="Tải xuống">
+                                <Button
+                                  type="text"
+                                  icon={<DownloadOutlined />}
+                                  onClick={() => handleDownloadFile(file)}
+                                />
+                              </Tooltip>
+                            </Space>
                           </div>
                         ))}
                       </div>
@@ -2602,6 +2672,19 @@ function ReportBatchTab({ canDelete = false }: ReportBatchTabProps) {
           )}
         </div>
       </Modal>
+
+      {/* File Viewer Modal */}
+      <FileViewer
+        visible={fileViewerVisible}
+        file={viewingFile}
+        files={viewingFiles}
+        onClose={() => {
+          setFileViewerVisible(false)
+          setViewingFile(null)
+          setViewingFiles([])
+        }}
+        onNavigate={(file) => setViewingFile(file)}
+      />
     </div>
   )
 }

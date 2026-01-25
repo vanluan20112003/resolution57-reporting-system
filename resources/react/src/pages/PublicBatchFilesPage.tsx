@@ -40,6 +40,8 @@ import {
   ExplorerActivityFolder,
 } from '../services/reportBatchApi'
 import dayjs from 'dayjs'
+import FileViewer, { type FileViewerFile } from '../shared/components/FileViewer/FileViewer'
+import { EyeOutlined } from '@ant-design/icons'
 
 const { Text, Title } = Typography
 
@@ -61,6 +63,11 @@ const PublicBatchFilesPage: React.FC = () => {
   const [data, setData] = useState<PublicBatchFilesResponse['data'] | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('by_organization')
   const [navigation, setNavigation] = useState<NavigationState>({ level: 'root' })
+
+  // FileViewer state
+  const [fileViewerVisible, setFileViewerVisible] = useState(false)
+  const [viewingFile, setViewingFile] = useState<FileViewerFile | null>(null)
+  const [viewingFiles, setViewingFiles] = useState<FileViewerFile[]>([])
 
   // Load data
   const loadData = useCallback(async () => {
@@ -101,6 +108,41 @@ const PublicBatchFilesPage: React.FC = () => {
     } catch (err: any) {
       message.error(err.message || 'Tải file thất bại')
     }
+  }
+
+  // Handle view file
+  const handleViewFile = (file: ExplorerFile, allFiles?: ExplorerFile[]) => {
+    if (!token) return
+    const fileExtension = file.file_name?.split('.').pop()?.toLowerCase() || ''
+
+    // Public files use a different URL pattern
+    const baseUrl = window.location.origin
+    const fileUrl = `${baseUrl}/api/v1/batch-files/${token}/download/${file.id}`
+
+    const viewerFile: FileViewerFile = {
+      id: file.id,
+      file_name: file.file_name,
+      file_url: fileUrl,
+      download_url: fileUrl,
+      file_extension: fileExtension,
+    }
+
+    // If allFiles provided, convert all for navigation
+    if (allFiles && allFiles.length > 0) {
+      const files: FileViewerFile[] = allFiles.map(f => ({
+        id: f.id,
+        file_name: f.file_name,
+        file_url: `${baseUrl}/api/v1/batch-files/${token}/download/${f.id}`,
+        download_url: `${baseUrl}/api/v1/batch-files/${token}/download/${f.id}`,
+        file_extension: f.file_name?.split('.').pop()?.toLowerCase() || '',
+      }))
+      setViewingFiles(files)
+    } else {
+      setViewingFiles([viewerFile])
+    }
+
+    setViewingFile(viewerFile)
+    setFileViewerVisible(true)
   }
 
   // Navigate functions
@@ -163,7 +205,7 @@ const PublicBatchFilesPage: React.FC = () => {
   )
 
   // Render file item
-  const renderFileItem = (file: ExplorerFile) => (
+  const renderFileItem = (file: ExplorerFile, allFilesInFolder?: ExplorerFile[]) => (
     <div
       key={file.id}
       style={{
@@ -193,13 +235,23 @@ const PublicBatchFilesPage: React.FC = () => {
           {file.file_name} • {file.file_size_formatted}
         </Text>
       </div>
-      <Tooltip title="Tải xuống">
-        <Button
-          type="text"
-          icon={<DownloadOutlined />}
-          onClick={() => handleDownload(file)}
-        />
-      </Tooltip>
+      <Space size={0}>
+        <Tooltip title="Xem file">
+          <Button
+            type="text"
+            icon={<EyeOutlined />}
+            onClick={() => handleViewFile(file, allFilesInFolder)}
+            style={{ color: '#1890ff' }}
+          />
+        </Tooltip>
+        <Tooltip title="Tải xuống">
+          <Button
+            type="text"
+            icon={<DownloadOutlined />}
+            onClick={() => handleDownload(file)}
+          />
+        </Tooltip>
+      </Space>
     </div>
   )
 
@@ -294,7 +346,7 @@ const PublicBatchFilesPage: React.FC = () => {
       if (data.owner_files.length === 0) {
         return <Empty description="Chưa có văn bản giao nhiệm vụ" />
       }
-      return <div>{data.owner_files.map(renderFileItem)}</div>
+      return <div>{data.owner_files.map(f => renderFileItem(f, data.owner_files))}</div>
     }
 
     // Evidence root
@@ -416,7 +468,7 @@ const PublicBatchFilesPage: React.FC = () => {
       if (!act || act.files.length === 0) {
         return <Empty description="Không có file" />
       }
-      return <div>{act.files.map(renderFileItem)}</div>
+      return <div>{act.files.map(f => renderFileItem(f, act.files))}</div>
     }
 
     // Activity > Organization files
@@ -426,7 +478,7 @@ const PublicBatchFilesPage: React.FC = () => {
       if (!org || org.files.length === 0) {
         return <Empty description="Không có file" />
       }
-      return <div>{org.files.map(renderFileItem)}</div>
+      return <div>{org.files.map(f => renderFileItem(f, org.files))}</div>
     }
 
     return null
@@ -542,6 +594,19 @@ const PublicBatchFilesPage: React.FC = () => {
           {renderContent()}
         </Card>
       </div>
+
+      {/* File Viewer Modal */}
+      <FileViewer
+        visible={fileViewerVisible}
+        file={viewingFile}
+        files={viewingFiles}
+        onClose={() => {
+          setFileViewerVisible(false)
+          setViewingFile(null)
+          setViewingFiles([])
+        }}
+        onNavigate={(file) => setViewingFile(file)}
+      />
     </div>
   )
 }

@@ -40,6 +40,8 @@ import {
   LockOutlined,
   ReloadOutlined
 } from "@ant-design/icons"
+import FileViewer, { type FileViewerFile } from "../shared/components/FileViewer/FileViewer"
+import API_CONFIG from "../config/api"
 import type { ColumnsType } from "antd/es/table"
 import type { UploadFile } from "antd/es/upload/interface"
 import { useTranslation } from "react-i18next"
@@ -102,6 +104,10 @@ const DocumentLibraryPage: React.FC = () => {
   const [editForm] = Form.useForm()
   const [uploading, setUploading] = useState(false)
   const [fileList, setFileList] = useState<UploadFile[]>([])
+
+  // FileViewer state
+  const [viewerVisible, setViewerVisible] = useState(false)
+  const [viewingFile, setViewingFile] = useState<FileViewerFile | null>(null)
 
   // Check if user can upload
   const canUpload =
@@ -321,6 +327,35 @@ const DocumentLibraryPage: React.FC = () => {
     }
   }
 
+  // Handle view file
+  const handleViewFile = (doc: Document) => {
+    const token = localStorage.getItem('access_token')
+    const fileExtension = doc.file_name?.split('.').pop()?.toLowerCase() || ''
+
+    const viewerFile: FileViewerFile = {
+      id: doc.id,
+      file_name: doc.file_name,
+      file_url: `${API_CONFIG.BASE_URL}/documents/${doc.id}/download?token=${token}`,
+      download_url: `${API_CONFIG.BASE_URL}/documents/${doc.id}/download?token=${token}`,
+      file_extension: fileExtension,
+    }
+
+    setViewingFile(viewerFile)
+    setViewerVisible(true)
+  }
+
+  // Get all files for navigation
+  const getViewerFiles = (): FileViewerFile[] => {
+    const token = localStorage.getItem('access_token')
+    return documents.map(doc => ({
+      id: doc.id,
+      file_name: doc.file_name,
+      file_url: `${API_CONFIG.BASE_URL}/documents/${doc.id}/download?token=${token}`,
+      download_url: `${API_CONFIG.BASE_URL}/documents/${doc.id}/download?token=${token}`,
+      file_extension: doc.file_name?.split('.').pop()?.toLowerCase() || '',
+    }))
+  }
+
   // Check if user can edit/delete document
   const canModify = (doc: Document) => {
     if (!user) return false
@@ -428,9 +463,17 @@ const DocumentLibraryPage: React.FC = () => {
     {
       title: t("common.actions"),
       key: "actions",
-      width: 150,
+      width: 180,
       render: (_, record) => (
         <Space>
+          <Tooltip title="Xem file">
+            <Button
+              type="text"
+              icon={<EyeOutlined />}
+              onClick={() => handleViewFile(record)}
+              style={{ color: '#1890ff' }}
+            />
+          </Tooltip>
           <Tooltip title="Tải xuống">
             <Button
               type="text"
@@ -730,6 +773,18 @@ const DocumentLibraryPage: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* File Viewer Modal */}
+      <FileViewer
+        visible={viewerVisible}
+        file={viewingFile}
+        files={getViewerFiles()}
+        onClose={() => {
+          setViewerVisible(false)
+          setViewingFile(null)
+        }}
+        onNavigate={(file) => setViewingFile(file)}
+      />
     </div>
   )
 }

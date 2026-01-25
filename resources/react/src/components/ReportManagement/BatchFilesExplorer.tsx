@@ -38,6 +38,9 @@ import {
   ExplorerOrganizationFolder,
   ExplorerActivityFolder,
 } from '../../services/reportBatchApi'
+import FileViewer, { type FileViewerFile } from '../../shared/components/FileViewer/FileViewer'
+import API_CONFIG from '../../config/api'
+import { EyeOutlined } from '@ant-design/icons'
 
 const { Text, Title } = Typography
 
@@ -69,6 +72,11 @@ const BatchFilesExplorer: React.FC<BatchFilesExplorerProps> = ({
   const [data, setData] = useState<FilesExplorerResponse['data'] | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('by_organization')
   const [navigation, setNavigation] = useState<NavigationState>({ level: 'root' })
+
+  // FileViewer state
+  const [fileViewerVisible, setFileViewerVisible] = useState(false)
+  const [viewingFile, setViewingFile] = useState<FileViewerFile | null>(null)
+  const [viewingFiles, setViewingFiles] = useState<FileViewerFile[]>([])
 
   // Load data
   const loadData = useCallback(async () => {
@@ -110,6 +118,37 @@ const BatchFilesExplorer: React.FC<BatchFilesExplorerProps> = ({
     } catch (error: any) {
       message.error(error.message || 'Tải file thất bại')
     }
+  }
+
+  // Handle view file
+  const handleViewFile = (file: ExplorerFile, allFiles?: ExplorerFile[]) => {
+    const token = localStorage.getItem('access_token')
+    const fileExtension = file.file_name?.split('.').pop()?.toLowerCase() || ''
+
+    const viewerFile: FileViewerFile = {
+      id: file.id,
+      file_name: file.file_name,
+      file_url: `${API_CONFIG.BASE_URL}/report-batches/${batchId}/files/${file.id}/download?token=${token}`,
+      download_url: `${API_CONFIG.BASE_URL}/report-batches/${batchId}/files/${file.id}/download?token=${token}`,
+      file_extension: fileExtension,
+    }
+
+    // If allFiles provided, convert all for navigation
+    if (allFiles && allFiles.length > 0) {
+      const files: FileViewerFile[] = allFiles.map(f => ({
+        id: f.id,
+        file_name: f.file_name,
+        file_url: `${API_CONFIG.BASE_URL}/report-batches/${batchId}/files/${f.id}/download?token=${token}`,
+        download_url: `${API_CONFIG.BASE_URL}/report-batches/${batchId}/files/${f.id}/download?token=${token}`,
+        file_extension: f.file_name?.split('.').pop()?.toLowerCase() || '',
+      }))
+      setViewingFiles(files)
+    } else {
+      setViewingFiles([viewerFile])
+    }
+
+    setViewingFile(viewerFile)
+    setFileViewerVisible(true)
   }
 
   // Copy share link
@@ -181,7 +220,7 @@ const BatchFilesExplorer: React.FC<BatchFilesExplorerProps> = ({
   )
 
   // Render file item
-  const renderFileItem = (file: ExplorerFile) => (
+  const renderFileItem = (file: ExplorerFile, allFilesInFolder?: ExplorerFile[]) => (
     <div
       key={file.id}
       style={{
@@ -211,13 +250,23 @@ const BatchFilesExplorer: React.FC<BatchFilesExplorerProps> = ({
           {file.file_name} • {file.file_size_formatted}
         </Text>
       </div>
-      <Tooltip title="Tải xuống">
-        <Button
-          type="text"
-          icon={<DownloadOutlined />}
-          onClick={() => handleDownload(file)}
-        />
-      </Tooltip>
+      <Space size={0}>
+        <Tooltip title="Xem file">
+          <Button
+            type="text"
+            icon={<EyeOutlined />}
+            onClick={() => handleViewFile(file, allFilesInFolder)}
+            style={{ color: '#1890ff' }}
+          />
+        </Tooltip>
+        <Tooltip title="Tải xuống">
+          <Button
+            type="text"
+            icon={<DownloadOutlined />}
+            onClick={() => handleDownload(file)}
+          />
+        </Tooltip>
+      </Space>
     </div>
   )
 
@@ -320,7 +369,7 @@ const BatchFilesExplorer: React.FC<BatchFilesExplorerProps> = ({
       if (data.owner_files.length === 0) {
         return <Empty description="Chưa có văn bản giao nhiệm vụ" />
       }
-      return <div>{data.owner_files.map(renderFileItem)}</div>
+      return <div>{data.owner_files.map(f => renderFileItem(f, data.owner_files))}</div>
     }
 
     // Evidence root - show view mode toggle and folders
@@ -444,7 +493,7 @@ const BatchFilesExplorer: React.FC<BatchFilesExplorerProps> = ({
       if (!act || act.files.length === 0) {
         return <Empty description="Không có file" />
       }
-      return <div>{act.files.map(renderFileItem)}</div>
+      return <div>{act.files.map(f => renderFileItem(f, act.files))}</div>
     }
 
     // Activity > Organization - show files
@@ -454,7 +503,7 @@ const BatchFilesExplorer: React.FC<BatchFilesExplorerProps> = ({
       if (!org || org.files.length === 0) {
         return <Empty description="Không có file" />
       }
-      return <div>{org.files.map(renderFileItem)}</div>
+      return <div>{org.files.map(f => renderFileItem(f, org.files))}</div>
     }
 
     return null
@@ -553,6 +602,19 @@ const BatchFilesExplorer: React.FC<BatchFilesExplorerProps> = ({
 
       {/* Content */}
       {renderContent()}
+
+      {/* File Viewer Modal */}
+      <FileViewer
+        visible={fileViewerVisible}
+        file={viewingFile}
+        files={viewingFiles}
+        onClose={() => {
+          setFileViewerVisible(false)
+          setViewingFile(null)
+          setViewingFiles([])
+        }}
+        onNavigate={(file) => setViewingFile(file)}
+      />
     </Modal>
   )
 }
