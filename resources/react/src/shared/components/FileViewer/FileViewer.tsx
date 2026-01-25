@@ -85,6 +85,50 @@ const getFileIcon = (extension?: string) => {
 const ImageViewer = ({ url, fileName }: { url: string; fileName: string }) => {
   const [zoom, setZoom] = useState(1)
   const [rotation, setRotation] = useState(0)
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadImage = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const token = localStorage.getItem('access_token')
+        const headers: HeadersInit = {}
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`
+        }
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers,
+          credentials: 'include',
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        const blob = await response.blob()
+        const objectUrl = URL.createObjectURL(blob)
+        setBlobUrl(objectUrl)
+      } catch (err: any) {
+        console.error('ImageViewer error:', err)
+        setError(err.message || 'Không thể tải hình ảnh')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadImage()
+
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl)
+      }
+    }
+  }, [url])
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.25, 3))
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.25, 0.25))
@@ -92,6 +136,24 @@ const ImageViewer = ({ url, fileName }: { url: string; fileName: string }) => {
   const handleReset = () => {
     setZoom(1)
     setRotation(0)
+  }
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+        <Spin size="large" tip="Đang tải hình ảnh..." />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <Result
+        status="error"
+        title="Không thể tải hình ảnh"
+        subTitle={error}
+      />
+    )
   }
 
   return (
@@ -123,7 +185,7 @@ const ImageViewer = ({ url, fileName }: { url: string; fileName: string }) => {
         }}
       >
         <img
-          src={url}
+          src={blobUrl || ''}
           alt={fileName}
           style={{
             maxWidth: '100%',
@@ -140,9 +202,72 @@ const ImageViewer = ({ url, fileName }: { url: string; fileName: string }) => {
 
 // PDF Viewer Component
 const PDFViewer = ({ url }: { url: string }) => {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadPdf = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const token = localStorage.getItem('access_token')
+        const headers: HeadersInit = {}
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`
+        }
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers,
+          credentials: 'include',
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        const blob = await response.blob()
+        const objectUrl = URL.createObjectURL(blob)
+        setBlobUrl(objectUrl)
+      } catch (err: any) {
+        console.error('PDFViewer error:', err)
+        setError(err.message || 'Không thể tải PDF')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadPdf()
+
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl)
+      }
+    }
+  }, [url])
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+        <Spin size="large" tip="Đang tải PDF..." />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <Result
+        status="error"
+        title="Không thể tải PDF"
+        subTitle={error}
+      />
+    )
+  }
+
   return (
     <iframe
-      src={`${url}#toolbar=1&navpanes=0`}
+      src={`${blobUrl}#toolbar=1&navpanes=0`}
       style={{ width: '100%', height: '100%', border: 'none' }}
       title="PDF Viewer"
     />
