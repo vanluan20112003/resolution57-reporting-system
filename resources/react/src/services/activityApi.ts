@@ -1372,3 +1372,79 @@ export const needsCompletionAction = (activity: Activity): boolean => {
 
   return false
 }
+
+// ============== Report Batches History ==============
+
+export interface ActivityReportBatchResponse {
+  id: string
+  organization_id: string
+  activity_id: string
+  content: string
+  difficulties?: string
+  recommendations?: string
+  explanation?: string
+  is_overdue_submission: boolean
+  submitted_at: string
+  organization?: {
+    id: string
+    name: string
+    short_name?: string
+  }
+  submitter?: {
+    id: string
+    first_name: string
+    last_name: string
+    email: string
+  }
+}
+
+export interface ActivityReportBatch {
+  id: string
+  name: string
+  description?: string
+  start_date?: string
+  end_date?: string
+  deadline?: string
+  status: 'upcoming' | 'ongoing' | 'completed'
+  created_at: string
+  organization?: {
+    id: string
+    name: string
+    short_name?: string
+  }
+  creator?: {
+    id: string
+    first_name: string
+    last_name: string
+    email: string
+  }
+  responses: ActivityReportBatchResponse[]
+  response_count: number
+  required_response_count: number
+}
+
+export interface GetActivityReportBatchesResponse {
+  success: boolean
+  data: ActivityReportBatch[]
+  total: number
+}
+
+/**
+ * Get report batches history for an activity
+ * Only lead organization (STAFF/MANAGER) can view this
+ */
+export const getActivityReportBatches = async (
+  activityId: string
+): Promise<GetActivityReportBatchesResponse> => {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/activities/${activityId}/report-batches`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Không thể tải lịch sử đợt báo cáo')
+  }
+
+  return response.json()
+}

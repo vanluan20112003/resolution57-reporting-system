@@ -5645,4 +5645,73 @@ class ActivityController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get report batches for an activity
+     * Only lead organization (STAFF/MANAGER) can view this
+     */
+    public function getActivityReportBatches(Request $request, string $id): JsonResponse
+    {
+        $user = $request->user();
+
+        // Find activity
+        $activity = Activity::find($id);
+        if (! $activity) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy hoạt động',
+            ], 404);
+        }
+
+        // Check permission: only lead organization can view report batches
+        // ADMIN and OPERATOR can also view
+        $canView = in_array($user->role, ['ADMIN', 'OPERATOR']) ||
+            ($activity->lead_organization_id === $user->organization_id &&
+             in_array($user->role, ['STAFF', 'MANAGER']));
+
+        if (! $canView) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền xem lịch sử đợt báo cáo của hoạt động này',
+            ], 403);
+        }
+
+        // Get report batches for this activity
+        $batches = $activity->reportBatches()
+            ->with([
+                'organization:id,name,short_name',
+                'creator:id,first_name,last_name,email',
+            ])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Get collaborator responses for this activity in each batch
+        $batchesWithResponses = $batches->map(function ($batch) use ($activity) {
+            $batchData = $batch->toArray();
+
+            // Get responses for this specific activity in this batch
+            $responses = \App\Models\BatchCollaboratorResponse::with([
+                'organization:id,name,short_name',
+                'submitter:id,first_name,last_name,email',
+            ])
+                ->where('report_batch_id', $batch->id)
+                ->where('activity_id', $activity->id)
+                ->get();
+
+            $batchData['responses'] = $responses;
+            $batchData['response_count'] = $responses->count();
+
+            // Count required responses (number of collaborating orgs)
+            $collaboratingOrgsCount = $activity->collaboratingOrganizations()->count();
+            $batchData['required_response_count'] = $collaboratingOrgsCount;
+
+            return $batchData;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $batchesWithResponses,
+            'total' => $batchesWithResponses->count(),
+        ]);
+    }
 }

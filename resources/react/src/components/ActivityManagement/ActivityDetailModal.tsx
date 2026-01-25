@@ -25,7 +25,9 @@ import {
   Card,
   Empty,
   Upload,
-  Popconfirm
+  Popconfirm,
+  List,
+  Progress
 } from "antd"
 import type { UploadProps } from "antd"
 import {
@@ -57,10 +59,21 @@ import {
   PauseCircleOutlined,
   StopOutlined,
   ShareAltOutlined,
-  HistoryOutlined
+  HistoryOutlined,
+  ContainerOutlined,
+  FolderOpenOutlined,
+  UnorderedListOutlined,
+  UserOutlined as UserIcon,
+  DownloadOutlined as DownloadIcon,
+  FilePdfOutlined,
+  FileWordOutlined,
+  FileExcelOutlined as FileExcelIcon,
+  ExpandOutlined
 } from "@ant-design/icons"
 import dayjs from "dayjs"
 import * as activityApi from "../../services/activityApi"
+import * as reportBatchApi from "../../services/reportBatchApi"
+import type { ReportBatch as FullReportBatch, BatchFile } from "../../services/reportBatchApi"
 import type {
   Activity,
   ActivityFormData,
@@ -71,8 +84,10 @@ import type {
   AttendanceFile,
   ParticipantsSummary,
   OrganizationUserGroup,
-  OrganizationOption
+  OrganizationOption,
+  ActivityReportBatch
 } from "../../services/activityApi"
+import { useAuth } from "../../shared/hooks/useAuth"
 import ActivityFilesStep, { PendingFile } from "./ActivityFilesStep"
 import ActivityCompletionModal from "./ActivityCompletionModal"
 import ShareLinksManager from "./ShareLinksManager"
@@ -197,6 +212,24 @@ function ActivityDetailModal({
   const [loadingGroups, setLoadingGroups] = useState(false)
   const [showAddParticipants, setShowAddParticipants] = useState(false)
 
+  // Report batches state
+  const [reportBatches, setReportBatches] = useState<ActivityReportBatch[]>([])
+  const [reportBatchesLoading, setReportBatchesLoading] = useState(false)
+  const [selectedBatchDetail, setSelectedBatchDetail] = useState<ActivityReportBatch | null>(null)
+  const [showBatchDetailModal, setShowBatchDetailModal] = useState(false)
+  // Full batch detail state (loaded from reportBatchApi)
+  const [fullBatchDetail, setFullBatchDetail] = useState<FullReportBatch | null>(null)
+  const [fullBatchDetailLoading, setFullBatchDetailLoading] = useState(false)
+  const [ownerFilesForBatch, setOwnerFilesForBatch] = useState<BatchFile[]>([])
+
+  // Response detail modal state
+  const [responseDetailVisible, setResponseDetailVisible] = useState(false)
+  const [selectedResponsesForDetail, setSelectedResponsesForDetail] = useState<any[]>([])
+  const [selectedResponseActivityTitle, setSelectedResponseActivityTitle] = useState<string>('')
+
+  // Get current user info
+  const { user } = useAuth()
+
   // Watch dates for duration calculation
   const watchStartDate = Form.useWatch("start_date", form)
   const watchEndDate = Form.useWatch("end_date", form)
@@ -224,6 +257,10 @@ function ActivityDetailModal({
       setSelectedOrganizationId(undefined)
       setSelectedGroups([])
       setShowAddParticipants(false)
+      // Reset report batches state
+      setReportBatches([])
+      setSelectedBatchDetail(null)
+      setShowBatchDetailModal(false)
 
       // Set form values
       const kpiIds = activity.kpis?.map((k) => k.id) || []
@@ -254,8 +291,12 @@ function ActivityDetailModal({
       fetchActivityFiles(activity.id)
       // Fetch participants
       fetchParticipants(activity.id)
+      // Fetch report batches if user can view
+      if (canViewReportBatches()) {
+        fetchReportBatches(activity.id)
+      }
     }
-  }, [visible, activity, mode])
+  }, [visible, activity, mode, user])
 
   // Fetch activity files
   const fetchActivityFiles = async (activityId: string) => {
@@ -285,6 +326,75 @@ function ActivityDetailModal({
       console.error("Failed to fetch participants:", error)
     } finally {
       setParticipantsLoading(false)
+    }
+  }
+
+  // Fetch report batches for activity
+  const fetchReportBatches = async (activityId: string) => {
+    setReportBatchesLoading(true)
+    try {
+      const response = await activityApi.getActivityReportBatches(activityId)
+      setReportBatches(response.data)
+    } catch (error: any) {
+      console.error("Failed to fetch report batches:", error)
+      // Silently fail - user might not have permission
+    } finally {
+      setReportBatchesLoading(false)
+    }
+  }
+
+  // Check if current user can view report batches
+  const canViewReportBatches = (): boolean => {
+    if (!activity || !user) return false
+    // ADMIN and OPERATOR can always view
+    if (user.role === 'ADMIN' || user.role === 'OPERATOR') return true
+    // Lead organization STAFF/MANAGER can view
+    if (activity.lead_organization_id === user.organization_id &&
+        (user.role === 'STAFF' || user.role === 'MANAGER')) {
+      return true
+    }
+    return false
+  }
+
+  // Fetch full batch detail when opening batch detail modal
+  const fetchFullBatchDetail = async (batchId: string) => {
+    setFullBatchDetailLoading(true)
+    try {
+      const response = await reportBatchApi.getReportBatch(batchId)
+      setFullBatchDetail(response.data)
+      // Fetch files
+      const filesResponse = await reportBatchApi.getBatchFiles(batchId)
+      setOwnerFilesForBatch(filesResponse.data.owner_files || [])
+    } catch (error: any) {
+      console.error("Failed to fetch batch detail:", error)
+      message.error("Không thể tải chi tiết đợt báo cáo")
+    } finally {
+      setFullBatchDetailLoading(false)
+    }
+  }
+
+  // Handle view batch detail
+  const handleViewBatchDetail = (batch: ActivityReportBatch) => {
+    setSelectedBatchDetail(batch)
+    setShowBatchDetailModal(true)
+    fetchFullBatchDetail(batch.id)
+  }
+
+  // Get file icon based on file type
+  const getFileIcon = (fileType: string) => {
+    if (fileType?.includes('pdf')) return <FilePdfOutlined style={{ color: '#ff4d4f' }} />
+    if (fileType?.includes('word') || fileType?.includes('doc')) return <FileWordOutlined style={{ color: '#1890ff' }} />
+    if (fileType?.includes('excel') || fileType?.includes('sheet') || fileType?.includes('xls')) return <FileExcelIcon style={{ color: '#52c41a' }} />
+    return <FileOutlined />
+  }
+
+  // Handle download file
+  const handleDownloadBatchFile = async (file: BatchFile) => {
+    try {
+      if (!fullBatchDetail) return
+      await reportBatchApi.downloadBatchFile(fullBatchDetail.id, file.id)
+    } catch (error: any) {
+      message.error(error.message || "Không thể tải file")
     }
   }
 
@@ -2222,6 +2332,611 @@ function ActivityDetailModal({
     )
   }
 
+  // Render report batches tab
+  const renderReportBatchesTab = () => {
+    if (reportBatchesLoading) {
+      return (
+        <div style={{ textAlign: "center", padding: 40 }}>
+          <Spin tip="Đang tải lịch sử đợt báo cáo..." />
+        </div>
+      )
+    }
+
+    if (reportBatches.length === 0) {
+      return (
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description="Hoạt động này chưa được thêm vào đợt báo cáo nào"
+        />
+      )
+    }
+
+    const getBatchStatusTag = (status: string) => {
+      const config: Record<string, { color: string; label: string }> = {
+        upcoming: { color: "default", label: "Sắp tới" },
+        ongoing: { color: "processing", label: "Đang diễn ra" },
+        completed: { color: "success", label: "Kết thúc" }
+      }
+      const { color, label } = config[status] || config.upcoming
+      return <Tag color={color}>{label}</Tag>
+    }
+
+    return (
+      <div>
+        <Alert
+          message="Lịch sử các đợt báo cáo có hoạt động này"
+          description="Bạn có thể xem chi tiết từng đợt báo cáo bao gồm các phản hồi từ đơn vị phối hợp."
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+        <List
+          itemLayout="vertical"
+          dataSource={reportBatches}
+          renderItem={(batch) => (
+            <List.Item
+              key={batch.id}
+              style={{
+                background: "#fafafa",
+                borderRadius: 8,
+                marginBottom: 12,
+                padding: "16px 20px"
+              }}
+              actions={[
+                <Button
+                  key="view"
+                  type="link"
+                  icon={<EyeOutlined />}
+                  onClick={() => handleViewBatchDetail(batch)}>
+                  Xem chi tiết
+                </Button>
+              ]}>
+              <List.Item.Meta
+                title={
+                  <Space>
+                    <Text strong>{batch.name}</Text>
+                    {getBatchStatusTag(batch.status)}
+                  </Space>
+                }
+                description={
+                  <Space direction="vertical" size={4}>
+                    {batch.organization && (
+                      <Text type="secondary">
+                        <BankOutlined style={{ marginRight: 4 }} />
+                        Đơn vị yêu cầu: {batch.organization.short_name || batch.organization.name}
+                      </Text>
+                    )}
+                    {batch.start_date && batch.end_date && (
+                      <Text type="secondary">
+                        <CalendarOutlined style={{ marginRight: 4 }} />
+                        Thời gian: {dayjs(batch.start_date).format("DD/MM/YYYY")} - {dayjs(batch.end_date).format("DD/MM/YYYY")}
+                      </Text>
+                    )}
+                    {batch.deadline && (
+                      <Text type="secondary">
+                        <ClockCircleOutlined style={{ marginRight: 4 }} />
+                        Hạn nộp: {dayjs(batch.deadline).format("DD/MM/YYYY HH:mm")}
+                      </Text>
+                    )}
+                  </Space>
+                }
+              />
+              <div style={{ marginTop: 8 }}>
+                <Space>
+                  <Tag color={batch.response_count >= batch.required_response_count ? "success" : "warning"}>
+                    Phản hồi: {batch.response_count}/{batch.required_response_count}
+                  </Tag>
+                  {batch.response_count > 0 && (
+                    <Progress
+                      percent={Math.round((batch.response_count / batch.required_response_count) * 100)}
+                      size="small"
+                      style={{ width: 100 }}
+                      status={batch.response_count >= batch.required_response_count ? "success" : "active"}
+                    />
+                  )}
+                </Space>
+              </div>
+            </List.Item>
+          )}
+        />
+      </div>
+    )
+  }
+
+  // Get batch status tag
+  const getBatchStatusTagForModal = (status: string) => {
+    const config: Record<string, { color: string; label: string }> = {
+      upcoming: { color: "default", label: "Sắp tới" },
+      ongoing: { color: "processing", label: "Đang diễn ra" },
+      completed: { color: "success", label: "Kết thúc" }
+    }
+    const { color, label } = config[status] || config.upcoming
+    return <Tag color={color}>{label}</Tag>
+  }
+
+  // Render batch detail modal - Full version like ReportBatchTab
+  const renderBatchDetailModal = () => {
+    if (!selectedBatchDetail) return null
+
+    const batchData = fullBatchDetail || selectedBatchDetail
+
+    return (
+      <Modal
+        title={
+          <Space>
+            <ContainerOutlined style={{ color: "#1890ff" }} />
+            <span>Chi tiết đợt báo cáo</span>
+          </Space>
+        }
+        open={showBatchDetailModal}
+        onCancel={() => {
+          setShowBatchDetailModal(false)
+          setSelectedBatchDetail(null)
+          setFullBatchDetail(null)
+          setOwnerFilesForBatch([])
+        }}
+        width={1200}
+        centered
+        styles={{ body: { padding: '16px 24px' } }}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text type="secondary">
+              {fullBatchDetail?.creator && (
+                <>
+                  Tạo bởi: <Text strong>{fullBatchDetail.creator.first_name} {fullBatchDetail.creator.last_name}</Text>
+                  {' • '}
+                  {fullBatchDetail.created_at && dayjs(fullBatchDetail.created_at).format('DD/MM/YYYY HH:mm')}
+                </>
+              )}
+            </Text>
+            <Button onClick={() => {
+              setShowBatchDetailModal(false)
+              setSelectedBatchDetail(null)
+              setFullBatchDetail(null)
+              setOwnerFilesForBatch([])
+            }}>Đóng</Button>
+          </div>
+        }
+      >
+        <Spin spinning={fullBatchDetailLoading}>
+          <Row gutter={24}>
+            {/* Left Column - Batch Info */}
+            <Col span={10}>
+              <div style={{
+                background: '#fafafa',
+                padding: 16,
+                borderRadius: 8,
+                height: '100%',
+                minHeight: 450
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                  <Title level={5} style={{ margin: 0 }}>
+                    <FileOutlined style={{ marginRight: 8 }} />
+                    Thông tin đợt báo cáo
+                  </Title>
+                  {getBatchStatusTagForModal(batchData.status)}
+                </div>
+
+                {/* Batch Name */}
+                <div style={{ marginBottom: 16 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>Tên đợt báo cáo</Text>
+                  <div style={{ marginTop: 4 }}>
+                    <Text strong style={{ fontSize: 16 }}>{batchData.name}</Text>
+                  </div>
+                </div>
+
+                {/* Date Range */}
+                <div style={{ marginBottom: 16 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>Thời gian báo cáo</Text>
+                  <div style={{ marginTop: 4 }}>
+                    {batchData.start_date && batchData.end_date ? (
+                      <Tag icon={<CalendarOutlined />} color="blue">
+                        {dayjs(batchData.start_date).format('DD/MM/YYYY HH:mm')} - {dayjs(batchData.end_date).format('DD/MM/YYYY HH:mm')}
+                      </Tag>
+                    ) : (
+                      <Text type="secondary">Chưa thiết lập</Text>
+                    )}
+                  </div>
+                </div>
+
+                {/* Deadline */}
+                <div style={{ marginBottom: 16 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>Hạn nộp báo cáo</Text>
+                  <div style={{ marginTop: 4 }}>
+                    {batchData.deadline ? (
+                      <Tag icon={<ClockCircleOutlined />} color="orange">
+                        {dayjs(batchData.deadline).format('DD/MM/YYYY HH:mm')}
+                      </Tag>
+                    ) : (
+                      <Text type="secondary">Không có hạn</Text>
+                    )}
+                  </div>
+                </div>
+
+                {/* Statistics */}
+                <Row gutter={8} style={{ marginBottom: 16 }}>
+                  <Col span={8}>
+                    <div style={{ background: '#e6f7ff', padding: 10, borderRadius: 6, textAlign: 'center' }}>
+                      <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>Hoạt động</Text>
+                      <Text strong style={{ fontSize: 20, color: '#1890ff' }}>
+                        {fullBatchDetail?.activities?.length || selectedBatchDetail.required_response_count || 0}
+                      </Text>
+                    </div>
+                  </Col>
+                  <Col span={8}>
+                    <div style={{ background: '#f6ffed', padding: 10, borderRadius: 6, textAlign: 'center' }}>
+                      <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>ĐV phối hợp</Text>
+                      <Text strong style={{ fontSize: 20, color: '#52c41a' }}>
+                        {(() => {
+                          if (fullBatchDetail?.activities) {
+                            const uniqueOrgs = new Set<string>()
+                            fullBatchDetail.activities.forEach((a: any) => {
+                              a.collaborating_organizations?.forEach((org: any) => {
+                                uniqueOrgs.add(org.id)
+                              })
+                            })
+                            return uniqueOrgs.size
+                          }
+                          return selectedBatchDetail.required_response_count || 0
+                        })()}
+                      </Text>
+                    </div>
+                  </Col>
+                  <Col span={8}>
+                    <div style={{ background: '#fff7e6', padding: 10, borderRadius: 6, textAlign: 'center' }}>
+                      <Text type="secondary" style={{ fontSize: 10, display: 'block' }}>Phản hồi</Text>
+                      <Text strong style={{ fontSize: 20, color: '#fa8c16' }}>
+                        {fullBatchDetail?.collaborator_responses?.length || selectedBatchDetail.response_count || 0}
+                      </Text>
+                    </div>
+                  </Col>
+                </Row>
+
+                {/* Description */}
+                {(fullBatchDetail?.description || selectedBatchDetail.description) && (
+                  <div style={{ marginBottom: 16 }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>Mô tả</Text>
+                    <div style={{ marginTop: 4, padding: '8px 12px', background: '#fff', borderRadius: 4, border: '1px solid #f0f0f0' }}>
+                      <Text>{fullBatchDetail?.description || selectedBatchDetail.description}</Text>
+                    </div>
+                  </div>
+                )}
+
+                {/* Owner Files */}
+                <div style={{ marginTop: 8 }}>
+                  <div style={{
+                    border: '1px solid #d9d9d9',
+                    borderRadius: 8,
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      background: '#e6f7ff',
+                      padding: '8px 12px',
+                      borderBottom: '1px solid #d9d9d9',
+                      fontWeight: 500
+                    }}>
+                      <Space>
+                        <UserIcon />
+                        <span>Văn bản giao nhiệm vụ</span>
+                      </Space>
+                    </div>
+                    <div style={{ padding: 12 }}>
+                      {ownerFilesForBatch.length > 0 ? (
+                        ownerFilesForBatch.map(file => (
+                          <div
+                            key={file.id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '8px 12px',
+                              background: '#fafafa',
+                              borderRadius: 4,
+                              marginBottom: 4
+                            }}
+                          >
+                            <Space>
+                              {getFileIcon(file.file_type)}
+                              <div>
+                                <Text strong style={{ fontSize: 13 }}>
+                                  {file.title || 'Văn bản giao nhiệm vụ'}
+                                </Text>
+                                <br />
+                                <Text type="secondary" style={{ fontSize: 11 }}>
+                                  {file.file_name} ({file.file_size_formatted})
+                                </Text>
+                              </div>
+                            </Space>
+                            <Tooltip title="Tải xuống">
+                              <Button
+                                type="text"
+                                icon={<DownloadIcon />}
+                                onClick={() => handleDownloadBatchFile(file)}
+                              />
+                            </Tooltip>
+                          </div>
+                        ))
+                      ) : (
+                        <Empty
+                          image={Empty.PRESENTED_IMAGE_SIMPLE}
+                          description="Chưa có văn bản giao nhiệm vụ"
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Col>
+
+            {/* Right Column - Activities & Responses */}
+            <Col span={14}>
+              <div style={{ height: '100%', minHeight: 450, display: 'flex', flexDirection: 'column' }}>
+                {/* Activities List */}
+                <div style={{
+                  border: '1px solid #d9d9d9',
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  flex: 1,
+                  marginBottom: 12
+                }}>
+                  <div style={{
+                    background: '#e6f7ff',
+                    padding: '8px 12px',
+                    borderBottom: '1px solid #d9d9d9',
+                    fontWeight: 500
+                  }}>
+                    <Space>
+                      <UnorderedListOutlined />
+                      <span>Danh sách hoạt động</span>
+                      <Badge count={fullBatchDetail?.activities?.length || 0} style={{ backgroundColor: '#1890ff' }} />
+                    </Space>
+                  </div>
+
+                  <div style={{ height: 180, overflow: 'auto', padding: 8 }}>
+                    {fullBatchDetail?.activities && fullBatchDetail.activities.length > 0 ? (
+                      fullBatchDetail.activities.map((activityItem: any, idx: number) => (
+                        <div
+                          key={activityItem.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            padding: '8px 10px',
+                            background: idx % 2 === 0 ? '#fafafa' : '#fff',
+                            borderRadius: 4,
+                            marginBottom: 4,
+                            border: '1px solid #f0f0f0'
+                          }}
+                        >
+                          <Text type="secondary" style={{ width: 24, flexShrink: 0 }}>{idx + 1}.</Text>
+                          <div style={{ flex: 1 }}>
+                            <Text strong style={{ fontSize: 13 }}>{activityItem.title}</Text>
+                            <div style={{ marginTop: 4 }}>
+                              <Space size={4} wrap>
+                                <Tag color="blue" style={{ fontSize: 10, margin: 0 }}>
+                                  {activityItem.lead_organization?.short_name || activityItem.lead_organization?.name}
+                                </Tag>
+                                <Text type="secondary" style={{ fontSize: 10 }}>
+                                  {dayjs(activityItem.start_date).format('DD/MM/YY')} - {dayjs(activityItem.end_date).format('DD/MM/YY')}
+                                </Text>
+                                <Tag
+                                  color={
+                                    activityItem.status === 'COMPLETED' ? 'success' :
+                                    activityItem.status === 'IN_PROGRESS' ? 'processing' :
+                                    activityItem.status === 'APPROVED' ? 'blue' : 'default'
+                                  }
+                                  style={{ fontSize: 10, margin: 0 }}
+                                >
+                                  {activityItem.status}
+                                </Tag>
+                              </Space>
+                            </div>
+                            {activityItem.collaborating_organizations && activityItem.collaborating_organizations.length > 0 && (
+                              <div style={{ marginTop: 4, padding: '4px 8px', background: '#f6ffed', borderRadius: 4, border: '1px solid #b7eb8f' }}>
+                                <TeamOutlined style={{ fontSize: 10, color: '#52c41a', marginRight: 4 }} />
+                                <Text style={{ fontSize: 10, color: '#52c41a', fontWeight: 500 }}>
+                                  Đơn vị phối hợp:
+                                </Text>
+                                <Text style={{ fontSize: 10, color: '#389e0d' }}>
+                                  {' '}{activityItem.collaborating_organizations.map((org: any) => org.short_name || org.name).join(', ')}
+                                </Text>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Không có hoạt động" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Collaborator Responses - Grouped by Activity */}
+                <div style={{
+                  border: '1px solid #d9d9d9',
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  flex: 1
+                }}>
+                  <div style={{
+                    background: '#f6ffed',
+                    padding: '8px 12px',
+                    borderBottom: '1px solid #d9d9d9',
+                    fontWeight: 500
+                  }}>
+                    <Space>
+                      <TeamOutlined style={{ color: '#52c41a' }} />
+                      <span>Phản hồi từ đơn vị phối hợp (theo hoạt động)</span>
+                      <Badge
+                        count={fullBatchDetail?.collaborator_responses?.length || selectedBatchDetail.response_count || 0}
+                        style={{ backgroundColor: '#52c41a' }}
+                      />
+                    </Space>
+                  </div>
+
+                  <div style={{ height: 200, overflow: 'auto', padding: 8 }}>
+                    {(fullBatchDetail?.collaborator_responses && fullBatchDetail.collaborator_responses.length > 0) ? (
+                      // Group responses by activity
+                      (() => {
+                        const groupedByActivity = fullBatchDetail.collaborator_responses.reduce((acc: any, response: any) => {
+                          const activityId = response.activity_id
+                          if (!acc[activityId]) {
+                            acc[activityId] = {
+                              activity: response.activity,
+                              responses: []
+                            }
+                          }
+                          acc[activityId].responses.push(response)
+                          return acc
+                        }, {} as Record<string, { activity?: { id: string; title: string }; responses: any[] }>)
+
+                        return Object.entries(groupedByActivity).map(([activityId, group]: [string, any]) => (
+                          <div key={activityId} style={{ marginBottom: 12 }}>
+                            {/* Activity header */}
+                            <div style={{
+                              background: '#e6f7ff',
+                              padding: '6px 10px',
+                              borderRadius: '4px 4px 0 0',
+                              borderBottom: '1px solid #91d5ff',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center'
+                            }}>
+                              <div>
+                                <Text strong style={{ fontSize: 12 }}>
+                                  <FileOutlined style={{ marginRight: 6 }} />
+                                  {group.activity?.title || 'Hoạt động không xác định'}
+                                </Text>
+                                <Badge
+                                  count={group.responses.length}
+                                  size="small"
+                                  style={{ backgroundColor: '#52c41a', marginLeft: 8 }}
+                                />
+                              </div>
+                              <Tooltip title="Xem chi tiết phản hồi">
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  icon={<ExpandOutlined style={{ fontSize: 12 }} />}
+                                  onClick={() => {
+                                    setSelectedResponseActivityTitle(group.activity?.title || 'Hoạt động không xác định')
+                                    setSelectedResponsesForDetail(group.responses)
+                                    setResponseDetailVisible(true)
+                                  }}
+                                  style={{ padding: '0 6px', height: 22 }}
+                                />
+                              </Tooltip>
+                            </div>
+                            {/* Responses for this activity */}
+                            <div style={{ border: '1px solid #f0f0f0', borderTop: 'none', borderRadius: '0 0 4px 4px' }}>
+                              {group.responses.map((response: any, idx: number) => (
+                                <div
+                                  key={response.id}
+                                  style={{
+                                    padding: '8px 10px',
+                                    background: idx % 2 === 0 ? '#fafafa' : '#fff',
+                                    borderBottom: idx < group.responses.length - 1 ? '1px solid #f0f0f0' : 'none'
+                                  }}
+                                >
+                                  <div style={{ marginBottom: 4 }}>
+                                    <Tag color="green" style={{ marginRight: 6, fontSize: 10 }}>
+                                      {response.organization?.short_name || response.organization?.name}
+                                    </Tag>
+                                    {response.is_overdue_submission && (
+                                      <Tag color="orange" style={{ marginRight: 6, fontSize: 10 }}>Nộp quá hạn</Tag>
+                                    )}
+                                    <Text type="secondary" style={{ fontSize: 10 }}>
+                                      {response.submitter && (
+                                        <>
+                                          <UserOutlined style={{ marginRight: 2 }} />
+                                          {response.submitter.first_name} {response.submitter.last_name}
+                                          {' • '}
+                                        </>
+                                      )}
+                                      {response.submitted_at
+                                        ? dayjs(response.submitted_at).format('DD/MM/YY HH:mm')
+                                        : dayjs(response.created_at).format('DD/MM/YY HH:mm')
+                                      }
+                                    </Text>
+                                  </div>
+                                  <div
+                                    style={{
+                                      padding: '4px 8px',
+                                      background: '#fff',
+                                      borderRadius: 4,
+                                      borderLeft: `2px solid ${response.is_overdue_submission ? '#fa8c16' : '#52c41a'}`
+                                    }}
+                                  >
+                                    <Text strong style={{ fontSize: 10, display: 'block', marginBottom: 2 }}>Nội dung báo cáo:</Text>
+                                    <Text style={{ fontSize: 11, whiteSpace: 'pre-wrap' }}>{response.content}</Text>
+                                    {response.difficulties && (
+                                      <div style={{ marginTop: 6 }}>
+                                        <Text strong style={{ fontSize: 10, color: '#d46b08' }}>Khó khăn/vướng mắc:</Text>
+                                        <Text style={{ fontSize: 11, whiteSpace: 'pre-wrap', display: 'block' }}>{response.difficulties}</Text>
+                                      </div>
+                                    )}
+                                    {response.recommendations && (
+                                      <div style={{ marginTop: 6 }}>
+                                        <Text strong style={{ fontSize: 10, color: '#1890ff' }}>Đề xuất/kiến nghị:</Text>
+                                        <Text style={{ fontSize: 11, whiteSpace: 'pre-wrap', display: 'block' }}>{response.recommendations}</Text>
+                                      </div>
+                                    )}
+                                    {response.explanation && (
+                                      <div style={{ marginTop: 6 }}>
+                                        <Text strong style={{ fontSize: 10, color: '#fa541c' }}>Giải trình:</Text>
+                                        <Text style={{ fontSize: 11, whiteSpace: 'pre-wrap', display: 'block' }}>{response.explanation}</Text>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))
+                      })()
+                    ) : selectedBatchDetail.responses.length > 0 ? (
+                      selectedBatchDetail.responses.map((response, idx) => (
+                        <div
+                          key={response.id}
+                          style={{
+                            padding: '10px 12px',
+                            background: idx % 2 === 0 ? '#fafafa' : '#fff',
+                            borderRadius: 4,
+                            marginBottom: 8,
+                            border: '1px solid #f0f0f0'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                            <Space>
+                              <Tag color="green" style={{ margin: 0 }}>
+                                {response.organization?.short_name || response.organization?.name}
+                              </Tag>
+                              {response.is_overdue_submission && (
+                                <Tag color="error" style={{ margin: 0 }}>Quá hạn</Tag>
+                              )}
+                            </Space>
+                            <Text type="secondary" style={{ fontSize: 10 }}>
+                              {response.submitter && `${response.submitter.first_name} ${response.submitter.last_name}`}
+                              {response.submitted_at && ` - ${dayjs(response.submitted_at).format('DD/MM/YY HH:mm')}`}
+                            </Text>
+                          </div>
+                          <div style={{ fontSize: 12 }}>
+                            <Text style={{ whiteSpace: 'pre-wrap' }}>{response.content}</Text>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có phản hồi nào" />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Col>
+          </Row>
+        </Spin>
+      </Modal>
+    )
+  }
+
   if (!activity) return null
 
   return (
@@ -2301,6 +3016,24 @@ function ActivityDetailModal({
                     visible={activeTab === "history"}
                   />
                 ) : null
+              },
+          // Report batches tab - only for lead organization STAFF/MANAGER
+          !canViewReportBatches()
+            ? null
+            : {
+                key: "report-batches",
+                label: (
+                  <Badge
+                    count={reportBatches.length}
+                    size="small"
+                    offset={[8, 0]}>
+                    <span>
+                      <ContainerOutlined />
+                      Đợt báo cáo
+                    </span>
+                  </Badge>
+                ),
+                children: renderReportBatchesTab()
               }
         ].filter((item) => item !== null)}
       />
@@ -2381,6 +3114,147 @@ function ActivityDetailModal({
           onClose={() => setShowShareLinksModal(false)}
         />
       )}
+
+      {/* Report Batch Detail Modal */}
+      {renderBatchDetailModal()}
+
+      {/* Response Detail Modal */}
+      <Modal
+        title={
+          <Space>
+            <TeamOutlined style={{ color: '#52c41a' }} />
+            <span>Chi tiết phản hồi</span>
+            {selectedResponseActivityTitle && (
+              <Text type="secondary" style={{ fontSize: 13 }}>
+                - {selectedResponseActivityTitle}
+              </Text>
+            )}
+          </Space>
+        }
+        open={responseDetailVisible}
+        onCancel={() => {
+          setResponseDetailVisible(false)
+          setSelectedResponsesForDetail([])
+          setSelectedResponseActivityTitle('')
+        }}
+        width={900}
+        centered
+        footer={
+          <Button onClick={() => {
+            setResponseDetailVisible(false)
+            setSelectedResponsesForDetail([])
+            setSelectedResponseActivityTitle('')
+          }}>
+            Đóng
+          </Button>
+        }
+      >
+        <div style={{ maxHeight: 500, overflow: 'auto' }}>
+          {selectedResponsesForDetail.length > 0 ? (
+            selectedResponsesForDetail.map((response: any, idx: number) => (
+              <div
+                key={response.id}
+                style={{
+                  padding: 16,
+                  background: idx % 2 === 0 ? '#fafafa' : '#fff',
+                  borderRadius: 8,
+                  marginBottom: 12,
+                  border: '1px solid #f0f0f0'
+                }}
+              >
+                <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Space>
+                    <Tag color="green" style={{ fontSize: 12 }}>
+                      {response.organization?.short_name || response.organization?.name}
+                    </Tag>
+                    {response.is_overdue_submission && (
+                      <Tag color="orange" style={{ fontSize: 12 }}>Nộp quá hạn</Tag>
+                    )}
+                  </Space>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {response.submitter && (
+                      <>
+                        <UserOutlined style={{ marginRight: 4 }} />
+                        {response.submitter.first_name} {response.submitter.last_name}
+                        {' • '}
+                      </>
+                    )}
+                    {response.submitted_at
+                      ? dayjs(response.submitted_at).format('DD/MM/YYYY HH:mm')
+                      : dayjs(response.created_at).format('DD/MM/YYYY HH:mm')
+                    }
+                  </Text>
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <Text strong style={{ fontSize: 13, color: '#1890ff', display: 'block', marginBottom: 6 }}>
+                    Nội dung báo cáo:
+                  </Text>
+                  <div style={{
+                    padding: 12,
+                    background: '#fff',
+                    borderRadius: 6,
+                    border: '1px solid #e8e8e8',
+                    borderLeft: `3px solid ${response.is_overdue_submission ? '#fa8c16' : '#52c41a'}`
+                  }}>
+                    <Text style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>{response.content}</Text>
+                  </div>
+                </div>
+
+                {response.difficulties && (
+                  <div style={{ marginBottom: 12 }}>
+                    <Text strong style={{ fontSize: 13, color: '#d46b08', display: 'block', marginBottom: 6 }}>
+                      Khó khăn/vướng mắc:
+                    </Text>
+                    <div style={{
+                      padding: 12,
+                      background: '#fff7e6',
+                      borderRadius: 6,
+                      border: '1px solid #ffd591'
+                    }}>
+                      <Text style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>{response.difficulties}</Text>
+                    </div>
+                  </div>
+                )}
+
+                {response.recommendations && (
+                  <div style={{ marginBottom: 12 }}>
+                    <Text strong style={{ fontSize: 13, color: '#1890ff', display: 'block', marginBottom: 6 }}>
+                      Đề xuất/kiến nghị:
+                    </Text>
+                    <div style={{
+                      padding: 12,
+                      background: '#e6f7ff',
+                      borderRadius: 6,
+                      border: '1px solid #91d5ff'
+                    }}>
+                      <Text style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>{response.recommendations}</Text>
+                    </div>
+                  </div>
+                )}
+
+                {response.explanation && (
+                  <div style={{ marginBottom: 12 }}>
+                    <Text strong style={{ fontSize: 13, color: '#fa541c', display: 'block', marginBottom: 6 }}>
+                      Giải trình:
+                    </Text>
+                    <div style={{
+                      padding: 12,
+                      background: '#fff1f0',
+                      borderRadius: 6,
+                      border: '1px solid #ffa39e'
+                    }}>
+                      <Text style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>{response.explanation}</Text>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <Empty description="Không có phản hồi" />
+          )}
+        </div>
+      </Modal>
     </Modal>
   )
 }

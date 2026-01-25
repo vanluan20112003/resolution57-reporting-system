@@ -731,6 +731,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/{id}/share-links', [ActivityShareLinkController::class, 'store']);
         Route::put('/{id}/share-links/{linkId}', [ActivityShareLinkController::class, 'update']);
         Route::delete('/{id}/share-links/{linkId}', [ActivityShareLinkController::class, 'destroy']);
+
+        // Activity Report Batches History (lead organization only)
+        Route::get('/{id}/report-batches', [ActivityController::class, 'getActivityReportBatches']);
     });
 
     // Shared Files Access (authenticated users with share token)
