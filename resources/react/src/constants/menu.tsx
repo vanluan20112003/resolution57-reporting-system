@@ -100,7 +100,7 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
         tab: 'accessible-activities',
         roles: [UserRole.STAFF, UserRole.MANAGER, UserRole.OPERATOR, UserRole.ADMIN],
         requiresOrganization: true,
-        requiresAccessPermission: true, // Only show if user has cross-organization permission
+        requiresAccessPermission: true, // For STAFF/MANAGER: only show if they have cross-organization permission. ADMIN/OPERATOR always see this.
       },
     ],
   },

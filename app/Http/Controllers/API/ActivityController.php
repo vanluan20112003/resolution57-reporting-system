@@ -5363,66 +5363,72 @@ class ActivityController extends Controller
         try {
             $user = $request->user();
 
-            // Only STAFF and MANAGER can use this endpoint
-            if (! in_array($user->role, ['STAFF', 'MANAGER'])) {
+            // Only STAFF, MANAGER, OPERATOR, ADMIN can use this endpoint
+            if (! in_array($user->role, ['STAFF', 'MANAGER', 'OPERATOR', 'ADMIN'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Chỉ nhân viên hoặc quản lý mới có thể truy cập chức năng này',
+                    'message' => 'Bạn không có quyền truy cập chức năng này',
                 ], 403);
             }
-
-            if (! $user->organization_id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Bạn chưa thuộc đơn vị nào',
-                ], 400);
-            }
-
-            // Get accessible organization IDs based on permissions
-            $permissions = \App\Models\OrganizationAccessPermission::with('viewScope')
-                ->where('organization_id', $user->organization_id)
-                ->active()
-                ->valid()
-                ->get();
 
             $accessibleOrgIds = [];
             $canViewAll = false;
 
-            foreach ($permissions as $permission) {
-                // Check if user's role is allowed
-                if (! $permission->isRoleAllowed($user->role)) {
-                    continue;
+            // ADMIN and OPERATOR can view all organizations
+            if (in_array($user->role, ['OPERATOR', 'ADMIN'])) {
+                $canViewAll = true;
+            } else {
+                // STAFF and MANAGER need organization and permissions
+                if (! $user->organization_id) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Bạn chưa thuộc đơn vị nào',
+                    ], 400);
                 }
 
-                $scope = $permission->viewScope;
+                // Get accessible organization IDs based on permissions
+                $permissions = \App\Models\OrganizationAccessPermission::with('viewScope')
+                    ->where('organization_id', $user->organization_id)
+                    ->active()
+                    ->valid()
+                    ->get();
 
-                if ($scope->name === 'ALL_ORGANIZATIONS') {
-                    $canViewAll = true;
-                    break; // No need to check other permissions
+                foreach ($permissions as $permission) {
+                    // Check if user's role is allowed
+                    if (! $permission->isRoleAllowed($user->role)) {
+                        continue;
+                    }
+
+                    $scope = $permission->viewScope;
+
+                    if ($scope->name === 'ALL_ORGANIZATIONS') {
+                        $canViewAll = true;
+                        break; // No need to check other permissions
+                    }
+
+                    $orgIds = $permission->getAccessibleOrganizationIds();
+                    $accessibleOrgIds = array_merge($accessibleOrgIds, $orgIds);
                 }
 
-                $orgIds = $permission->getAccessibleOrganizationIds();
-                $accessibleOrgIds = array_merge($accessibleOrgIds, $orgIds);
-            }
+                // If no permissions found and not view all
+                if (! $canViewAll && empty($accessibleOrgIds)) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Bạn chưa được cấp quyền xem hoạt động của phòng ban khác',
+                        'data' => [],
+                        'pagination' => [
+                            'total' => 0,
+                            'per_page' => 15,
+                            'current_page' => 1,
+                            'last_page' => 1,
+                            'from' => null,
+                            'to' => null,
+                        ],
+                    ]);
+                }
 
-            // If no permissions found and not view all
-            if (! $canViewAll && empty($accessibleOrgIds)) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Bạn chưa được cấp quyền xem hoạt động của phòng ban khác',
-                    'data' => [],
-                    'pagination' => [
-                        'total' => 0,
-                        'per_page' => 15,
-                        'current_page' => 1,
-                        'last_page' => 1,
-                        'from' => null,
-                        'to' => null,
-                    ],
-                ]);
+                $accessibleOrgIds = array_unique($accessibleOrgIds);
             }
-
-            $accessibleOrgIds = array_unique($accessibleOrgIds);
 
             // Build query
             $query = Activity::query()
@@ -5440,7 +5446,10 @@ class ActivityController extends Controller
             }
 
             // Exclude user's own organization activities (they can see those in their regular view)
-            $query->where('lead_organization_id', '!=', $user->organization_id);
+            // Only apply if user has an organization (ADMIN/OPERATOR may not have one)
+            if ($user->organization_id) {
+                $query->where('lead_organization_id', '!=', $user->organization_id);
+            }
 
             // Only show approved/completed activities (not DRAFT, PENDING_APPROVAL, REJECTED)
             $query->whereIn('status', [
