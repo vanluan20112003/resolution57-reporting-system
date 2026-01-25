@@ -42,6 +42,7 @@ import {
 import dayjs from 'dayjs'
 import FileViewer, { type FileViewerFile } from '../shared/components/FileViewer/FileViewer'
 import { EyeOutlined } from '@ant-design/icons'
+import API_CONFIG from '../config/api'
 
 const { Text, Title } = Typography
 
@@ -115,9 +116,8 @@ const PublicBatchFilesPage: React.FC = () => {
     if (!token) return
     const fileExtension = file.file_name?.split('.').pop()?.toLowerCase() || ''
 
-    // Public files use a different URL pattern
-    const baseUrl = window.location.origin
-    const fileUrl = `${baseUrl}/api/v1/batch-files/${token}/download/${file.id}`
+    // Use API_CONFIG.BASE_URL for file download URL (public batch files route)
+    const fileUrl = `${API_CONFIG.BASE_URL}/batch-files/${token}/download/${file.id}`
 
     const viewerFile: FileViewerFile = {
       id: file.id,
@@ -132,8 +132,8 @@ const PublicBatchFilesPage: React.FC = () => {
       const files: FileViewerFile[] = allFiles.map(f => ({
         id: f.id,
         file_name: f.file_name,
-        file_url: `${baseUrl}/api/v1/batch-files/${token}/download/${f.id}`,
-        download_url: `${baseUrl}/api/v1/batch-files/${token}/download/${f.id}`,
+        file_url: `${API_CONFIG.BASE_URL}/batch-files/${token}/download/${f.id}`,
+        download_url: `${API_CONFIG.BASE_URL}/batch-files/${token}/download/${f.id}`,
         file_extension: f.file_name?.split('.').pop()?.toLowerCase() || '',
       }))
       setViewingFiles(files)
