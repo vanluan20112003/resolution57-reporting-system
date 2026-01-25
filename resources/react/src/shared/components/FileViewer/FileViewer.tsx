@@ -156,16 +156,51 @@ const SpreadsheetViewer = ({ url, extension }: { url: string; extension: string 
   const [activeSheet, setActiveSheet] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [workbookData, setWorkbookData] = useState<any>(null)
 
   useEffect(() => {
     const loadSpreadsheet = async () => {
       setLoading(true)
       setError(null)
       try {
-        const response = await fetch(url)
+        // Get token for authorization
+        const token = localStorage.getItem('access_token')
+        const headers: HeadersInit = {}
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`
+        }
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers,
+          credentials: 'include',
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        // Check content type
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          // API returned error JSON instead of file
+          const errorData = await response.json()
+          throw new Error(errorData.message || 'Không thể tải file')
+        }
+
         const arrayBuffer = await response.arrayBuffer()
+
+        // Check if arrayBuffer is too small (likely an error response)
+        if (arrayBuffer.byteLength < 100) {
+          const text = new TextDecoder().decode(arrayBuffer)
+          if (text.includes('error') || text.includes('Error')) {
+            throw new Error('File không hợp lệ hoặc không có quyền truy cập')
+          }
+        }
+
         const workbook = XLSX.read(arrayBuffer, { type: 'array' })
 
+        setWorkbookData(workbook)
         setSheets(workbook.SheetNames)
         setActiveSheet(workbook.SheetNames[0])
 
@@ -173,6 +208,7 @@ const SpreadsheetViewer = ({ url, extension }: { url: string; extension: string 
         const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 })
         setData(jsonData as any[][])
       } catch (err: any) {
+        console.error('SpreadsheetViewer error:', err)
         setError(err.message || 'Không thể đọc file')
       } finally {
         setLoading(false)
@@ -184,15 +220,12 @@ const SpreadsheetViewer = ({ url, extension }: { url: string; extension: string 
 
   const handleSheetChange = (sheetName: string) => {
     setActiveSheet(sheetName)
-    // Re-parse for selected sheet
-    fetch(url)
-      .then(res => res.arrayBuffer())
-      .then(buffer => {
-        const workbook = XLSX.read(buffer, { type: 'array' })
-        const sheet = workbook.Sheets[sheetName]
-        const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 })
-        setData(jsonData as any[][])
-      })
+    // Use cached workbook data instead of re-fetching
+    if (workbookData) {
+      const sheet = workbookData.Sheets[sheetName]
+      const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 })
+      setData(jsonData as any[][])
+    }
   }
 
   if (loading) {
@@ -274,11 +307,45 @@ const WordViewer = ({ url }: { url: string }) => {
       setLoading(true)
       setError(null)
       try {
-        const response = await fetch(url)
+        // Get token for authorization
+        const token = localStorage.getItem('access_token')
+        const headers: HeadersInit = {}
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`
+        }
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers,
+          credentials: 'include',
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        // Check content type
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          // API returned error JSON instead of file
+          const errorData = await response.json()
+          throw new Error(errorData.message || 'Không thể tải file')
+        }
+
         const arrayBuffer = await response.arrayBuffer()
+
+        // Check if arrayBuffer is too small (likely an error response)
+        if (arrayBuffer.byteLength < 100) {
+          const text = new TextDecoder().decode(arrayBuffer)
+          if (text.includes('error') || text.includes('Error')) {
+            throw new Error('File không hợp lệ hoặc không có quyền truy cập')
+          }
+        }
+
         const result = await mammoth.convertToHtml({ arrayBuffer })
         setHtml(result.value)
       } catch (err: any) {
+        console.error('WordViewer error:', err)
         setError(err.message || 'Không thể đọc file Word')
       } finally {
         setLoading(false)

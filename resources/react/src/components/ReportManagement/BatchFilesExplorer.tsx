@@ -128,8 +128,8 @@ const BatchFilesExplorer: React.FC<BatchFilesExplorerProps> = ({
     const viewerFile: FileViewerFile = {
       id: file.id,
       file_name: file.file_name,
-      file_url: `${API_CONFIG.BASE_URL}/report-batches/${batchId}/files/${file.id}/download?token=${token}`,
-      download_url: `${API_CONFIG.BASE_URL}/report-batches/${batchId}/files/${file.id}/download?token=${token}`,
+      file_url: `${API_CONFIG.BASE_URL}/reports/batches/${batchId}/files/${file.id}/download?token=${token}`,
+      download_url: `${API_CONFIG.BASE_URL}/reports/batches/${batchId}/files/${file.id}/download?token=${token}`,
       file_extension: fileExtension,
     }
 
@@ -138,8 +138,8 @@ const BatchFilesExplorer: React.FC<BatchFilesExplorerProps> = ({
       const files: FileViewerFile[] = allFiles.map(f => ({
         id: f.id,
         file_name: f.file_name,
-        file_url: `${API_CONFIG.BASE_URL}/report-batches/${batchId}/files/${f.id}/download?token=${token}`,
-        download_url: `${API_CONFIG.BASE_URL}/report-batches/${batchId}/files/${f.id}/download?token=${token}`,
+        file_url: `${API_CONFIG.BASE_URL}/reports/batches/${batchId}/files/${f.id}/download?token=${token}`,
+        download_url: `${API_CONFIG.BASE_URL}/reports/batches/${batchId}/files/${f.id}/download?token=${token}`,
         file_extension: f.file_name?.split('.').pop()?.toLowerCase() || '',
       }))
       setViewingFiles(files)
