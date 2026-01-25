@@ -2096,31 +2096,49 @@ class ReportBatchController extends Controller
      */
     public function downloadFileByShareToken(string $token, string $fileId): \Symfony\Component\HttpFoundation\StreamedResponse|JsonResponse
     {
-        $batch = ReportBatch::where('share_token', $token)->first();
+        try {
+            $batch = ReportBatch::where('share_token', $token)->first();
 
-        if (!$batch) {
+            if (!$batch) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Link không hợp lệ hoặc đã hết hạn',
+                ], 404);
+            }
+
+            $file = ReportBatchFile::where('report_batch_id', $batch->id)->find($fileId);
+
+            if (!$file) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy file',
+                ], 404);
+            }
+
+            if (!Storage::disk('local')->exists($file->file_path)) {
+                \Log::error('File not found on disk', [
+                    'file_path' => $file->file_path,
+                    'file_id' => $fileId,
+                    'batch_id' => $batch->id,
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File không tồn tại trên hệ thống',
+                ], 404);
+            }
+
+            return Storage::disk('local')->download($file->file_path, $file->file_name);
+        } catch (\Exception $e) {
+            \Log::error('Error downloading file by share token', [
+                'token' => $token,
+                'file_id' => $fileId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Link không hợp lệ hoặc đã hết hạn',
-            ], 404);
+                'message' => 'Lỗi khi tải file: ' . $e->getMessage(),
+            ], 500);
         }
-
-        $file = ReportBatchFile::where('report_batch_id', $batch->id)->find($fileId);
-
-        if (!$file) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Không tìm thấy file',
-            ], 404);
-        }
-
-        if (!Storage::disk('local')->exists($file->file_path)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'File không tồn tại trên hệ thống',
-            ], 404);
-        }
-
-        return Storage::disk('local')->download($file->file_path, $file->file_name);
     }
 }
