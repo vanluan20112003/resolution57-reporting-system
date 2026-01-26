@@ -123,6 +123,20 @@ function ActivityWizardModal({
   const [addingFromGroup, setAddingFromGroup] = useState(false)
   const [loadingGroups, setLoadingGroups] = useState(false)
 
+  // Responsive steps direction
+  const [stepsDirection, setStepsDirection] = useState<"horizontal" | "vertical">(
+    window.innerWidth < 864 ? "vertical" : "horizontal"
+  )
+
+  // Listen to window resize for responsive steps
+  useEffect(() => {
+    const handleResize = () => {
+      setStepsDirection(window.innerWidth < 864 ? "vertical" : "horizontal")
+    }
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
+
   // Watch dates for duration calculation
   const watchStartDate = Form.useWatch('start_date', form)
   const watchEndDate = Form.useWatch('end_date', form)
@@ -1414,6 +1428,7 @@ function ActivityWizardModal({
       <Steps
         current={currentStep}
         items={steps}
+        direction={stepsDirection}
         style={{ marginBottom: 24 }}
       />
 

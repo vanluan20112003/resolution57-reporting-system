@@ -1,0 +1,21 @@
+/* ActivityDetailModal Responsive Styles */
+
+/* Desktop: Show tabs, hide mobile dropdown */
+.kpi-desktop-tabs {
+  display: block;
+}
+
+.kpi-mobile-selector {
+  display: none;
+}
+
+/* Mobile/Tablet: Show dropdown, hide tabs */
+@media screen and (max-width: 768px) {
+  .kpi-desktop-tabs {
+    display: none;
+  }
+
+  .kpi-mobile-selector {
+    display: block;
+  }
+}
