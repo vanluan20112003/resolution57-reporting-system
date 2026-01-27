@@ -877,6 +877,10 @@ Route::prefix('v1')->group(function () {
     // Organization simple list (all authenticated users - for filters/dropdowns)
     Route::middleware('auth:sanctum')->get('/organizations/list-simple', [OrganizationController::class, 'listSimple']);
 
+    // Activity Types and Fields read-only routes (all authenticated users - for filters/dropdowns)
+    Route::middleware('auth:sanctum')->get('/activity-types/list', [ActivityTypeController::class, 'index']);
+    Route::middleware('auth:sanctum')->get('/activity-fields/list', [ActivityFieldController::class, 'index']);
+
     // Organization Management Routes (OPERATOR and ADMIN only)
     Route::middleware('auth:sanctum', 'role:OPERATOR,ADMIN')->prefix('organizations')->group(function () {
         Route::get('/', [OrganizationController::class, 'index'])->middleware('permission:organizations.view');

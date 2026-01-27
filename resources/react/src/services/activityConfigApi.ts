@@ -121,7 +121,34 @@ export interface ActivityFieldFilters {
 // ============== Activity Type API Functions ==============
 
 /**
- * Get all Activity Types with filtering
+ * Get all Activity Types (read-only, for all authenticated users)
+ * Used for filters and dropdowns
+ */
+export const getActivityTypesList = async (filters?: ActivityTypeFilters): Promise<ActivityTypeListResponse> => {
+  const params = new URLSearchParams()
+
+  if (filters?.is_active !== undefined) params.append('is_active', String(filters.is_active))
+  if (filters?.search) params.append('search', filters.search)
+  if (filters?.per_page) params.append('per_page', String(filters.per_page))
+  if (filters?.page) params.append('page', String(filters.page))
+
+  const queryString = params.toString()
+  const url = `${API_CONFIG.BASE_URL}/activity-types/list${queryString ? `?${queryString}` : ''}`
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch Activity Types: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * Get all Activity Types with filtering (OPERATOR/ADMIN only)
  */
 export const getActivityTypes = async (filters?: ActivityTypeFilters): Promise<ActivityTypeListResponse> => {
   const params = new URLSearchParams()
@@ -218,7 +245,34 @@ export const deleteActivityType = async (id: string): Promise<{ success: boolean
 // ============== Activity Field API Functions ==============
 
 /**
- * Get all Activity Fields with filtering
+ * Get all Activity Fields (read-only, for all authenticated users)
+ * Used for filters and dropdowns
+ */
+export const getActivityFieldsList = async (filters?: ActivityFieldFilters): Promise<ActivityFieldListResponse> => {
+  const params = new URLSearchParams()
+
+  if (filters?.is_active !== undefined) params.append('is_active', String(filters.is_active))
+  if (filters?.search) params.append('search', filters.search)
+  if (filters?.per_page) params.append('per_page', String(filters.per_page))
+  if (filters?.page) params.append('page', String(filters.page))
+
+  const queryString = params.toString()
+  const url = `${API_CONFIG.BASE_URL}/activity-fields/list${queryString ? `?${queryString}` : ''}`
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch Activity Fields: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * Get all Activity Fields with filtering (OPERATOR/ADMIN only)
  */
 export const getActivityFields = async (filters?: ActivityFieldFilters): Promise<ActivityFieldListResponse> => {
   const params = new URLSearchParams()

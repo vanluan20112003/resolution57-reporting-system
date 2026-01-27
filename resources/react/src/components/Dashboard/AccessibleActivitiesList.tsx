@@ -51,8 +51,8 @@ import type { Dayjs } from "dayjs"
 import { getAccessibleOrganizations } from "../../services/organizationPermissionsApi"
 import { getOrganizationListSimple } from "../../services/organizationApi"
 import {
-  getActivityTypes,
-  getActivityFields,
+  getActivityTypesList,
+  getActivityFieldsList,
   ActivityType,
   ActivityField
 } from "../../services/activityConfigApi"
@@ -387,7 +387,7 @@ export function AccessibleActivitiesList() {
 
   const fetchActivityTypes = async () => {
     try {
-      const response = await getActivityTypes({ is_active: true })
+      const response = await getActivityTypesList({ is_active: true })
       if (response.success) {
         setActivityTypes(response.data)
       }
@@ -398,7 +398,7 @@ export function AccessibleActivitiesList() {
 
   const fetchActivityFields = async () => {
     try {
-      const response = await getActivityFields({ is_active: true })
+      const response = await getActivityFieldsList({ is_active: true })
       if (response.success) {
         setActivityFields(response.data)
       }
