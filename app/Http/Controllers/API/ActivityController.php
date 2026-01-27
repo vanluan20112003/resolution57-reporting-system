@@ -685,10 +685,13 @@ class ActivityController extends Controller
             }
 
             // Attach collaborating organizations if provided
+            $collaboratingOrgIds = [];
             if ($request->has('collaborating_organization_ids') && is_array($request->collaborating_organization_ids)) {
-                $activity->collaboratingOrganizations()->attach($request->collaborating_organization_ids);
+                $collaboratingOrgIds = $request->collaborating_organization_ids;
+                $activity->collaboratingOrganizations()->attach($collaboratingOrgIds);
             }
 
+            // Notification for creator
             Notification::create([
                 'user_id' => $user->id,
                 'title' => 'Tạo hoạt động thành công',
@@ -703,6 +706,45 @@ class ActivityController extends Controller
                 'is_read' => false,
                 'priority' => 'normal',
             ]);
+
+            // Send notifications to STAFF and MANAGER of collaborating organizations
+            if (! empty($collaboratingOrgIds)) {
+                $leadOrgName = $user->organization ? $user->organization->short_name ?? $user->organization->name : 'Đơn vị chủ trì';
+
+                // Get all STAFF and MANAGER users from collaborating organizations
+                $collaboratingUsers = User::whereIn('organization_id', $collaboratingOrgIds)
+                    ->whereIn('role', ['STAFF', 'MANAGER'])
+                    ->where('status', 'active')
+                    ->get();
+
+                foreach ($collaboratingUsers as $collaboratingUser) {
+                    Notification::create([
+                        'user_id' => $collaboratingUser->id,
+                        'title' => 'Phối hợp hoạt động mới',
+                        'message' => "Đơn vị {$leadOrgName} đã tạo hoạt động \"{$activity->title}\" có đơn vị bạn phối hợp",
+                        'category' => 'activity',
+                        'notification_type' => 'activity_collaboration',
+                        'icon' => 'TeamOutlined',
+                        'color' => 'blue',
+                        'action_url' => "/dashboard?tab=department-activities",
+                        'actor_id' => $user->id,
+                        'related_organization_id' => $collaboratingUser->organization_id,
+                        'is_read' => false,
+                        'priority' => 'normal',
+                        'data' => json_encode([
+                            'activity_id' => $activity->id,
+                            'activity_code' => $activity->code,
+                            'lead_organization_id' => $organizationId,
+                        ]),
+                    ]);
+                }
+
+                Log::info('Sent collaboration notifications', [
+                    'activity_id' => $activity->id,
+                    'collaborating_org_ids' => $collaboratingOrgIds,
+                    'notified_users_count' => $collaboratingUsers->count(),
+                ]);
+            }
 
             // Log activity creation
             ActivityLogService::logCreated($activity, $request);
@@ -1047,7 +1089,51 @@ class ActivityController extends Controller
 
             // Update collaborating organizations if provided
             if ($request->has('collaborating_organization_ids')) {
-                $activity->collaboratingOrganizations()->sync($request->collaborating_organization_ids ?? []);
+                $newCollabOrgIds = $request->collaborating_organization_ids ?? [];
+                $oldCollabOrgIds = $activity->collaboratingOrganizations()->pluck('organizations.id')->toArray();
+
+                // Find newly added organizations
+                $addedOrgIds = array_diff($newCollabOrgIds, $oldCollabOrgIds);
+
+                $activity->collaboratingOrganizations()->sync($newCollabOrgIds);
+
+                // Send notifications to STAFF and MANAGER of newly added collaborating organizations
+                if (! empty($addedOrgIds)) {
+                    $leadOrgName = $activity->leadOrganization ? $activity->leadOrganization->short_name ?? $activity->leadOrganization->name : 'Đơn vị chủ trì';
+
+                    $newCollabUsers = User::whereIn('organization_id', $addedOrgIds)
+                        ->whereIn('role', ['STAFF', 'MANAGER'])
+                        ->where('status', 'active')
+                        ->get();
+
+                    foreach ($newCollabUsers as $collabUser) {
+                        Notification::create([
+                            'user_id' => $collabUser->id,
+                            'title' => 'Phối hợp hoạt động mới',
+                            'message' => "Đơn vị {$leadOrgName} đã thêm đơn vị bạn vào hoạt động phối hợp \"{$activity->title}\"",
+                            'category' => 'activity',
+                            'notification_type' => 'activity_collaboration',
+                            'icon' => 'TeamOutlined',
+                            'color' => 'blue',
+                            'action_url' => "/dashboard?tab=department-activities",
+                            'actor_id' => $user->id,
+                            'related_organization_id' => $collabUser->organization_id,
+                            'is_read' => false,
+                            'priority' => 'normal',
+                            'data' => json_encode([
+                                'activity_id' => $activity->id,
+                                'activity_code' => $activity->code,
+                                'lead_organization_id' => $activity->lead_organization_id,
+                            ]),
+                        ]);
+                    }
+
+                    Log::info('Sent collaboration notifications for updated activity', [
+                        'activity_id' => $activity->id,
+                        'added_org_ids' => $addedOrgIds,
+                        'notified_users_count' => $newCollabUsers->count(),
+                    ]);
+                }
             }
 
             $activity->load([
