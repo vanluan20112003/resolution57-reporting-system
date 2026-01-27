@@ -443,12 +443,11 @@ export function AccessibleActivitiesList() {
         }
       }
 
-      const url = new URL(apiUrl)
-      Object.entries(params).forEach(([key, value]) => {
-        if (value) url.searchParams.append(key, value)
-      })
+      // Build query string from params
+      const queryString = new URLSearchParams(params).toString()
+      const fullUrl = queryString ? `${apiUrl}?${queryString}` : apiUrl
 
-      const response = await fetch(url.toString(), {
+      const response = await fetch(fullUrl, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
