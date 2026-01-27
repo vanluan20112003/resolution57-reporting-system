@@ -49,7 +49,7 @@ import type { ColumnsType } from "antd/es/table"
 import dayjs from "dayjs"
 import type { Dayjs } from "dayjs"
 import { getAccessibleOrganizations } from "../../services/organizationPermissionsApi"
-import { getOrganizationList } from "../../services/organizationApi"
+import { getOrganizationListSimple } from "../../services/organizationApi"
 import {
   getActivityTypes,
   getActivityFields,
@@ -140,7 +140,7 @@ interface AccessibleInfo {
 interface Organization {
   id: string
   name: string
-  short_name?: string
+  short_name?: string | null
   code?: string
   type?: string
   avatar?: string
@@ -271,7 +271,7 @@ export function AccessibleActivitiesList() {
 
   const fetchOrganizations = async () => {
     try {
-      const response = await getOrganizationList({ per_page: 100, page: 1 })
+      const response = await getOrganizationListSimple()
       if (response.success && response.data) {
         const orgsData = Array.isArray(response.data) ? response.data : []
         setOrganizations(orgsData)
